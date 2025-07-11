@@ -85,9 +85,10 @@ const getDefaultConfig = (): ProductConfiguration => ({
 
 // Helper function to get the correct base path for API calls
 const getBasePath = () => {
-  return typeof window !== 'undefined' && window.location.hostname === 'leepatt.github.io' 
-    ? '/craftons-curves-calculator' 
-    : '';
+  // Always use the GitHub Pages base path since we're deploying there
+  const basePath = '/craftons-curves-calculator';
+  console.log('[getBasePath] Using base path:', basePath);
+  return basePath;
 };
 
 const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
@@ -131,9 +132,16 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
       setTotalPriceDetails(null);
       setTotalTurnaround(null);
       try {
-        const productRes = await fetch(`${getBasePath()}/api/products/curves.json`);
-        if (!productRes.ok) throw new Error(`Failed to fetch product: ${productRes.statusText}`);
+        const basePath = getBasePath();
+        const productUrl = `${basePath}/api/products/curves.json`;
+        console.log('[CurvesCustomizer] Fetching product from URL:', productUrl);
+        
+        const productRes = await fetch(productUrl);
+        console.log('[CurvesCustomizer] Product fetch response status:', productRes.status);
+        
+        if (!productRes.ok) throw new Error(`Failed to fetch product: ${productRes.statusText} (Status: ${productRes.status})`);
         const productData: ProductDefinition = await productRes.json();
+        console.log('[CurvesCustomizer] Product loaded successfully');
         setProduct(productData);
 
         const initialConfig = getDefaultConfig();
@@ -167,16 +175,24 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
   useEffect(() => {
     const fetchMaterials = async () => {
       try {
-        const response = await fetch(`${getBasePath()}/api/materials.json`);
+        const basePath = getBasePath();
+        const url = `${basePath}/api/materials.json`;
+        console.log('[CurvesCustomizer] Fetching materials from URL:', url);
+        
+        const response = await fetch(url);
+        console.log('[CurvesCustomizer] Materials fetch response status:', response.status);
+        
         if (!response.ok) {
-          throw new Error(`Failed to fetch materials: ${response.statusText}`);
+          throw new Error(`Failed to fetch materials: ${response.statusText} (Status: ${response.status})`);
         }
         const data: Material[] = await response.json();
+        console.log('[CurvesCustomizer] Materials loaded successfully:', data.length, 'materials');
         setMaterials(data);
         // DO NOT set default material here anymore, user must select.
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : 'Unknown error fetching materials';
         console.error("[CurvesCustomizer] Error fetching materials:", message);
+        console.error("[CurvesCustomizer] Full error:", err);
         setMaterials(null);
       }
     };
