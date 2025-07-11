@@ -83,6 +83,13 @@ const getDefaultConfig = (): ProductConfiguration => ({
 });
 
 
+// Helper function to get the correct base path for API calls
+const getBasePath = () => {
+  return typeof window !== 'undefined' && window.location.hostname === 'leepatt.github.io' 
+    ? '/craftons-curves-calculator' 
+    : '';
+};
+
 const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
   // State specific to Curves Builder
   const [product, setProduct] = useState<ProductDefinition | null>(null);
@@ -124,7 +131,7 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
       setTotalPriceDetails(null);
       setTotalTurnaround(null);
       try {
-        const productRes = await fetch(`/api/products/curves.json`);
+        const productRes = await fetch(`${getBasePath()}/api/products/curves.json`);
         if (!productRes.ok) throw new Error(`Failed to fetch product: ${productRes.statusText}`);
         const productData: ProductDefinition = await productRes.json();
         setProduct(productData);
@@ -160,7 +167,7 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
   useEffect(() => {
     const fetchMaterials = async () => {
       try {
-        const response = await fetch('/api/materials.json');
+        const response = await fetch(`${getBasePath()}/api/materials.json`);
         if (!response.ok) {
           throw new Error(`Failed to fetch materials: ${response.statusText}`);
         }
