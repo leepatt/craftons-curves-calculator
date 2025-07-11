@@ -6,23 +6,9 @@ const nextConfig: NextConfig = {
   images: {
     unoptimized: true,
   },
-  async headers() {
-    return [
-      {
-        source: '/(.*)',
-        headers: [
-          {
-            key: 'X-Frame-Options',
-            value: 'ALLOWALL',
-          },
-          {
-            key: 'Content-Security-Policy',
-            value: "frame-ancestors *;",
-          },
-        ],
-      },
-    ];
-  },
+  // Add base path for GitHub Pages
+  basePath: '/craftons-curves-calculator',
+  assetPrefix: '/craftons-curves-calculator/',
 };
 
 export default nextConfig;

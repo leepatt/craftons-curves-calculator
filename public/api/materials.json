@@ -1,0 +1,41 @@
+[
+  {
+    "id": "form-17",
+    "name": "Formply",
+    "type": "Structural Plywood",
+    "thickness_mm": 17,
+    "sheet_price": 82.50,
+    "rate_per_m2": 55,
+    "sheet_length_mm": 2400,
+    "sheet_width_mm": 1200,
+    "usable_sheet_length_mm": 2390,
+    "usable_sheet_width_mm": 1190,
+    "sheet_area_m2": 2.88
+  },
+  {
+    "id": "mdf-18",
+    "name": "MDF Standard",
+    "type": "Wood Composite",
+    "thickness_mm": 18,
+    "sheet_price": 57.02,
+    "rate_per_m2": 71.50,
+    "sheet_length_mm": 2400,
+    "sheet_width_mm": 1200,
+    "usable_sheet_length_mm": 2390,
+    "usable_sheet_width_mm": 1190,
+    "sheet_area_m2": 2.88
+  },
+  {
+    "id": "CD-19",
+    "name": "CD Structural Plywood",
+    "type": "Structural Plywood",
+    "thickness_mm": 19,
+    "sheet_price": 102.96,
+    "rate_per_m2": 93.50,
+    "sheet_length_mm": 2400,
+    "sheet_width_mm": 1200,
+    "usable_sheet_length_mm": 2390,
+    "usable_sheet_width_mm": 1190,
+    "sheet_area_m2": 2.88
+  }
+] 

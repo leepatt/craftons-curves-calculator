@@ -124,7 +124,7 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
       setTotalPriceDetails(null);
       setTotalTurnaround(null);
       try {
-        const productRes = await fetch(`/api/products/curves`);
+        const productRes = await fetch(`/api/products/curves.json`);
         if (!productRes.ok) throw new Error(`Failed to fetch product: ${productRes.statusText}`);
         const productData: ProductDefinition = await productRes.json();
         setProduct(productData);
@@ -160,7 +160,7 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
   useEffect(() => {
     const fetchMaterials = async () => {
       try {
-        const response = await fetch('/api/materials');
+        const response = await fetch('/api/materials.json');
         if (!response.ok) {
           throw new Error(`Failed to fetch materials: ${response.statusText}`);
         }
@@ -746,37 +746,33 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
               'Pricing Method': '1 Cent Rule - Quantity represents total price in cents'
           };
 
-          // Use 1 cent rule with your existing variant ID
-          const cartResponse = await fetch('/api/shopify/cart', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                  variantId: 45300623343794, // Your configured variant ID
-                  quantity: totalPriceCents,
-                  customAttributes: customAttributes
-              })
+                    // Create Shopify cart URL directly using 1 cent rule
+          const shopifyDomain = 'craftons-au.myshopify.com';
+          const variantId = 45300623343794;
+          
+          // Build cart URL with custom properties
+          const cartParams = new URLSearchParams();
+          cartParams.append('items[0][id]', variantId.toString());
+          cartParams.append('items[0][quantity]', totalPriceCents.toString());
+          
+          // Add custom attributes as properties
+          Object.entries(customAttributes).forEach(([key, value], index) => {
+              cartParams.append(`items[0][properties][${key}]`, value as string);
           });
-
-          if (cartResponse.ok) {
-              const { cartUrl } = await cartResponse.json();
-              console.log('Added to cart using 1 cent rule:', {
-                  variantId: 45300623343794,
-                  quantity: totalPriceCents,
-                  totalPrice: totalPriceDetails.totalIncGST
-              });
-              
-              // Redirect to Shopify cart
-              window.open(cartUrl, '_blank');
-              
-                             // Clear the current order after successful checkout  
-               // Note: Reset will be handled by user action after successful order
-              
-              alert(`Order added to cart successfully!\nTotal: $${totalPriceDetails.totalIncGST.toFixed(2)}\nQuantity: ${totalPriceCents} × $0.01`);
-          } else {
-              const errorData = await cartResponse.json();
-              console.error('Cart error:', errorData);
-              alert('There was an error adding to cart. Please try again.');
-          }
+          
+          const cartUrl = `https://${shopifyDomain}/cart/add?${cartParams.toString()}`;
+          
+          console.log('Adding to cart using 1 cent rule:', {
+              variantId: 45300623343794,
+              quantity: totalPriceCents,
+              totalPrice: totalPriceDetails.totalIncGST,
+              cartUrl: cartUrl
+          });
+          
+          // Redirect to Shopify cart
+          window.open(cartUrl, '_blank');
+          
+          alert(`Order added to cart successfully!\nTotal: $${totalPriceDetails.totalIncGST.toFixed(2)}\nQuantity: ${totalPriceCents} × $0.01`);
           
       } catch (error) {
           console.error('Checkout error:', error);
