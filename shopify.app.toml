@@ -1,0 +1,28 @@
+# This file stores configuration for your Shopify app.
+
+[app]
+name = "Craftons Curves"
+client_id = "c890f76d0f7a148a1820747764588ffb"
+application_url = "https://shopify-curves-9rsaixg6z-lees-projects-d82f8dd3.vercel.app"
+embedded = true
+
+[app.auth]
+redirect_urls = [
+  "https://shopify-curves-9rsaixg6z-lees-projects-d82f8dd3.vercel.app/api/auth/callback",
+  "http://localhost:3000/api/auth/callback"
+]
+
+[access_scopes]
+# Define the Shopify access scopes your app needs
+scopes = "read_products,write_products,read_orders,write_orders,read_checkouts,write_checkouts,read_cart_transforms,write_cart_transforms"
+
+[app.webhooks]
+api_version = "2024-01"
+
+[app.pos]
+embedded = false
+
+[build]
+automatically_update_urls_on_dev = true
+dev_store_url = "https://craftons-au.myshopify.com"
+include_config_on_deploy = true 
