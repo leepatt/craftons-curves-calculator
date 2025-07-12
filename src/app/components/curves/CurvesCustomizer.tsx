@@ -730,8 +730,17 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
   // Helper function to handle cart drawer or show success message
   const handleCartDrawerOrShowSuccess = useCallback(async (result: any): Promise<boolean> => {
     try {
+      console.log('Handling cart success with result:', result);
+      
       // Try to get parent window for iframe context
       const targetWindow = window.parent !== window ? window.parent : window;
+      const isEmbedded = window.self !== window.top;
+      
+      console.log('Window context:', {
+        isEmbedded,
+        hasParent: window.parent !== window,
+        shopDomain: result.shop_domain
+      });
       
       // Try cart drawer events first (modern Shopify themes)
       if (result.cart_drawer_supported && result.should_trigger_drawer) {
@@ -761,9 +770,9 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
             });
             targetWindow.dispatchEvent(customEvent);
             eventDispatched = true;
-            console.log(`Dispatched cart drawer event: ${eventName}`);
+            console.log(`✅ Dispatched cart drawer event: ${eventName}`);
           } catch (e) {
-            console.log(`Failed to dispatch ${eventName}:`, e);
+            console.log(`❌ Failed to dispatch ${eventName}:`, e);
           }
         }
         
@@ -782,23 +791,36 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
             if (typeof func === 'function') {
               func();
               eventDispatched = true;
-              console.log(`Called cart drawer function: ${funcName}`);
+              console.log(`✅ Called cart drawer function: ${funcName}`);
               break;
             }
           } catch (e) {
-            console.log(`Failed to call ${funcName}:`, e);
+            console.log(`❌ Failed to call ${funcName}:`, e);
           }
         }
         
         if (eventDispatched) {
           // Give the drawer time to open
           await new Promise(resolve => setTimeout(resolve, 500));
+          console.log('✅ Cart drawer events dispatched successfully');
           return true;
         }
       }
       
-      // If cart drawer isn't available, show success message instead of redirecting
-      console.log('Cart drawer not available, showing success message...');
+      // If cart drawer isn't available, try to redirect to cart page
+      console.log('Cart drawer not available, trying cart page redirect...');
+      
+      // Try to redirect parent window to cart page
+      if (isEmbedded && result.shop_domain) {
+        try {
+          const cartUrl = `https://${result.shop_domain}/cart`;
+          console.log('Redirecting parent to cart:', cartUrl);
+          window.parent.location.href = cartUrl;
+          return true;
+        } catch (redirectError) {
+          console.log('Failed to redirect parent window:', redirectError);
+        }
+      }
       
       // Trigger cart refresh events for updating cart count/icon
       const cartRefreshEvents = ['cart:refresh', 'cart:update', 'cart:change'];
@@ -811,13 +833,14 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
             }
           });
           targetWindow.dispatchEvent(customEvent);
-          console.log(`Dispatched cart refresh event: ${eventName}`);
+          console.log(`✅ Dispatched cart refresh event: ${eventName}`);
         } catch (e) {
-          console.log(`Failed to dispatch ${eventName}:`, e);
+          console.log(`❌ Failed to dispatch ${eventName}:`, e);
         }
       }
       
-      // Show success message
+      // Show success message as fallback
+      console.log('Using success message as fallback...');
       alert('✅ Successfully added to cart!\n\nYour custom curves order has been added to your cart. You can view your cart by clicking the cart icon in the store header.');
       
       return true;
@@ -830,6 +853,45 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
     }
   }, []);
   
+  // Add a test cart function for debugging
+  const testAddToCart = useCallback(async () => {
+    console.log('Testing add to cart with simple data...');
+    
+    const testData = {
+      items: [{
+        id: APP_CONFIG.business.shopifyVariantId,
+        quantity: 100, // $1.00 worth
+        properties: {
+          'Test': 'Simple cart test',
+          'Price': '$1.00',
+          'Timestamp': new Date().toISOString()
+        }
+      }]
+    };
+    
+    try {
+      const response = await fetch('/api/cart/add', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(testData)
+      });
+      
+      const result = await response.json();
+      console.log('Test cart response:', result);
+      
+      if (response.ok) {
+        alert('✅ Test cart add successful!\n\nCheck console for details.');
+      } else {
+        alert('❌ Test cart add failed!\n\nCheck console for details.');
+      }
+    } catch (error) {
+      console.error('Test cart error:', error);
+      alert('❌ Test cart add error!\n\nCheck console for details.');
+    }
+  }, []);
+
   const handleAddToCart = useCallback(async () => {
       if (!totalPriceDetails || partsList.length === 0) {
           alert("No parts to add to cart!");
@@ -888,35 +950,80 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
 
           setIsAddingToCart(true);
 
-          const response = await fetch('/api/cart/add', {
-              method: 'POST',
-              headers: {
-                  'Content-Type': 'application/json'
-              },
-              body: JSON.stringify(formData)
-          });
-
-          if (!response.ok) {
-              // Attempt to get more detailed error from Shopify response body
-              try {
-                  const errData = await response.json();
-                  console.error('Shopify Error Response:', errData);
-                  throw new Error(errData.description || errData.message || `HTTP error! status: ${response.status}`);
-              } catch (parseError) {
-                  // Fallback if response isn't JSON
-                  throw new Error(`HTTP error! status: ${response.status}`);
-              }
-          }
-
-          const result = await response.json();
-          console.log('Added to cart:', result);
+          // Try direct Shopify cart API first (works when embedded in Shopify)
+          let response;
+          let result;
           
-          // Handle redirect based on context
+          try {
+              // Check if we're in an iframe (embedded in Shopify)
+              const isEmbedded = window.self !== window.top;
+              
+              if (isEmbedded) {
+                  // Try direct Shopify cart API
+                  const shopifyDomain = window.location.ancestorOrigins?.[0] || document.referrer;
+                  const shopDomain = shopifyDomain ? new URL(shopifyDomain).hostname : null;
+                  
+                  if (shopDomain && shopDomain.includes('shopify.com')) {
+                      const shopifyCartUrl = `https://${shopDomain}/cart/add.js`;
+                      
+                      console.log('Attempting direct Shopify cart API:', shopifyCartUrl);
+                      
+                      response = await fetch(shopifyCartUrl, {
+                          method: 'POST',
+                          headers: {
+                              'Content-Type': 'application/json',
+                              'Accept': 'application/json',
+                          },
+                          body: JSON.stringify(formData),
+                          credentials: 'include'
+                      });
+                      
+                      if (response.ok) {
+                          result = await response.json();
+                          console.log('Direct Shopify cart success:', result);
+                      } else {
+                          throw new Error(`Shopify cart API failed: ${response.status}`);
+                      }
+                  } else {
+                      throw new Error('Unable to determine Shopify domain');
+                  }
+              } else {
+                  throw new Error('Not embedded in Shopify');
+              }
+          } catch (directError) {
+              console.log('Direct Shopify cart failed, falling back to API route:', directError);
+              
+              // Fallback to Next.js API route
+              response = await fetch('/api/cart/add', {
+                  method: 'POST',
+                  headers: {
+                      'Content-Type': 'application/json'
+                  },
+                  body: JSON.stringify(formData)
+              });
+              
+              if (!response.ok) {
+                  // Attempt to get more detailed error from response body
+                  try {
+                      const errData = await response.json();
+                      console.error('API Route Error Response:', errData);
+                      throw new Error(errData.description || errData.message || `HTTP error! status: ${response.status}`);
+                  } catch (parseError) {
+                      // Fallback if response isn't JSON
+                      throw new Error(`HTTP error! status: ${response.status}`);
+                  }
+              }
+              
+              result = await response.json();
+              console.log('API route success:', result);
+          }
+          
+          // Handle success based on context
           if (result.note && result.note.includes('standalone mode')) {
               // In standalone mode, show success message
               alert(`Success: ${result.message}\n\nIn a real Shopify store, this would add the item to your cart.`);
           } else {
-              // In embedded mode, try to trigger cart drawer or show success message
+              // In embedded mode, try to trigger cart drawer or redirect
               const success = await handleCartDrawerOrShowSuccess(result);
               if (success) {
                   console.log('Cart drawer opened or success message shown');
@@ -930,7 +1037,7 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
       } finally {
           setIsAddingToCart(false);
       }
-  }, [partsList, totalPriceDetails, materials, totalTurnaround]);
+  }, [partsList, totalPriceDetails, materials, totalTurnaround, handleCartDrawerOrShowSuccess]);
 
   const handleReset = useCallback(() => {
     if (product) {
@@ -1218,6 +1325,18 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
                                   >
                                       {isAddingToCart ? 'Adding to Cart...' : 'Add to Cart'}
                                   </Button>
+                                  
+                                  {/* Test button for debugging - only show in development */}
+                                  {process.env.NODE_ENV === 'development' && (
+                                      <Button
+                                          onClick={testAddToCart}
+                                          variant="outline"
+                                          className="w-full text-xs"
+                                          size="sm"
+                                      >
+                                          🧪 Test Cart API
+                                      </Button>
+                                  )}
                               </div>
                           </div>
                       ) : (
