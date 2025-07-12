@@ -3,12 +3,12 @@
 [app]
 name = "Craftons Curves"
 client_id = "c890f76d0f7a148a1820747764588ffb"
-application_url = "https://shopify-curves-9rsaixg6z-lees-projects-d82f8dd3.vercel.app"
+application_url = "https://craftons-curves-calculator.vercel.app"
 embedded = true
 
 [app.auth]
 redirect_urls = [
-  "https://shopify-curves-9rsaixg6z-lees-projects-d82f8dd3.vercel.app/api/auth/callback",
+  "https://craftons-curves-calculator.vercel.app/api/auth/callback",
   "http://localhost:3000/api/auth/callback"
 ]
 
