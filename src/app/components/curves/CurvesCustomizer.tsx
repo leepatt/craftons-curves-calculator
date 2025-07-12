@@ -727,8 +727,8 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
       }
   }, [selectedPartId]);
 
-  // Helper function to handle cart drawer or redirect
-  const handleCartDrawerOrRedirect = useCallback(async (result: any): Promise<boolean> => {
+  // Helper function to handle cart drawer or show success message
+  const handleCartDrawerOrShowSuccess = useCallback(async (result: any): Promise<boolean> => {
     try {
       // Try to get parent window for iframe context
       const targetWindow = window.parent !== window ? window.parent : window;
@@ -797,29 +797,35 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
         }
       }
       
-      // Fallback to redirect methods
-      console.log('Cart drawer not available, using redirect...');
+      // If cart drawer isn't available, show success message instead of redirecting
+      console.log('Cart drawer not available, showing success message...');
       
-      if (targetWindow !== window) {
-        // We're in an iframe, try to redirect parent window
+      // Trigger cart refresh events for updating cart count/icon
+      const cartRefreshEvents = ['cart:refresh', 'cart:update', 'cart:change'];
+      for (const eventName of cartRefreshEvents) {
         try {
-          targetWindow.location.href = '/cart';
-          return true;
-        } catch (error) {
-          // Cross-origin restriction, open in new window
-          window.open('/cart', '_blank');
-          return true;
+          const customEvent = new CustomEvent(eventName, { 
+            detail: { 
+              items: result.items,
+              source: 'curves-calculator' 
+            }
+          });
+          targetWindow.dispatchEvent(customEvent);
+          console.log(`Dispatched cart refresh event: ${eventName}`);
+        } catch (e) {
+          console.log(`Failed to dispatch ${eventName}:`, e);
         }
-      } else {
-        // Direct access, redirect normally
-        window.location.href = '/cart';
-        return true;
       }
+      
+      // Show success message
+      alert('✅ Successfully added to cart!\n\nYour custom curves order has been added to your cart. You can view your cart by clicking the cart icon in the store header.');
+      
+      return true;
       
     } catch (error) {
       console.error('Cart handling error:', error);
-      // Final fallback - open cart in new window
-      window.open('/cart', '_blank');
+      // Show error message instead of redirect
+      alert('❌ Unable to add to cart. Please try again or contact support.');
       return false;
     }
   }, []);
@@ -910,10 +916,10 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
               // In standalone mode, show success message
               alert(`Success: ${result.message}\n\nIn a real Shopify store, this would add the item to your cart.`);
           } else {
-              // In embedded mode, try to trigger cart drawer or redirect
-              const success = await handleCartDrawerOrRedirect(result);
+              // In embedded mode, try to trigger cart drawer or show success message
+              const success = await handleCartDrawerOrShowSuccess(result);
               if (success) {
-                  console.log('Cart drawer opened or redirect completed successfully');
+                  console.log('Cart drawer opened or success message shown');
               }
           }
           

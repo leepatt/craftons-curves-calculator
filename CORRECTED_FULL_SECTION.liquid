@@ -4,18 +4,6 @@
 {% endcomment %}
 
 <div class="curves-calculator-section" style="margin: {{ section.settings.margin_top }}px 0 {{ section.settings.margin_bottom }}px;">
-  {% if section.settings.show_title %}
-    <h2 style="text-align: {{ section.settings.title_alignment }}; margin-bottom: 20px;">
-      {{ section.settings.title }}
-    </h2>
-  {% endif %}
-  
-  {% if section.settings.show_description %}
-    <div style="text-align: {{ section.settings.description_alignment }}; margin-bottom: 20px;">
-      {{ section.settings.description }}
-    </div>
-  {% endif %}
-
   <div style="position: relative; width: 100%; height: {{ section.settings.height }}px; border: {{ section.settings.border_width }}px solid {{ section.settings.border_color }}; border-radius: {{ section.settings.border_radius }}px; overflow: hidden; background: #f9f9f9;">
     <iframe 
       src="https://craftons-curves-calculator.vercel.app"
@@ -26,12 +14,6 @@
       title="Craftons Curves Calculator">
     </iframe>
   </div>
-  
-  {% if section.settings.show_note %}
-    <div style="margin-top: 15px; font-size: 0.9em; color: #666; text-align: {{ section.settings.note_alignment }};">
-      {{ section.settings.note }}
-    </div>
-  {% endif %}
 </div>
 
 <style>
@@ -46,60 +28,6 @@
 {
   "name": "Curves Calculator",
   "settings": [
-    {
-      "type": "header",
-      "content": "Title Settings"
-    },
-    {
-      "type": "checkbox",
-      "id": "show_title",
-      "label": "Show title",
-      "default": false
-    },
-    {
-      "type": "text",
-      "id": "title",
-      "label": "Title",
-      "default": ""
-    },
-    {
-      "type": "select",
-      "id": "title_alignment",
-      "label": "Title alignment",
-      "options": [
-        { "value": "left", "label": "Left" },
-        { "value": "center", "label": "Center" },
-        { "value": "right", "label": "Right" }
-      ],
-      "default": "center"
-    },
-    {
-      "type": "header",
-      "content": "Description"
-    },
-    {
-      "type": "checkbox",
-      "id": "show_description",
-      "label": "Show description",
-      "default": false
-    },
-    {
-      "type": "textarea",
-      "id": "description",
-      "label": "Description",
-      "default": ""
-    },
-    {
-      "type": "select",
-      "id": "description_alignment",
-      "label": "Description alignment",
-      "options": [
-        { "value": "left", "label": "Left" },
-        { "value": "center", "label": "Center" },
-        { "value": "right", "label": "Right" }
-      ],
-      "default": "center"
-    },
     {
       "type": "header",
       "content": "Calculator Size"
@@ -167,42 +95,12 @@
       "max": 100,
       "step": 5,
       "default": 20
-    },
-    {
-      "type": "header",
-      "content": "Footer Note"
-    },
-    {
-      "type": "checkbox",
-      "id": "show_note",
-      "label": "Show footer note",
-      "default": false
-    },
-    {
-      "type": "text",
-      "id": "note",
-      "label": "Footer note",
-      "default": ""
-    },
-    {
-      "type": "select",
-      "id": "note_alignment",
-      "label": "Note alignment",
-      "options": [
-        { "value": "left", "label": "Left" },
-        { "value": "center", "label": "Center" },
-        { "value": "right", "label": "Right" }
-      ],
-      "default": "center"
     }
   ],
   "presets": [
     {
       "name": "Curves Calculator",
       "settings": {
-        "title": "",
-        "show_title": false,
-        "show_description": false,
         "height": 800,
         "mobile_height": 600
       }
