@@ -726,6 +726,103 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
           setSelectedPartId(null);
       }
   }, [selectedPartId]);
+
+  // Helper function to handle cart drawer or redirect
+  const handleCartDrawerOrRedirect = useCallback(async (result: any): Promise<boolean> => {
+    try {
+      // Try to get parent window for iframe context
+      const targetWindow = window.parent !== window ? window.parent : window;
+      
+      // Try cart drawer events first (modern Shopify themes)
+      if (result.cart_drawer_supported && result.should_trigger_drawer) {
+        console.log('Attempting to trigger cart drawer...');
+        
+        // Common cart drawer events used by popular Shopify themes
+        const cartDrawerEvents = [
+          'cart:open',
+          'cart-drawer:open', 
+          'drawer:open',
+          'cartDrawer:open',
+          'theme:cart:open',
+          'cart:toggle',
+          'cart:refresh'
+        ];
+        
+        // Try to dispatch events on parent window
+        let eventDispatched = false;
+        for (const eventName of cartDrawerEvents) {
+          try {
+            // Try custom event
+            const customEvent = new CustomEvent(eventName, { 
+              detail: { 
+                items: result.items,
+                source: 'curves-calculator' 
+              }
+            });
+            targetWindow.dispatchEvent(customEvent);
+            eventDispatched = true;
+            console.log(`Dispatched cart drawer event: ${eventName}`);
+          } catch (e) {
+            console.log(`Failed to dispatch ${eventName}:`, e);
+          }
+        }
+        
+        // Also try to call common cart drawer functions
+        const cartDrawerFunctions = [
+          'openCartDrawer',
+          'toggleCartDrawer', 
+          'showCartDrawer',
+          'CartDrawer.open',
+          'theme.CartDrawer.open'
+        ];
+        
+        for (const funcName of cartDrawerFunctions) {
+          try {
+            const func = funcName.split('.').reduce((obj, key) => obj && obj[key], targetWindow as any);
+            if (typeof func === 'function') {
+              func();
+              eventDispatched = true;
+              console.log(`Called cart drawer function: ${funcName}`);
+              break;
+            }
+          } catch (e) {
+            console.log(`Failed to call ${funcName}:`, e);
+          }
+        }
+        
+        if (eventDispatched) {
+          // Give the drawer time to open
+          await new Promise(resolve => setTimeout(resolve, 500));
+          return true;
+        }
+      }
+      
+      // Fallback to redirect methods
+      console.log('Cart drawer not available, using redirect...');
+      
+      if (targetWindow !== window) {
+        // We're in an iframe, try to redirect parent window
+        try {
+          targetWindow.location.href = '/cart';
+          return true;
+        } catch (error) {
+          // Cross-origin restriction, open in new window
+          window.open('/cart', '_blank');
+          return true;
+        }
+      } else {
+        // Direct access, redirect normally
+        window.location.href = '/cart';
+        return true;
+      }
+      
+    } catch (error) {
+      console.error('Cart handling error:', error);
+      // Final fallback - open cart in new window
+      window.open('/cart', '_blank');
+      return false;
+    }
+  }, []);
   
   const handleAddToCart = useCallback(async () => {
       if (!totalPriceDetails || partsList.length === 0) {
@@ -785,7 +882,7 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
 
           setIsAddingToCart(true);
 
-          const response = await fetch('/cart/add.js', {
+          const response = await fetch('/api/cart/add', {
               method: 'POST',
               headers: {
                   'Content-Type': 'application/json'
@@ -808,8 +905,17 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
           const result = await response.json();
           console.log('Added to cart:', result);
           
-          // Redirect to cart page
-          window.location.href = '/cart';
+          // Handle redirect based on context
+          if (result.note && result.note.includes('standalone mode')) {
+              // In standalone mode, show success message
+              alert(`Success: ${result.message}\n\nIn a real Shopify store, this would add the item to your cart.`);
+          } else {
+              // In embedded mode, try to trigger cart drawer or redirect
+              const success = await handleCartDrawerOrRedirect(result);
+              if (success) {
+                  console.log('Cart drawer opened or redirect completed successfully');
+              }
+          }
           
       } catch (error) {
           console.error('Error adding to cart:', error);

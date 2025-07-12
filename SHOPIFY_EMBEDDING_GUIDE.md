@@ -251,6 +251,7 @@ The calculator is configured as a **private custom app** that embeds directly in
   ]
 }
 {% endschema %}
+```
 
 ## 🎨 Step 2: Add to Product Template
 
@@ -309,7 +310,8 @@ Your app is already configured with:
 
 ### ✅ Checkout Flow
 - Uses 1-cent hack for custom pricing
-- Opens cart in new tab/window from iframe
+- **Smart Cart Integration**: Automatically detects and triggers cart drawers
+- Falls back to cart page redirect if drawer unavailable
 - Includes detailed order information
 
 ## 📱 Step 5: Testing
@@ -321,8 +323,41 @@ Your app is already configured with:
 
 ### 5.2 Test Checkout
 1. Configure a curve in calculator
-2. Click "Checkout"
-3. Verify cart opens with correct pricing
+2. Click "Add to Cart"
+3. Verify cart drawer opens or cart page loads with correct pricing
+
+## 🛒 Cart Drawer Compatibility
+
+### ✅ Supported Cart Drawer Events
+The calculator automatically detects and triggers common cart drawer events:
+- `cart:open`
+- `cart-drawer:open`
+- `drawer:open`
+- `cartDrawer:open`
+- `theme:cart:open`
+- `cart:toggle`
+- `cart:refresh`
+
+### ✅ Supported Cart Drawer Functions
+Also attempts to call common cart drawer functions:
+- `openCartDrawer()`
+- `toggleCartDrawer()`
+- `showCartDrawer()`
+- `CartDrawer.open()`
+- `theme.CartDrawer.open()`
+
+### 🔧 Theme Compatibility
+**Works with popular Shopify themes:**
+- Dawn (Shopify's default theme)
+- Debut, Brooklyn, Narrative
+- Most themes with ajax cart functionality
+- Custom themes with cart drawer implementations
+
+### 🔄 Fallback Behavior
+If cart drawer events fail:
+1. **Iframe context**: Redirects parent window to `/cart`
+2. **Cross-origin restrictions**: Opens cart in new window
+3. **Direct access**: Normal cart page redirect
 4. Confirm order details are included
 
 ## 🚀 Step 6: Customization Options

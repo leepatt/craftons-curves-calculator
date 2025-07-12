@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cart Drawer Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        button {
+            background: #007cba;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+            border-radius: 3px;
+        }
+        button:hover {
+            background: #005a87;
+        }
+        .log {
+            background: #f5f5f5;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 3px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .event-caught {
+            color: green;
+            font-weight: bold;
+        }
+        .function-called {
+            color: blue;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>Cart Drawer Event Test</h1>
+    <p>This page simulates a Shopify theme with cart drawer functionality to test the calculator's cart integration.</p>
+    
+    <div class="test-section">
+        <h2>Cart Drawer Functions</h2>
+        <p>These functions simulate common cart drawer functions in Shopify themes:</p>
+        <button onclick="openCartDrawer()">Open Cart Drawer</button>
+        <button onclick="toggleCartDrawer()">Toggle Cart Drawer</button>
+        <button onclick="showCartDrawer()">Show Cart Drawer</button>
+        <button onclick="clearLog()">Clear Log</button>
+    </div>
+    
+    <div class="test-section">
+        <h2>Test Calculator Integration</h2>
+        <p>Embed the calculator in an iframe to test cart drawer integration:</p>
+        <iframe src="/" width="100%" height="800" style="border: 1px solid #ddd;"></iframe>
+    </div>
+    
+    <div class="test-section">
+        <h2>Event Log</h2>
+        <div id="log" class="log">
+            <p>Waiting for cart events...</p>
+        </div>
+    </div>
+
+    <script>
+        // Log function
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type === 'event' ? 'event-caught' : type === 'function' ? 'function-called' : '';
+            logDiv.innerHTML += `<div class="${className}">[${timestamp}] ${message}</div>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        // Simulate cart drawer functions
+        function openCartDrawer() {
+            log('openCartDrawer() called', 'function');
+            // Simulate opening cart drawer
+            alert('Cart drawer opened!');
+        }
+
+        function toggleCartDrawer() {
+            log('toggleCartDrawer() called', 'function');
+            alert('Cart drawer toggled!');
+        }
+
+        function showCartDrawer() {
+            log('showCartDrawer() called', 'function');
+            alert('Cart drawer shown!');
+        }
+
+        function clearLog() {
+            document.getElementById('log').innerHTML = '<p>Log cleared...</p>';
+        }
+
+        // Create CartDrawer object for theme compatibility
+        window.CartDrawer = {
+            open: function() {
+                log('CartDrawer.open() called', 'function');
+                alert('CartDrawer.open() called!');
+            }
+        };
+
+        // Create theme object for theme compatibility
+        window.theme = {
+            CartDrawer: {
+                open: function() {
+                    log('theme.CartDrawer.open() called', 'function');
+                    alert('theme.CartDrawer.open() called!');
+                }
+            }
+        };
+
+        // Listen for cart events
+        const cartEvents = [
+            'cart:open',
+            'cart-drawer:open',
+            'drawer:open',
+            'cartDrawer:open',
+            'theme:cart:open',
+            'cart:toggle',
+            'cart:refresh'
+        ];
+
+        cartEvents.forEach(eventName => {
+            window.addEventListener(eventName, function(event) {
+                log(`Event received: ${eventName}`, 'event');
+                if (event.detail) {
+                    log(`Event detail: ${JSON.stringify(event.detail)}`, 'event');
+                }
+                
+                // Simulate cart drawer opening
+                setTimeout(() => {
+                    alert(`Cart drawer opened by ${eventName} event!`);
+                }, 100);
+            });
+        });
+
+        // Log initial setup
+        log('Cart drawer test page loaded');
+        log('Listening for cart events: ' + cartEvents.join(', '));
+    </script>
+</body>
+</html> 
