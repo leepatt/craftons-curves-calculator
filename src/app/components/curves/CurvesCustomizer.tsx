@@ -16,6 +16,7 @@ import {
 } from '@/lib/config';
 // Import the efficiency calculation logic
 import { calculateNestingEfficiency, CURVE_EFFICIENCY_RATES } from '@/lib/pricingUtils';
+import { getApiBasePath } from '@/lib/utils';
 
 // Define Props Interface (Ensuring it exists)
 interface CurvesCustomizerProps {
@@ -83,14 +84,6 @@ const getDefaultConfig = (): ProductConfiguration => ({
 });
 
 
-// Helper function to get the correct base path for API calls
-const getBasePath = () => {
-  // Always use the GitHub Pages base path since we're deploying there
-  const basePath = '/craftons-curves-calculator';
-  console.log('[getBasePath] Using base path:', basePath);
-  return basePath;
-};
-
 const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
   // State specific to Curves Builder
   const [product, setProduct] = useState<ProductDefinition | null>(null);
@@ -132,7 +125,7 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
       setTotalPriceDetails(null);
       setTotalTurnaround(null);
       try {
-        const basePath = getBasePath();
+        const basePath = getApiBasePath();
         const productUrl = `${basePath}/api/products/curves.json`;
         console.log('[CurvesCustomizer] Fetching product from URL:', productUrl);
         
@@ -175,7 +168,7 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
   useEffect(() => {
     const fetchMaterials = async () => {
       try {
-        const basePath = getBasePath();
+        const basePath = getApiBasePath();
         const url = `${basePath}/api/materials.json`;
         console.log('[CurvesCustomizer] Fetching materials from URL:', url);
         
@@ -779,7 +772,7 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
           cartParams.append('items[0][quantity]', totalPriceCents.toString());
           
           // Add custom attributes as properties
-          Object.entries(customAttributes).forEach(([key, value], index) => {
+          Object.entries(customAttributes).forEach(([key, value]) => {
               cartParams.append(`items[0][properties][${key}]`, value as string);
           });
           

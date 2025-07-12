@@ -1,14 +1,12 @@
 import { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
-  output: 'export',
-  trailingSlash: true,
+  // Vercel deployment configuration - no static export needed
   images: {
-    unoptimized: true,
+    unoptimized: false, // Let Vercel handle image optimization
   },
-  // Add base path for GitHub Pages
-  basePath: '/craftons-curves-calculator',
-  assetPrefix: '/craftons-curves-calculator/',
+  // Remove GitHub Pages specific configurations
+  // Vercel works with root path by default
 };
 
 export default nextConfig;

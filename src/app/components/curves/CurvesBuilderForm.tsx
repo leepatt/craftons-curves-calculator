@@ -9,7 +9,7 @@ import {
   NumberParameter,
   ButtonGroupParameter,
   SelectParameter,
-} from '../../types';
+} from '@/types';
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -17,6 +17,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Minus, Plus } from "lucide-react";
+import { getApiBasePath } from '@/lib/utils';
 
 interface CurvesBuilderFormProps {
   product: ProductDefinition;
@@ -58,7 +59,7 @@ export function CurvesBuilderForm({
   const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({});
 
   // Validation functions
-  const validateInput = (field: string, value: string) => {
+  const validateInput = useCallback((field: string, value: string) => {
     const numValue = parseFloat(value);
     const errors = { ...validationErrors };
     
@@ -114,7 +115,7 @@ export function CurvesBuilderForm({
     }
     
     setValidationErrors(errors);
-  };
+  }, [initialConfig.radiusType, initialConfig.width, initialConfig.specifiedRadius, validationErrors]);
 
   // Callback to inform parent of focus change
   useEffect(() => {
@@ -133,7 +134,8 @@ export function CurvesBuilderForm({
         setMaterialsLoading(true);
         setMaterialsError(null);
         try {
-          const response = await fetch('/api/materials');
+          const basePath = getApiBasePath();
+          const response = await fetch(`${basePath}/api/materials.json`);
           if (!response.ok) {
             throw new Error(`Failed to fetch materials: ${response.statusText}`);
           }
@@ -260,7 +262,7 @@ export function CurvesBuilderForm({
         if (isValidForConfig && !isNaN(calculatedAngle)) {
           onConfigChange({ angle: Number(calculatedAngle.toFixed(6)) });
         }
-      } catch (e) {
+      } catch {
         // Ignore calculation errors during typing
       }
     }
@@ -561,7 +563,7 @@ export function CurvesBuilderForm({
         onConfigChange(changedConfig);
       }
     }
-  }, [product.parameters, initialConfig, onConfigChange, handleGeometricInputBlur]);
+  }, [product.parameters, initialConfig, onConfigChange, handleGeometricInputBlur, validateInput, handleGeometricInputChange]);
   
   const materialParam = useMemo(() => product.parameters.find(p => p.id === 'material'), [product.parameters]);
   const radiusTypeParam = useMemo(() => product.parameters.find(p => p.id === 'radiusType'), [product.parameters]);

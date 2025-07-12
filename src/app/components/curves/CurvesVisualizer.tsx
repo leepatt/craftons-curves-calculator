@@ -2,7 +2,7 @@ import React, { useMemo, useRef, useCallback, useState, useEffect } from 'react'
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Html, Line } from '@react-three/drei';
 import * as THREE from 'three';
-import { Button } from '../ui/button';
+import { Button } from '@/components/ui/button';
 import { Square, Box } from 'lucide-react';
 import { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 

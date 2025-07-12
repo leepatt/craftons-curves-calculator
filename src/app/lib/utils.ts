@@ -188,3 +188,10 @@ export const CalculationUtils = {
     return GeometricValidation.isValidArea(areaM2) ? areaM2 : 0;
   }
 };
+
+// Helper function to get the correct base path for API calls
+export const getApiBasePath = () => {
+  // For Vercel deployment, we always use root path
+  // No base path needed for Vercel (unlike GitHub Pages)
+  return '';
+};

@@ -1,36 +1,65 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Craftons Curves Calculator
+
+A Next.js application for calculating custom curved timber elements with 3D visualization, pricing, and Shopify integration.
+
+## Features
+
+- 🎯 **Advanced Curves Calculator** - Calculate internal/external radius curves with precise measurements
+- 🎨 **3D Visualization** - Interactive 3D preview with dimension annotations
+- 📊 **Smart Splitting** - Automatic part splitting for oversized pieces
+- 💰 **Dynamic Pricing** - Real-time pricing based on materials and complexity
+- 🛒 **Shopify Integration** - Direct cart integration with detailed part specifications
+- 📱 **Responsive Design** - Works on desktop and mobile devices
 
 ## Getting Started
 
-First, run the development server:
+First, install dependencies:
+
+```bash
+npm install
+```
+
+Then run the development server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Deployment
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+This application is configured for **Vercel deployment**:
 
-## Learn More
+1. Push your code to GitHub
+2. Connect your repository to Vercel
+3. Deploy automatically on every push to main
 
-To learn more about Next.js, take a look at the following resources:
+The app includes:
+- ✅ Optimized for Vercel's serverless functions
+- ✅ Proper static asset handling
+- ✅ Shopify iframe embedding support
+- ✅ Custom headers for cross-origin embedding
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Technology Stack
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- **Next.js 15** - React framework with App Router
+- **TypeScript** - Type-safe development
+- **Tailwind CSS** - Utility-first styling
+- **Three.js** - 3D visualization and rendering
+- **React Three Fiber** - React renderer for Three.js
+- **Shopify API** - E-commerce integration
 
-## Deploy on Vercel
+## Configuration
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+The app uses local JSON files for materials and product definitions:
+- `/public/api/materials.json` - Material specifications and pricing
+- `/public/api/products/curves.json` - Product parameter definitions
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Shopify Integration
+
+Configured as a Shopify embedded app with:
+- Custom product variants for pricing
+- Dynamic cart integration
+- Detailed order specifications
+- Cross-origin iframe support
