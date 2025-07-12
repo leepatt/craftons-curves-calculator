@@ -1,0 +1,212 @@
+{% comment %}
+  Craftons Curves Calculator Custom Section
+  Embeds the calculator directly into product pages
+{% endcomment %}
+
+<div class="curves-calculator-section" style="margin: {{ section.settings.margin_top }}px 0 {{ section.settings.margin_bottom }}px;">
+  {% if section.settings.show_title %}
+    <h2 style="text-align: {{ section.settings.title_alignment }}; margin-bottom: 20px;">
+      {{ section.settings.title }}
+    </h2>
+  {% endif %}
+  
+  {% if section.settings.show_description %}
+    <div style="text-align: {{ section.settings.description_alignment }}; margin-bottom: 20px;">
+      {{ section.settings.description }}
+    </div>
+  {% endif %}
+
+  <div style="position: relative; width: 100%; height: {{ section.settings.height }}px; border: {{ section.settings.border_width }}px solid {{ section.settings.border_color }}; border-radius: {{ section.settings.border_radius }}px; overflow: hidden; background: #f9f9f9;">
+    <iframe 
+      src="https://craftons-curves-calculator.vercel.app"
+      style="width: 100%; height: 100%; border: none; display: block;"
+      frameborder="0"
+      allowfullscreen
+      loading="lazy"
+      title="Craftons Curves Calculator">
+    </iframe>
+  </div>
+  
+  {% if section.settings.show_note %}
+    <div style="margin-top: 15px; font-size: 0.9em; color: #666; text-align: {{ section.settings.note_alignment }};">
+      {{ section.settings.note }}
+    </div>
+  {% endif %}
+</div>
+
+<style>
+  @media (max-width: 768px) {
+    .curves-calculator-section iframe {
+      height: {{ section.settings.mobile_height }}px !important;
+    }
+  }
+</style>
+
+{% schema %}
+{
+  "name": "Curves Calculator",
+  "settings": [
+    {
+      "type": "header",
+      "content": "Title Settings"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_title",
+      "label": "Show title",
+      "default": true
+    },
+    {
+      "type": "text",
+      "id": "title",
+      "label": "Title",
+      "default": "Custom Curves Calculator"
+    },
+    {
+      "type": "select",
+      "id": "title_alignment",
+      "label": "Title alignment",
+      "options": [
+        { "value": "left", "label": "Left" },
+        { "value": "center", "label": "Center" },
+        { "value": "right", "label": "Right" }
+      ],
+      "default": "center"
+    },
+    {
+      "type": "header",
+      "content": "Description"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_description",
+      "label": "Show description",
+      "default": true
+    },
+    {
+      "type": "textarea",
+      "id": "description",
+      "label": "Description",
+      "default": "Calculate custom curved timber elements with real-time 3D visualization and instant pricing."
+    },
+    {
+      "type": "select",
+      "id": "description_alignment",
+      "label": "Description alignment",
+      "options": [
+        { "value": "left", "label": "Left" },
+        { "value": "center", "label": "Center" },
+        { "value": "right", "label": "Right" }
+      ],
+      "default": "center"
+    },
+    {
+      "type": "header",
+      "content": "Calculator Size"
+    },
+    {
+      "type": "range",
+      "id": "height",
+      "label": "Desktop height (px)",
+      "min": 400,
+      "max": 1200,
+      "step": 50,
+      "default": 800
+    },
+    {
+      "type": "range",
+      "id": "mobile_height",
+      "label": "Mobile height (px)",
+      "min": 300,
+      "max": 800,
+      "step": 50,
+      "default": 600
+    },
+    {
+      "type": "header",
+      "content": "Styling"
+    },
+    {
+      "type": "range",
+      "id": "border_width",
+      "label": "Border width (px)",
+      "min": 0,
+      "max": 5,
+      "step": 1,
+      "default": 1
+    },
+    {
+      "type": "color",
+      "id": "border_color",
+      "label": "Border color",
+      "default": "#e0e0e0"
+    },
+    {
+      "type": "range",
+      "id": "border_radius",
+      "label": "Border radius (px)",
+      "min": 0,
+      "max": 20,
+      "step": 2,
+      "default": 8
+    },
+    {
+      "type": "range",
+      "id": "margin_top",
+      "label": "Top margin (px)",
+      "min": 0,
+      "max": 100,
+      "step": 5,
+      "default": 20
+    },
+    {
+      "type": "range",
+      "id": "margin_bottom",
+      "label": "Bottom margin (px)",
+      "min": 0,
+      "max": 100,
+      "step": 5,
+      "default": 20
+    },
+    {
+      "type": "header",
+      "content": "Footer Note"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_note",
+      "label": "Show footer note",
+      "default": true
+    },
+    {
+      "type": "text",
+      "id": "note",
+      "label": "Footer note",
+      "default": "All prices include GST. Click 'Checkout' to add to cart."
+    },
+    {
+      "type": "select",
+      "id": "note_alignment",
+      "label": "Note alignment",
+      "options": [
+        { "value": "left", "label": "Left" },
+        { "value": "center", "label": "Center" },
+        { "value": "right", "label": "Right" }
+      ],
+      "default": "center"
+    }
+  ],
+  "presets": [
+    {
+      "name": "Curves Calculator",
+      "settings": {
+        "title": "Custom Curves Calculator",
+        "show_title": true,
+        "show_description": true,
+        "height": 800,
+        "mobile_height": 600
+      }
+    }
+  ]
+}
+{% endschema %} 

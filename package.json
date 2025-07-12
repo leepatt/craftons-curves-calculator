@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "shopify": "shopify",
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
@@ -38,6 +39,8 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@shopify/app": "^3.58.2",
+    "@shopify/cli": "^3.82.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",

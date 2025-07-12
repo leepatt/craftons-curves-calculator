@@ -1,52 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 export function middleware(request: NextRequest) {
-  // Allow public access to main page and static files
   const { pathname } = request.nextUrl;
   
-  // Skip middleware for public routes
-  if (pathname === '/' || pathname.startsWith('/_next') || pathname.startsWith('/favicon')) {
-    const response = NextResponse.next();
-    
-    // Add iframe headers for embedding
-    response.headers.set('X-Frame-Options', 'ALLOWALL');
-    response.headers.set('Content-Security-Policy', "frame-ancestors 'self' https://*.shopify.com https://*.myshopify.com https://craftons.com.au;");
-    response.headers.set('Access-Control-Allow-Origin', '*');
-    
-    return response;
+  // Skip middleware for Next.js internal routes
+  if (pathname.startsWith('/_next') || pathname.startsWith('/favicon')) {
+    return NextResponse.next();
   }
   
-  // Add CORS headers for Shopify app embedding
   const response = NextResponse.next();
   
-  // Allow iframe embedding from Shopify and your domain
+  // Set headers for iframe embedding on Shopify product pages
   response.headers.set('X-Frame-Options', 'ALLOWALL');
   response.headers.set('Content-Security-Policy', "frame-ancestors 'self' https://*.shopify.com https://*.myshopify.com https://craftons.com.au;");
   
-  // Add CORS headers
+  // Add CORS headers for cross-origin requests
   response.headers.set('Access-Control-Allow-Origin', '*');
   response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  response.headers.set('Access-Control-Allow-Credentials', 'true');
   
-  // Handle Shopify app bridge authentication only for API routes
-  if (pathname.startsWith('/api/shopify')) {
-    const shop = request.nextUrl.searchParams.get('shop');
-    const host = request.nextUrl.searchParams.get('host');
-    
-    if (shop && host) {
-      // Store shop and host information for the session
-      response.cookies.set('shopify-shop', shop, {
-        httpOnly: true,
-        secure: true,
-        sameSite: 'none'
-      });
-      
-      response.cookies.set('shopify-host', host, {
-        httpOnly: true,
-        secure: true,
-        sameSite: 'none'
-      });
-    }
+  // Additional headers for better iframe embedding
+  response.headers.set('X-Content-Type-Options', 'nosniff');
+  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  
+  // Prevent caching for dynamic content when embedded
+  if (pathname === '/' || pathname.startsWith('/curves')) {
+    response.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+    response.headers.set('Pragma', 'no-cache');
+    response.headers.set('Expires', '0');
+  }
+  
+  // Handle preflight requests
+  if (request.method === 'OPTIONS') {
+    return new Response(null, { status: 200, headers: response.headers });
   }
   
   return response;

@@ -191,7 +191,7 @@ export const CalculationUtils = {
 
 // Helper function to get the correct base path for API calls
 export const getApiBasePath = () => {
-  // For Vercel deployment, we always use root path
-  // No base path needed for Vercel (unlike GitHub Pages)
-  return '';
+  // Use environment variable for the app URL.
+  // This is crucial for apps embedded in Shopify or other platforms.
+  return process.env.NEXT_PUBLIC_APP_URL || '';
 };

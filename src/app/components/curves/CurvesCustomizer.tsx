@@ -13,6 +13,7 @@ import {
     MANUFACTURE_RATE, // inc GST
     MANUFACTURE_AREA_RATE, // inc GST
     EFFICIENCY, // General efficiency for non-curve parts (used in weighted average)
+    APP_CONFIG,
 } from '@/lib/config';
 // Import the efficiency calculation logic
 import { calculateNestingEfficiency, CURVE_EFFICIENCY_RATES } from '@/lib/pricingUtils';
@@ -764,7 +765,7 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
 
                     // Create Shopify cart URL directly using 1 cent rule
           const shopifyDomain = 'craftons-au.myshopify.com';
-          const variantId = 45300623343794;
+          const variantId = APP_CONFIG.business.shopifyVariantId;
           
           // Build cart URL with custom properties
           const cartParams = new URLSearchParams();
@@ -779,14 +780,24 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
           const cartUrl = `https://${shopifyDomain}/cart/add?${cartParams.toString()}`;
           
           console.log('Adding to cart using 1 cent rule:', {
-              variantId: 45300623343794,
+              variantId: APP_CONFIG.business.shopifyVariantId,
               quantity: totalPriceCents,
               totalPrice: totalPriceDetails.totalIncGST,
               cartUrl: cartUrl
           });
           
-          // Redirect to Shopify cart
-          window.open(cartUrl, '_blank');
+          // Redirect to Shopify cart - opens in new tab/window (works perfectly when embedded in iframe)
+          const newWindow = window.open(cartUrl, '_blank');
+          
+          // Check if popup was blocked and provide fallback
+          if (!newWindow || newWindow.closed) {
+              // Fallback: try to open in parent window if embedded
+              if (window.parent !== window) {
+                  window.parent.location.href = cartUrl;
+              } else {
+                  window.location.href = cartUrl;
+              }
+          }
           
           alert(`Order added to cart successfully!\nTotal: $${totalPriceDetails.totalIncGST.toFixed(2)}\nQuantity: ${totalPriceCents} × $0.01`);
           
