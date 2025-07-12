@@ -116,6 +116,9 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
   const [splitLinesHovered, setSplitLinesHovered] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null); // New state for focused field
   const [selectedPartId, setSelectedPartId] = useState<string | null>(null); // State for selected part to view in visualizer
+  
+  // Add loading state for add to cart
+  const [isAddingToCart, setIsAddingToCart] = useState<boolean>(false);
 
   // --- Data Fetching (remains largely the same) ---
   useEffect(() => {
@@ -724,29 +727,34 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
       }
   }, [selectedPartId]);
   
-  const handleCheckout = useCallback(async () => {
+  const handleAddToCart = useCallback(async () => {
       if (!totalPriceDetails || partsList.length === 0) {
-          alert("No parts to checkout!");
+          alert("No parts to add to cart!");
           return;
       }
 
       try {
-          console.log("Proceeding to Checkout with 1 Cent Rule:");
+          console.log("Adding to cart with 1 Cent Rule:");
           console.log("Parts:", partsList);
           console.log("Totals:", totalPriceDetails);
 
           // Calculate quantity for 1 cent rule (price * 100 to handle cents)
           const totalPriceCents = Math.round(totalPriceDetails.totalIncGST * 100);
           
-                     // Create detailed description of the order
-           const orderDescription = partsList.map((part, index) => {
-               const material = materials?.find(m => m.id === part.config.material);
-               const { displayString } = getInternalRadiusDisplay(part);
-               
-               return `Part ${index + 1}: ${displayString} - ${material?.name || 'Unknown'} - Qty: ${part.quantity}${part.numSplits > 1 ? ` (${part.numSplits} splits)` : ''}`;
-           }).join('\n');
+          if (isNaN(totalPriceCents) || totalPriceCents <= 0) {
+              alert("Cannot add item with zero or invalid price.");
+              return;
+          }
 
-          const customAttributes = {
+          // Create detailed description of the order
+          const orderDescription = partsList.map((part, index) => {
+              const material = materials?.find(m => m.id === part.config.material);
+              const { displayString } = getInternalRadiusDisplay(part);
+              
+              return `Part ${index + 1}: ${displayString} - ${material?.name || 'Unknown'} - Qty: ${part.quantity}${part.numSplits > 1 ? ` (${part.numSplits} splits)` : ''}`;
+          }).join('\n');
+
+          const properties = {
               'Order Summary': `Craftons Curves Order - ${partsList.length} unique part${partsList.length !== 1 ? 's' : ''}`,
               'Total Parts': `${totalPriceDetails.totalPartCount} pieces`,
               'Materials': Object.entries(totalPriceDetails.sheetsByMaterial)
@@ -763,47 +771,52 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
               'Pricing Method': '1 Cent Rule - Quantity represents total price in cents'
           };
 
-                    // Create Shopify cart URL directly using 1 cent rule
-          const shopifyDomain = 'craftons-au.myshopify.com';
-          const variantId = APP_CONFIG.business.shopifyVariantId;
-          
-          // Build cart URL with custom properties
-          const cartParams = new URLSearchParams();
-          cartParams.append('items[0][id]', variantId.toString());
-          cartParams.append('items[0][quantity]', totalPriceCents.toString());
-          
-          // Add custom attributes as properties
-          Object.entries(customAttributes).forEach(([key, value]) => {
-              cartParams.append(`items[0][properties][${key}]`, value as string);
+          // Log the properties and quantity being sent
+          console.log("Sending properties:", JSON.stringify(properties, null, 2));
+          console.log("Sending quantity:", totalPriceCents);
+
+          const formData = {
+              'items': [{
+                  'id': APP_CONFIG.business.shopifyVariantId, // Use the ID of the $0.01 product
+                  'quantity': totalPriceCents, // Use calculated quantity
+                  'properties': properties // Attach all details as properties
+              }]
+          };
+
+          setIsAddingToCart(true);
+
+          const response = await fetch('/cart/add.js', {
+              method: 'POST',
+              headers: {
+                  'Content-Type': 'application/json'
+              },
+              body: JSON.stringify(formData)
           });
-          
-          const cartUrl = `https://${shopifyDomain}/cart/add?${cartParams.toString()}`;
-          
-          console.log('Adding to cart using 1 cent rule:', {
-              variantId: APP_CONFIG.business.shopifyVariantId,
-              quantity: totalPriceCents,
-              totalPrice: totalPriceDetails.totalIncGST,
-              cartUrl: cartUrl
-          });
-          
-          // Redirect to Shopify cart - opens in new tab/window (works perfectly when embedded in iframe)
-          const newWindow = window.open(cartUrl, '_blank');
-          
-          // Check if popup was blocked and provide fallback
-          if (!newWindow || newWindow.closed) {
-              // Fallback: try to open in parent window if embedded
-              if (window.parent !== window) {
-                  window.parent.location.href = cartUrl;
-              } else {
-                  window.location.href = cartUrl;
+
+          if (!response.ok) {
+              // Attempt to get more detailed error from Shopify response body
+              try {
+                  const errData = await response.json();
+                  console.error('Shopify Error Response:', errData);
+                  throw new Error(errData.description || errData.message || `HTTP error! status: ${response.status}`);
+              } catch (parseError) {
+                  // Fallback if response isn't JSON
+                  throw new Error(`HTTP error! status: ${response.status}`);
               }
           }
+
+          const result = await response.json();
+          console.log('Added to cart:', result);
           
-          alert(`Order added to cart successfully!\nTotal: $${totalPriceDetails.totalIncGST.toFixed(2)}\nQuantity: ${totalPriceCents} × $0.01`);
+          // Redirect to cart page
+          window.location.href = '/cart';
           
       } catch (error) {
-          console.error('Checkout error:', error);
-          alert('There was an error processing your checkout. Please try again.');
+          console.error('Error adding to cart:', error);
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+          alert(`Error adding item to cart: ${errorMessage}`);
+      } finally {
+          setIsAddingToCart(false);
       }
   }, [partsList, totalPriceDetails, materials, totalTurnaround]);
 
@@ -1073,8 +1086,8 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
                                       <RotateCcw className="mr-1 h-4 w-4" /> Reset Order
                                   </Button>
                                   <Button
-                                      onClick={handleCheckout} 
-                                      disabled={partsList.length === 0}
+                                      onClick={handleAddToCart} 
+                                      disabled={partsList.length === 0 || isAddingToCart}
                                       className="w-full text-white font-bold transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                                       style={{
                                           backgroundColor: '#194431'
@@ -1091,7 +1104,7 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
                                       }}
                                       size="lg"
                                   >
-                                      Proceed to Checkout
+                                      {isAddingToCart ? 'Adding to Cart...' : 'Add to Cart'}
                                   </Button>
                               </div>
                           </div>
