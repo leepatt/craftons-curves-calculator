@@ -1056,14 +1056,25 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
 
           setIsAddingToCart(true);
 
-          // Check if we're in development mode or embedded in Shopify
+          // Enhanced environment detection for live site compatibility
           const isDevelopment = process.env.NODE_ENV === 'development';
           const isEmbedded = window.self !== window.top;
+          const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+          
+          // Log environment details for debugging
+          console.log('Environment detection:', {
+              isDevelopment,
+              isEmbedded,
+              isLocalhost,
+              hostname: window.location.hostname,
+              origin: window.location.origin,
+              userAgent: navigator.userAgent
+          });
           
           let response;
           let result;
           
-          if (isDevelopment && !isEmbedded) {
+          if (isLocalhost || (isDevelopment && !isEmbedded)) {
               // Development mode: use our API route for testing
               console.log('Development mode: using API route for testing');
               response = await fetch('/api/cart/add', {
@@ -1087,33 +1098,63 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
               alert('✅ Cart add successful (development mode)!\n\nIn production, this would add the item to your Shopify cart and redirect to /cart.');
               
           } else {
-              // Production mode: use Shopify's cart API
-              console.log('Production mode: using Shopify cart API');
-              response = await fetch('/cart/add.js', {
-                  method: 'POST',
-                  headers: {
-                      'Content-Type': 'application/json'
-                  },
-                  body: JSON.stringify(formData)
-              });
-
-              if (!response.ok) {
-                  // Attempt to get more detailed error from Shopify response body
-                  try {
-                      const errData = await response.json();
-                      console.error('Shopify Error Response:', errData);
-                      throw new Error(errData.description || errData.message || `HTTP error! status: ${response.status}`);
-                  } catch (parseError) {
-                      // Fallback if response isn't JSON
-                      throw new Error(`HTTP error! status: ${response.status}`);
-                  }
-              }
-
-              result = await response.json();
-              console.log('Added to cart:', result);
+              // Production mode: try API route first as fallback, then Shopify if needed
+              console.log('Production mode: trying API route fallback first');
               
-              // Simple redirect to cart - just like the working old code
-              window.location.href = '/cart';
+              try {
+                  response = await fetch('/api/cart/add', {
+                      method: 'POST',
+                      headers: {
+                          'Content-Type': 'application/json'
+                      },
+                      body: JSON.stringify(formData)
+                  });
+                  
+                  if (!response.ok) {
+                      throw new Error(`API route failed: ${response.status}`);
+                  }
+                  
+                  result = await response.json();
+                  console.log('Production API route success:', result);
+                  
+                  if (result.success && result.source === 'shopify_direct') {
+                      // Successfully added via Shopify, redirect to cart
+                      window.location.href = '/cart';
+                  } else {
+                      // Show success message for other modes
+                      alert('✅ Successfully added to cart!\n\nYour custom curves order has been added. Please check your cart.');
+                  }
+                  
+              } catch (apiError) {
+                  console.log('API route failed, trying direct Shopify cart API:', apiError);
+                  
+                  // Fallback to direct Shopify cart API
+                  response = await fetch('/cart/add.js', {
+                      method: 'POST',
+                      headers: {
+                          'Content-Type': 'application/json'
+                      },
+                      body: JSON.stringify(formData)
+                  });
+
+                  if (!response.ok) {
+                      // Attempt to get more detailed error from Shopify response body
+                      try {
+                          const errData = await response.json();
+                          console.error('Shopify Error Response:', errData);
+                          throw new Error(errData.description || errData.message || `HTTP error! status: ${response.status}`);
+                      } catch (parseError) {
+                          // Fallback if response isn't JSON
+                          throw new Error(`HTTP error! status: ${response.status}`);
+                      }
+                  }
+
+                  result = await response.json();
+                  console.log('Added to cart via Shopify API:', result);
+                  
+                  // Simple redirect to cart - just like the working old code
+                  window.location.href = '/cart';
+              }
           }
           
       } catch (error) {

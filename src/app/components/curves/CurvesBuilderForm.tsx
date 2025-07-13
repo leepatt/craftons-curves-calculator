@@ -751,12 +751,13 @@ export function CurvesBuilderForm({
                   value={option.value} 
                   aria-label={option.label}
                   variant="outline"
-                  className="data-[state=on]:bg-[#F2F2F2] data-[state=on]:text-[#194431] data-[state=on]:border-[#194431] hover:bg-[#E8E8E8] hover:text-[#194431] hover:border-[#194431] text-sm border-gray-300 text-gray-600 transition-colors duration-200"
+                  className="data-[state=on]:bg-[#F2F2F2] data-[state=on]:text-[#194431] data-[state=on]:border-[#194431] data-[state=on]:font-medium data-[state=off]:hover:bg-[#E8E8E8] data-[state=off]:hover:text-[#194431] data-[state=off]:hover:border-[#194431] text-sm border-2 border-gray-300 text-gray-600 transition-colors duration-200"
                   style={{
                     ...(String(initialConfig[radiusTypeParam.id] ?? 'internal') === option.value ? {
                       backgroundColor: '#F2F2F2',
                       color: '#194431',
-                      borderColor: '#194431'
+                      borderColor: '#194431',
+                      fontWeight: '500'
                     } : {
                       backgroundColor: '#ffffff',
                       color: '#6b7280',
