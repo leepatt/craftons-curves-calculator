@@ -774,7 +774,7 @@ export function CurvesBuilderForm({
       )}
 
       {/* Radius and Width Row */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-2 md:gap-4">
         {specifiedRadiusParam && (
             <div>
                  <Label htmlFor={specifiedRadiusParam.id} className="block mb-1 font-medium text-foreground">
@@ -844,7 +844,7 @@ export function CurvesBuilderForm({
         
       {/* Angle, Arc Length, Chord Length Row */}
       <div>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-3 gap-2 md:gap-4">
               <div>
                  <Label htmlFor="angle" className="block mb-1 font-medium text-foreground">Angle (θ)</Label>
                  <Input 

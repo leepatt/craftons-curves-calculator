@@ -1025,136 +1025,33 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
               return `Part ${index + 1}: ${displayString} - ${material?.name || 'Unknown'} - Qty: ${part.quantity}${part.numSplits > 1 ? ` (${part.numSplits} splits)` : ''}`;
           }).join('\n');
 
-          const properties = {
-              'Order Summary': `Craftons Curves Order - ${partsList.length} unique part${partsList.length !== 1 ? 's' : ''}`,
-              'Total Parts': `${totalPriceDetails.totalPartCount} pieces`,
-              'Materials': Object.entries(totalPriceDetails.sheetsByMaterial)
-                  .map(([matId, sheets]) => {
-                      const material = materials?.find(m => m.id === matId);
-                      return `${material?.name || matId}: ${sheets} sheet${sheets !== 1 ? 's' : ''}`;
-                  }).join(', '),
-              'Part Details': orderDescription,
-              'Material Cost': `$${totalPriceDetails.materialCost.toFixed(2)}`,
-              'Manufacturing Cost': `$${totalPriceDetails.manufactureCost.toFixed(2)}`,
-              'Engraving Cost': totalPriceDetails.partIdEngravingCost > 0 ? `$${totalPriceDetails.partIdEngravingCost.toFixed(2)}` : 'None',
-              'Turnaround': `${totalTurnaround || 'TBD'} business days`,
-              'Order Date': new Date().toISOString(),
-              'Pricing Method': '1 Cent Rule - Quantity represents total price in cents'
-          };
-
-          // Log the properties and quantity being sent
-          console.log("Sending properties:", JSON.stringify(properties, null, 2));
-          console.log("Sending quantity:", totalPriceCents);
-
-          const formData = {
-              'items': [{
-                  'id': APP_CONFIG.business.shopifyVariantId, // Use the ID of the $0.01 product
-                  'quantity': totalPriceCents, // Use calculated quantity
-                  'properties': properties // Attach all details as properties
-              }]
-          };
-
           setIsAddingToCart(true);
 
-          // Enhanced environment detection for live site compatibility
-          const isDevelopment = process.env.NODE_ENV === 'development';
-          const isEmbedded = window.self !== window.top;
-          const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+          // --- Direct cart permalink approach ---
+          // Since we're cross-domain, the most reliable approach is to redirect directly
+          // to a Shopify cart URL that adds the item. This bypasses all session issues.
+          const shopDomain = 'craftons-au.myshopify.com';
           
-          // Log environment details for debugging
-          console.log('Environment detection:', {
-              isDevelopment,
-              isEmbedded,
-              isLocalhost,
-              hostname: window.location.hostname,
-              origin: window.location.origin,
-              userAgent: navigator.userAgent
+          // Create a simple cart permalink with just the essential data
+          const cartUrl = new URL(`https://${shopDomain}/cart/${APP_CONFIG.business.shopifyVariantId}:${totalPriceCents}`);
+          
+          // Add only the most critical properties to avoid URL length issues
+          const essentialProperties = {
+              'Order': `Craftons Curves - ${partsList.length} part${partsList.length !== 1 ? 's' : ''}`,
+              'Total': `$${totalPriceDetails.totalIncGST.toFixed(2)}`,
+              'Details': orderDescription.length > 200 ? orderDescription.substring(0, 200) + '...' : orderDescription
+          };
+          
+          Object.entries(essentialProperties).forEach(([key, value]) => {
+              cartUrl.searchParams.append(`properties[${key}]`, String(value));
           });
-          
-          let response;
-          let result;
-          
-          if (isLocalhost || (isDevelopment && !isEmbedded)) {
-              // Development mode: use our API route for testing
-              console.log('Development mode: using API route for testing');
-              response = await fetch('/api/cart/add', {
-                  method: 'POST',
-                  headers: {
-                      'Content-Type': 'application/json'
-                  },
-                  body: JSON.stringify(formData)
-              });
-              
-              if (!response.ok) {
-                  const errData = await response.json();
-                  console.error('API Route Error Response:', errData);
-                  throw new Error(errData.description || errData.message || `HTTP error! status: ${response.status}`);
-              }
-              
-              result = await response.json();
-              console.log('Development cart add result:', result);
-              
-              // Show success message in development
-              alert('✅ Cart add successful (development mode)!\n\nIn production, this would add the item to your Shopify cart and redirect to /cart.');
-              
-          } else {
-              // Production mode: try API route first as fallback, then Shopify if needed
-              console.log('Production mode: trying API route fallback first');
-              
-              try {
-                  response = await fetch('/api/cart/add', {
-                      method: 'POST',
-                      headers: {
-                          'Content-Type': 'application/json'
-                      },
-                      body: JSON.stringify(formData)
-                  });
-                  
-                  if (!response.ok) {
-                      throw new Error(`API route failed: ${response.status}`);
-                  }
-                  
-                  result = await response.json();
-                  console.log('Production API route success:', result);
-                  
-                  if (result.success && result.source === 'shopify_direct') {
-                      // Successfully added via Shopify, redirect to cart
-                      window.location.href = '/cart';
-                  } else {
-                      // Show success message for other modes
-                      alert('✅ Successfully added to cart!\n\nYour custom curves order has been added. Please check your cart.');
-                  }
-                  
-              } catch (apiError) {
-                  console.log('API route failed, trying direct Shopify cart API:', apiError);
-                  
-                  // Fallback to direct Shopify cart API
-                  response = await fetch('/cart/add.js', {
-                      method: 'POST',
-                      headers: {
-                          'Content-Type': 'application/json'
-                      },
-                      body: JSON.stringify(formData)
-                  });
 
-                  if (!response.ok) {
-                      // Attempt to get more detailed error from Shopify response body
-                      try {
-                          const errData = await response.json();
-                          console.error('Shopify Error Response:', errData);
-                          throw new Error(errData.description || errData.message || `HTTP error! status: ${response.status}`);
-                      } catch (parseError) {
-                          // Fallback if response isn't JSON
-                          throw new Error(`HTTP error! status: ${response.status}`);
-                      }
-                  }
+          console.log("Redirecting to cart URL:", cartUrl.toString());
 
-                  result = await response.json();
-                  console.log('Added to cart via Shopify API:', result);
-                  
-                  // Simple redirect to cart - just like the working old code
-                  window.location.href = '/cart';
-              }
+          // Redirect the customer (breaking out of the iframe if necessary)
+          if (typeof window !== 'undefined') {
+              (window.top ?? window).location.href = cartUrl.toString();
+              return;
           }
           
       } catch (error) {
@@ -1299,231 +1196,9 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
   // --- JSX Structure Update ---
   return (
     <div className="flex h-screen max-h-screen flex-col text-foreground overflow-hidden bg-white"> 
-      <div className="flex flex-1 gap-1 md:flex-row-reverse flex-col overflow-hidden px-4 md:px-8 py-4"> 
-        <aside className="w-full md:w-[33rem] lg:w-[40rem] flex-shrink-0 h-[40vh] md:h-auto"> 
-          <ScrollArea className="h-full">
-            <div className="space-y-4 px-4 pb-4">
-              <div className={`rounded-md border ${editingPartId ? 'border-blue-300 bg-blue-50' : 'border-gray-200 bg-card'} p-4 space-y-3`}> 
-                <div className="flex items-center justify-between mb-1">
-                  <h2 className="text-lg font-semibold">
-                    {editingPartId ? (
-                      <span className="text-blue-700">Edit Part</span>
-                    ) : (
-                      'Configure New Part'
-                    )}
-                  </h2>
-                  {editingPartId && (
-                    <div className="text-xs text-gray-500">
-                      Press Escape to cancel, Ctrl+Enter to save
-                    </div>
-                  )}
-                </div>
-                {isLoading && !product ? ( // Show loading in form area if product is still loading
-                  <div>Loading form...</div>
-                ) : product ? ( // Only render form if product definition is available
-                  <CurvesBuilderForm
-                    product={product}
-                    initialConfig={currentConfig} 
-                    onConfigChange={handleConfigChange}
-                    onFieldFocusChange={handleFieldFocusChange}
-                    splitInfo={splitInfo} 
-                    setSplitLinesHovered={setSplitLinesHovered}
-                    quantity={currentPartQuantity}
-                    onQuantityChange={handleCurrentPartQuantityChange}
-                    onAddPart={handleAddPart}
-                    isAddPartDisabled={isConfigIncomplete}
-                    isLoading={isLoading}
-                    error={error}
-                    isEditMode={editingPartId !== null}
-                    onSaveEdit={handleSaveEdit}
-                    onCancelEdit={handleCancelEdit}
-                  />
-                ) : (
-                   <div>Could not load product definition for the form.</div> // Fallback if product is null after load attempt
-                )}
-              </div>
-
-              <div className="rounded-md border border-gray-200 bg-card p-4 space-y-4">
-                  {/* Parts List */} 
-                  <div>
-                      <h2 className="text-lg font-semibold mb-3">Parts Added to Sheet</h2>
-                      {partsList.length === 0 ? (
-                          <p className="text-sm text-muted-foreground">No parts added yet.</p>
-                      ) : (
-                                                    <ul className="space-y-2">
-                              {partsList.map((part, index) => {
-                                  const { displayString } = getInternalRadiusDisplay(part);
-                                  const isBeingEdited = editingPartId === part.id;
-                                  
-                                  return (
-                                  <li key={part.id} className={`flex justify-between items-center text-sm border-b border-dashed border-gray-200 pb-1 ${isBeingEdited ? 'bg-blue-50 border-blue-200 p-2 rounded' : ''}`}>
-                                      <span 
-                                          className={`cursor-pointer transition-colors duration-200 flex-1 ${
-                                              selectedPartId === part.id 
-                                                  ? 'text-blue-600 font-medium bg-blue-50 px-2 py-1 rounded' 
-                                                  : isBeingEdited 
-                                                      ? 'text-blue-700 font-medium px-2 py-1'
-                                                      : 'hover:text-blue-500 hover:bg-gray-50 px-2 py-1 rounded'
-                                          }`}
-                                          onClick={() => setSelectedPartId(selectedPartId === part.id ? null : part.id)}
-                                          title="Click to view in visualizer"
-                                      >
-                                          {`${index + 1}. ${displayString} (Qty: ${part.quantity})`}
-                                          {part.numSplits > 1 && <span className="text-xs text-orange-500 ml-1">(Split x{part.numSplits})</span>}
-                                          {isBeingEdited && <span className="text-xs text-blue-600 ml-2 font-medium">(Editing)</span>}
-                                      </span>
-                                      <div className="flex items-center gap-1">
-                                          <Button 
-                                              variant="ghost" 
-                                              size="icon" 
-                                              className="h-6 w-6 hover:bg-blue-600 hover:border hover:border-blue-600 transition-colors" 
-                                              onClick={() => handleStartEdit(part)}
-                                              title="Edit part"
-                                              disabled={editingPartId !== null && editingPartId !== part.id}
-                                          >
-                                              <Pencil className="h-3 w-3 text-blue-600 hover:text-white transition-colors" />
-                                          </Button>
-                                          <Button 
-                                              variant="ghost" 
-                                              size="icon" 
-                                              className="h-6 w-6 hover:bg-red-100" 
-                                              onClick={() => handleDeletePart(part.id)}
-                                              title="Delete part"
-                                              disabled={editingPartId !== null && editingPartId !== part.id}
-                                          >
-                                              <Trash2 className="h-4 w-4 text-gray-500 hover:text-red-600 transition-colors" />
-                                          </Button>
-                                      </div>
-                                  </li>
-                                  );
-                              })}
-                          </ul>
-                      )}
-                  </div>
-                  <Separator/>
-                  {/* Pricing Summary */} 
-                  <div>
-                      <h2 className="text-lg font-semibold mb-3">Order Summary</h2>
-                      
-                      {totalPriceDetails ? (
-                          <div className="space-y-2 text-sm">
-                              {Object.entries(totalPriceDetails.sheetsByMaterial).map(([matId, count]) => (
-                                  <div key={matId} className="flex justify-between items-center">
-                                      <div className="flex items-center text-muted-foreground">
-                                        <Sheet className="h-4 w-4 mr-2" /> 
-                                        {materials?.find(m=>m.id===matId)?.name || matId} ({count} sheet{count !== 1 ? 's' : ''})
-                                      </div>
-                                  </div>
-                              ))}
-                               <Separator className="my-1" />
-                              <div className="flex justify-between items-center">
-                                  <span className="text-muted-foreground">Material Cost</span>
-                                  <span className="font-medium text-foreground">${totalPriceDetails.materialCost.toFixed(2)}</span>
-                              </div>
-                              <div className="flex justify-between items-center">
-                                   <span className="text-muted-foreground">Manufacturing Cost</span>
-                                  <span className="font-medium text-foreground">${totalPriceDetails.manufactureCost.toFixed(2)}</span>
-                              </div>
-                              {partsList.length > 1 && (
-                                  <div className="flex justify-between items-center">
-                                      <div className="flex items-center gap-2">
-                                          <span className={`${isEngravingEnabled ? 'text-muted-foreground' : 'text-muted-foreground/50 line-through'}`}>
-                                              ⚡ Part ID Engraving
-                                          </span>
-                                          <Button
-                                              variant="ghost"
-                                              size="icon"
-                                              className="h-4 w-4 p-0 hover:bg-red-100"
-                                              onClick={() => setIsEngravingEnabled(!isEngravingEnabled)}
-                                              title="Remove Engraving"
-                                          >
-                                              <X className="h-3 w-3 text-red-500 hover:text-red-700" />
-                                          </Button>
-                                      </div>
-                                      <span className={`font-medium ${isEngravingEnabled ? 'text-foreground' : 'text-muted-foreground/50 line-through'}`}>
-                                          ${isEngravingEnabled ? totalPriceDetails.partIdEngravingCost.toFixed(2) : (totalPriceDetails.totalPartCount * 1.50).toFixed(2)}
-                                      </span>
-                                  </div>
-                              )}
-                              <Separator className="my-2 font-bold" />
-                              <div className="flex justify-between items-center pt-1">
-                                  <span className="text-base font-semibold text-foreground">Total Price (inc GST):</span>
-                                  <span className="text-xl font-bold text-foreground">${totalPriceDetails.totalIncGST.toFixed(2)}</span>
-                              </div>
-                              <div className="flex justify-between items-center text-sm">
-                                  <span className="text-muted-foreground">Estimated Turnaround:</span>
-                                  <span className="font-medium text-foreground">
-                                      {totalTurnaround ? `${totalTurnaround} Day${totalTurnaround !== 1 ? 's' : ''}` : 'N/A'}
-                                  </span>
-                              </div>
-                              <div className="mt-4 flex flex-col space-y-2 pt-4 border-t border-gray-200">
-                                  <Button
-                                      variant="ghost"
-                                      onClick={handleReset}
-                                      className="w-full text-muted-foreground hover:text-red-500 transition-colors duration-200"
-                                      size="sm"
-                                  >
-                                      <RotateCcw className="mr-1 h-4 w-4" /> Reset Order
-                                  </Button>
-                                  <Button
-                                      onClick={handleSaveAndShare}
-                                      disabled={partsList.length === 0 || isSharing}
-                                      className="w-full font-bold transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                                      style={{
-                                          backgroundColor: '#F1EDE2', // Updated background color
-                                          color: '#8B4513', // Dark brown text
-                                          borderColor: '#E8DDD0' // Matching border
-                                      }}
-                                      onMouseEnter={(e) => {
-                                          if (!e.currentTarget.disabled) {
-                                              e.currentTarget.style.backgroundColor = '#EBE1D6'; // Slightly darker on hover
-                                              e.currentTarget.style.borderColor = '#DDD0C0'; // Darker border on hover
-                                          }
-                                      }}
-                                      onMouseLeave={(e) => {
-                                          if (!e.currentTarget.disabled) {
-                                              e.currentTarget.style.backgroundColor = '#F1EDE2';
-                                              e.currentTarget.style.borderColor = '#E8DDD0';
-                                          }
-                                      }}
-                                      size="lg"
-                                  >
-                                      <Share2 className="mr-2 h-4 w-4" />
-                                      {isSharing ? 'Generating Link...' : 'Save and Share'}
-                                  </Button>
-                                  <Button
-                                      onClick={handleAddToCart} 
-                                      disabled={partsList.length === 0 || isAddingToCart}
-                                      className="w-full text-white font-bold transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                                      style={{
-                                          backgroundColor: '#194431'
-                                      }}
-                                      onMouseEnter={(e) => {
-                                          if (!e.currentTarget.disabled) {
-                                              e.currentTarget.style.backgroundColor = '#225539';
-                                          }
-                                      }}
-                                      onMouseLeave={(e) => {
-                                          if (!e.currentTarget.disabled) {
-                                              e.currentTarget.style.backgroundColor = '#194431';
-                                          }
-                                      }}
-                                      size="lg"
-                                  >
-                                      {isAddingToCart ? 'Adding to Cart...' : 'Add to Cart'}
-                                  </Button>
-                              </div>
-                          </div>
-                      ) : (
-                          <p className="text-sm text-muted-foreground">Add parts to see pricing.</p>
-                      )}
-                  </div>
-              </div>
-            </div>
-          </ScrollArea>
-        </aside>
-
-        <main className="flex-grow relative rounded-md border border-gray-200 bg-card flex flex-col items-center justify-center min-h-[300px] h-[40vh] md:h-auto md:min-h-0 max-h-[calc(100vh-180px)] overflow-hidden">
+      <div className="flex flex-1 gap-1 md:flex-row flex-col overflow-hidden px-1 md:px-4 py-2"> 
+        {/* Visualizer - now comes first for mobile-first approach */}
+        <main className="w-full md:flex-grow relative rounded-md border border-gray-200 bg-card flex flex-col items-center justify-center min-h-[300px] h-[50vh] md:h-auto md:min-h-0 max-h-[calc(100vh-200px)] overflow-hidden order-1 md:order-1 mx-2 md:mx-0">
           {/* Selected Part Indicator */}
           {isDisplayingSelectedPart && (
             <div className="absolute top-2 left-2 z-10 bg-blue-100 border border-blue-300 text-blue-700 px-3 py-1 rounded-md text-sm shadow-sm">
@@ -1577,6 +1252,228 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
             </div>
           )}
         </main>
+
+        {/* Customizer - now comes second */}
+        <aside className="w-full md:w-[33rem] lg:w-[40rem] flex-shrink-0 flex-1 md:flex-initial min-h-0 order-2 md:order-2 mx-2 md:mx-0"> 
+          <ScrollArea className="h-full">
+            <div className="space-y-4 px-0 md:px-4 pb-4">
+              <div className={`rounded-md border ${editingPartId ? 'border-blue-300 bg-blue-50' : 'border-gray-200 bg-card'} p-4 space-y-3`}> 
+                <div className="flex items-center justify-between mb-1">
+                  <h2 className="text-lg font-semibold">
+                    {editingPartId ? (
+                      <span className="text-blue-700">Edit Part</span>
+                    ) : (
+                      'Configure New Part'
+                    )}
+                  </h2>
+                  {editingPartId && (
+                    <div className="text-xs text-gray-500">
+                      Press Escape to cancel, Ctrl+Enter to save
+                    </div>
+                  )}
+                </div>
+                {isLoading && !product ? ( // Show loading in form area if product is still loading
+                  <div>Loading form...</div>
+                ) : product ? ( // Only render form if product definition is available
+                  <CurvesBuilderForm
+                    product={product}
+                    initialConfig={currentConfig} 
+                    onConfigChange={handleConfigChange}
+                    onFieldFocusChange={handleFieldFocusChange}
+                    splitInfo={splitInfo} 
+                    setSplitLinesHovered={setSplitLinesHovered}
+                    quantity={currentPartQuantity}
+                    onQuantityChange={handleCurrentPartQuantityChange}
+                    onAddPart={handleAddPart}
+                    isAddPartDisabled={isConfigIncomplete}
+                    isLoading={isLoading}
+                    error={error}
+                    isEditMode={editingPartId !== null}
+                    onSaveEdit={handleSaveEdit}
+                    onCancelEdit={handleCancelEdit}
+                  />
+                ) : (
+                   <div>Could not load product definition for the form.</div> // Fallback if product is null after load attempt
+                )}
+              </div>
+
+              {partsList.length > 0 && (
+                <div className="rounded-md border border-gray-200 bg-card p-4 space-y-4">
+                    {/* Parts List */} 
+                    <div>
+                        <h2 className="text-lg font-semibold mb-3">Parts Added to Sheet</h2>
+                        <ul className="space-y-2">
+                            {partsList.map((part, index) => {
+                                const { displayString } = getInternalRadiusDisplay(part);
+                                const isBeingEdited = editingPartId === part.id;
+                                
+                                return (
+                                <li key={part.id} className={`flex justify-between items-center text-sm border-b border-dashed border-gray-200 pb-1 ${isBeingEdited ? 'bg-blue-50 border-blue-200 p-2 rounded' : ''}`}>
+                                    <span 
+                                        className={`cursor-pointer transition-colors duration-200 flex-1 ${
+                                            selectedPartId === part.id 
+                                                ? 'text-blue-600 font-medium bg-blue-50 px-2 py-1 rounded' 
+                                                : isBeingEdited 
+                                                    ? 'text-blue-700 font-medium px-2 py-1'
+                                                    : 'hover:text-blue-500 hover:bg-gray-50 px-2 py-1 rounded'
+                                        }`}
+                                        onClick={() => setSelectedPartId(selectedPartId === part.id ? null : part.id)}
+                                        title="Click to view in visualizer"
+                                    >
+                                        {`${index + 1}. ${displayString} (Qty: ${part.quantity})`}
+                                        {part.numSplits > 1 && <span className="text-xs text-orange-500 ml-1">(Split x{part.numSplits})</span>}
+                                        {isBeingEdited && <span className="text-xs text-blue-600 ml-2 font-medium">(Editing)</span>}
+                                    </span>
+                                    <div className="flex items-center gap-1">
+                                        <Button 
+                                            variant="ghost" 
+                                            size="icon" 
+                                            className="h-6 w-6 hover:bg-blue-600 hover:border hover:border-blue-600 transition-colors" 
+                                            onClick={() => handleStartEdit(part)}
+                                            title="Edit part"
+                                            disabled={editingPartId !== null && editingPartId !== part.id}
+                                        >
+                                            <Pencil className="h-3 w-3 text-blue-600 hover:text-white transition-colors" />
+                                        </Button>
+                                        <Button 
+                                            variant="ghost" 
+                                            size="icon" 
+                                            className="h-6 w-6 hover:bg-red-100" 
+                                            onClick={() => handleDeletePart(part.id)}
+                                            title="Delete part"
+                                            disabled={editingPartId !== null && editingPartId !== part.id}
+                                        >
+                                            <Trash2 className="h-4 w-4 text-gray-500 hover:text-red-600 transition-colors" />
+                                        </Button>
+                                    </div>
+                                </li>
+                                );
+                            })}
+                        </ul>
+                    </div>
+                    <Separator/>
+                    {/* Pricing Summary */} 
+                    <div>
+                        <h2 className="text-lg font-semibold mb-3">Order Summary</h2>
+                        
+                        {totalPriceDetails ? (
+                            <div className="space-y-2 text-sm">
+                                {Object.entries(totalPriceDetails.sheetsByMaterial).map(([matId, count]) => (
+                                    <div key={matId} className="flex justify-between items-center">
+                                        <div className="flex items-center text-muted-foreground">
+                                          <Sheet className="h-4 w-4 mr-2" /> 
+                                          {materials?.find(m=>m.id===matId)?.name || matId} ({count} sheet{count !== 1 ? 's' : ''})
+                                        </div>
+                                    </div>
+                                ))}
+                                 <Separator className="my-1" />
+                                <div className="flex justify-between items-center">
+                                    <span className="text-muted-foreground">Material Cost</span>
+                                    <span className="font-medium text-foreground">${totalPriceDetails.materialCost.toFixed(2)}</span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                     <span className="text-muted-foreground">Manufacturing Cost</span>
+                                    <span className="font-medium text-foreground">${totalPriceDetails.manufactureCost.toFixed(2)}</span>
+                                </div>
+                                {partsList.length > 1 && (
+                                    <div className="flex justify-between items-center">
+                                        <div className="flex items-center gap-2">
+                                            <span className={`${isEngravingEnabled ? 'text-muted-foreground' : 'text-muted-foreground/50 line-through'}`}>
+                                                ⚡ Part ID Engraving
+                                            </span>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-4 w-4 p-0 hover:bg-red-100"
+                                                onClick={() => setIsEngravingEnabled(!isEngravingEnabled)}
+                                                title="Remove Engraving"
+                                            >
+                                                <X className="h-3 w-3 text-red-500 hover:text-red-700" />
+                                            </Button>
+                                        </div>
+                                        <span className={`font-medium ${isEngravingEnabled ? 'text-foreground' : 'text-muted-foreground/50 line-through'}`}>
+                                            ${isEngravingEnabled ? totalPriceDetails.partIdEngravingCost.toFixed(2) : (totalPriceDetails.totalPartCount * 1.50).toFixed(2)}
+                                        </span>
+                                    </div>
+                                )}
+                                <Separator className="my-2 font-bold" />
+                                <div className="flex justify-between items-center pt-1">
+                                    <span className="text-base font-semibold text-foreground">Total Price (inc GST):</span>
+                                    <span className="text-xl font-bold text-foreground">${totalPriceDetails.totalIncGST.toFixed(2)}</span>
+                                </div>
+                                <div className="flex justify-between items-center text-sm">
+                                    <span className="text-muted-foreground">Estimated Turnaround:</span>
+                                    <span className="font-medium text-foreground">
+                                        {totalTurnaround ? `${totalTurnaround} Day${totalTurnaround !== 1 ? 's' : ''}` : 'N/A'}
+                                    </span>
+                                </div>
+                                <div className="mt-4 flex flex-col space-y-2 pt-4 border-t border-gray-200">
+                                    <Button
+                                        variant="ghost"
+                                        onClick={handleReset}
+                                        className="w-full text-muted-foreground hover:text-red-500 transition-colors duration-200"
+                                        size="sm"
+                                    >
+                                        <RotateCcw className="mr-1 h-4 w-4" /> Reset Order
+                                    </Button>
+                                    <Button
+                                        onClick={handleSaveAndShare}
+                                        disabled={partsList.length === 0 || isSharing}
+                                        className="w-full font-bold transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        style={{
+                                            backgroundColor: '#F1EDE2', // Updated background color
+                                            color: '#8B4513', // Dark brown text
+                                            borderColor: '#E8DDD0' // Matching border
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            if (!e.currentTarget.disabled) {
+                                                e.currentTarget.style.backgroundColor = '#EBE1D6'; // Slightly darker on hover
+                                                e.currentTarget.style.borderColor = '#DDD0C0'; // Darker border on hover
+                                            }
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            if (!e.currentTarget.disabled) {
+                                                e.currentTarget.style.backgroundColor = '#F1EDE2';
+                                                e.currentTarget.style.borderColor = '#E8DDD0';
+                                            }
+                                        }}
+                                        size="lg"
+                                    >
+                                        <Share2 className="mr-2 h-4 w-4" />
+                                        {isSharing ? 'Generating Link...' : 'Save and Share'}
+                                    </Button>
+                                    <Button
+                                        onClick={handleAddToCart} 
+                                        disabled={partsList.length === 0 || isAddingToCart}
+                                        className="w-full text-white font-bold transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        style={{
+                                            backgroundColor: '#194431'
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            if (!e.currentTarget.disabled) {
+                                                e.currentTarget.style.backgroundColor = '#225539';
+                                            }
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            if (!e.currentTarget.disabled) {
+                                                e.currentTarget.style.backgroundColor = '#194431';
+                                            }
+                                        }}
+                                        size="lg"
+                                    >
+                                        {isAddingToCart ? 'Adding to Cart...' : 'Add to Cart'}
+                                    </Button>
+                                </div>
+                            </div>
+                        ) : (
+                            <p className="text-sm text-muted-foreground">Add parts to see pricing.</p>
+                        )}
+                    </div>
+                </div>
+              )}
+            </div>
+          </ScrollArea>
+        </aside>
       </div>
       
       {/* Share Modal */}

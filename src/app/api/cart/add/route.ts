@@ -117,7 +117,9 @@ export async function POST(request: NextRequest) {
             cart_drawer_supported: true,
             should_trigger_drawer: true,
             shop_domain: shopDomain,
-            source: 'shopify_direct'
+            source: 'shopify_direct',
+            // Add cart permalink for cross-domain scenarios
+            cart_url: `https://${shopDomain}/cart`
           };
           
           console.log('Returning success response:', successResponse);
