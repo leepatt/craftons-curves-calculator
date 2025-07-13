@@ -5,8 +5,9 @@ import { v4 as uuidv4 } from 'uuid'; // Import uuid for unique IDs
 import { CurvesBuilderForm } from './CurvesBuilderForm';
 import CurvesVisualizer from './CurvesVisualizer';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { ProductDefinition, ProductConfiguration, Material, PartListItem } from '@/types'; // Added PartListItem
-import { AlertTriangle, Trash2, PlusCircle, Sheet, RotateCcw, X } from 'lucide-react'; // Added X for delete icon
+import { AlertTriangle, Trash2, Sheet, RotateCcw, X, Pencil, Check, X as XIcon, Share2, Copy, ExternalLink } from 'lucide-react'; // Added icons for edit functionality
 import { Separator } from "@/components/ui/separator"; // Added Separator
 import { ScrollArea } from "@/components/ui/scroll-area"; // Added ScrollArea
 import {
@@ -119,6 +120,14 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
   
   // Add loading state for add to cart
   const [isAddingToCart, setIsAddingToCart] = useState<boolean>(false);
+  
+  // Edit state management
+  const [editingPartId, setEditingPartId] = useState<string | null>(null);
+  
+  // Share state management
+  const [isSharing, setIsSharing] = useState<boolean>(false);
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [showShareModal, setShowShareModal] = useState<boolean>(false);
 
   // --- Data Fetching (remains largely the same) ---
   useEffect(() => {
@@ -725,7 +734,267 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
       if (selectedPartId === idToDelete) {
           setSelectedPartId(null);
       }
-  }, [selectedPartId]);
+      // Clear edit mode if editing part is being deleted
+      if (editingPartId === idToDelete) {
+          setEditingPartId(null);
+      }
+  }, [selectedPartId, editingPartId]);
+
+  // Edit handlers
+  const handleStartEdit = useCallback((part: PartListItem) => {
+      // Don't allow editing if another part is already being edited
+      if (editingPartId && editingPartId !== part.id) {
+          alert("Please save or cancel the current edit before editing another part.");
+          return;
+      }
+      
+      setEditingPartId(part.id);
+      // Load the part's configuration into the main config panel
+      setCurrentConfig({ ...part.config });
+      setCurrentPartQuantity(part.quantity);
+      // Clear selection when starting edit
+      setSelectedPartId(null);
+  }, [editingPartId]);
+
+  const handleSaveEdit = useCallback(() => {
+      if (!editingPartId || !materials) return;
+
+      const partToUpdate = partsList.find(p => p.id === editingPartId);
+      if (!partToUpdate) return;
+
+      // Use the same validation logic as adding a part
+      const specRadiusNum = Number(currentConfig.specifiedRadius);
+      const widthNum = Number(currentConfig.width);
+      const angleNum = Number(currentConfig.angle);
+      const radiusTypeVal = currentConfig.radiusType as 'internal' | 'external';
+
+      if (isConfigIncomplete || 
+          widthNum <= 0 || 
+          specRadiusNum <= 0 || 
+          angleNum <= 0 || 
+          angleNum > 360 ||
+          (radiusTypeVal === 'external' && specRadiusNum <= widthNum)) {
+          alert("Invalid configuration. Please check your inputs.");
+          return;
+      }
+
+      try {
+          // Calculate new values using the same logic as adding a part
+          let actualInnerRadius, actualOuterRadius;
+          if (radiusTypeVal === 'internal') {
+              actualInnerRadius = specRadiusNum;
+              actualOuterRadius = specRadiusNum + widthNum;
+          } else {
+              actualOuterRadius = specRadiusNum;
+              actualInnerRadius = specRadiusNum - widthNum;
+          }
+
+          if (actualInnerRadius < 0) actualInnerRadius = 0;
+
+          // Check if part needs to be split
+          const material = materials.find(m => m.id === currentConfig.material);
+          if (!material) {
+              alert("Selected material not found.");
+              return;
+          }
+
+          const maxSheetSize = Math.min(material.sheet_length_mm, material.sheet_width_mm);
+          const outerDiameter = actualOuterRadius * 2;
+          const isTooLarge = outerDiameter > maxSheetSize;
+          const numSplits = isTooLarge ? Math.ceil(angleNum / (360 * maxSheetSize / outerDiameter)) : 1;
+
+          // Calculate area and efficiency
+          const fullPartAreaMM2 = (angleNum / 360) * Math.PI * (Math.pow(actualOuterRadius, 2) - Math.pow(actualInnerRadius, 2));
+          let singlePartAreaM2, itemIdealEfficiency;
+
+          if (numSplits <= 1) {
+              singlePartAreaM2 = fullPartAreaMM2 / 1000000;
+              itemIdealEfficiency = calculateNestingEfficiency(actualInnerRadius, widthNum, angleNum, CURVE_EFFICIENCY_RATES);
+          } else {
+              const splitPartAngle = angleNum / numSplits;
+              singlePartAreaM2 = (fullPartAreaMM2 / numSplits) / 1000000;
+              itemIdealEfficiency = calculateNestingEfficiency(actualInnerRadius, widthNum, splitPartAngle, CURVE_EFFICIENCY_RATES);
+          }
+
+          // Clamp efficiency to reasonable bounds
+          itemIdealEfficiency = Math.max(0.05, Math.min(0.95, itemIdealEfficiency));
+
+          // Update the part in the list
+          setPartsList(prevList => 
+              prevList.map(part => 
+                  part.id === editingPartId ? {
+                      ...part,
+                      config: { ...currentConfig },
+                      quantity: currentPartQuantity,
+                      singlePartAreaM2,
+                      numSplits,
+                      itemIdealEfficiency,
+                      priceDetails: {
+                          materialCost: 0,
+                          manufactureCost: 0,
+                          totalIncGST: 0,
+                      },
+                      turnaround: 1
+                  } : part
+              )
+          );
+
+          // Exit edit mode and reset form
+          setEditingPartId(null);
+          if (product) {
+              const defaultConfigForReset = getDefaultConfig();
+              product.parameters.forEach(param => {
+                  if (!Object.prototype.hasOwnProperty.call(defaultConfigForReset, param.id) || defaultConfigForReset[param.id] === undefined) {
+                      defaultConfigForReset[param.id] = param.defaultValue !== undefined ? param.defaultValue : '';
+                  }
+              });
+              defaultConfigForReset.material = 'form-17';
+              setCurrentConfig(defaultConfigForReset);
+          } else {
+              setCurrentConfig(getDefaultConfig());
+          }
+          setCurrentPartQuantity(1);
+
+      } catch (error) {
+          console.error("Error updating part:", error);
+          alert("Error updating part. Please try again.");
+      }
+  }, [editingPartId, currentConfig, currentPartQuantity, partsList, materials, isConfigIncomplete, product]);
+
+  const handleCancelEdit = useCallback(() => {
+      setEditingPartId(null);
+      // Reset form to default state
+      if (product) {
+          const defaultConfigForReset = getDefaultConfig();
+          product.parameters.forEach(param => {
+              if (!Object.prototype.hasOwnProperty.call(defaultConfigForReset, param.id) || defaultConfigForReset[param.id] === undefined) {
+                  defaultConfigForReset[param.id] = param.defaultValue !== undefined ? param.defaultValue : '';
+              }
+          });
+          defaultConfigForReset.material = 'form-17';
+          setCurrentConfig(defaultConfigForReset);
+      } else {
+          setCurrentConfig(getDefaultConfig());
+      }
+      setCurrentPartQuantity(1);
+  }, [product]);
+
+  // Share functionality
+  const handleSaveAndShare = useCallback(async () => {
+    if (!totalPriceDetails || partsList.length === 0) {
+      alert("No parts to share! Please add some parts first.");
+      return;
+    }
+
+    try {
+      setIsSharing(true);
+      console.log("Saving configuration for sharing...");
+
+      const shareData = {
+        partsList,
+        totalPriceDetails,
+        totalTurnaround,
+        isEngravingEnabled,
+        timestamp: new Date().toISOString()
+      };
+
+      const response = await fetch('/api/share/save', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(shareData)
+      });
+
+      const result = await response.json();
+      console.log('Share response:', result);
+
+      if (response.ok && result.success) {
+        setShareUrl(result.shareUrl);
+        setShowShareModal(true);
+        console.log('Share URL generated:', result.shareUrl);
+      } else {
+        alert('❌ Failed to generate share link. Please try again.');
+      }
+    } catch (error) {
+      console.error('Share error:', error);
+      alert('❌ Error generating share link. Please try again.');
+    } finally {
+      setIsSharing(false);
+    }
+  }, [partsList, totalPriceDetails, totalTurnaround, isEngravingEnabled]);
+
+  const handleCopyShareUrl = useCallback(() => {
+    if (shareUrl) {
+      navigator.clipboard.writeText(shareUrl).then(() => {
+        alert('✅ Share link copied to clipboard!');
+      }).catch(() => {
+        alert('❌ Failed to copy to clipboard. Please copy manually.');
+      });
+    }
+  }, [shareUrl]);
+
+  const handleCloseShareModal = useCallback(() => {
+    setShowShareModal(false);
+    setShareUrl(null);
+  }, []);
+
+  // Load shared configuration on page load
+  useEffect(() => {
+    const loadSharedConfiguration = async () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const sharedId = urlParams.get('shared');
+      
+      if (sharedId) {
+        console.log('Loading shared configuration:', sharedId);
+        
+        try {
+          const response = await fetch(`/api/share/${sharedId}`);
+          const result = await response.json();
+          
+          if (response.ok && result.success) {
+            const { sharedConfig } = result;
+            console.log('Loaded shared configuration:', sharedConfig);
+            
+            // Load the shared parts list
+            setPartsList(sharedConfig.partsList || []);
+            setIsEngravingEnabled(sharedConfig.isEngravingEnabled ?? true);
+            
+            // Show a notification
+            alert('✅ Shared configuration loaded successfully! You can now modify it or add to cart.');
+            
+            // Clean up URL by removing the shared parameter
+            const newUrl = window.location.pathname;
+            window.history.replaceState({}, '', newUrl);
+          } else {
+            console.error('Failed to load shared configuration:', result.error);
+            alert('❌ Failed to load shared configuration. The link may be invalid or expired.');
+          }
+        } catch (error) {
+          console.error('Error loading shared configuration:', error);
+          alert('❌ Error loading shared configuration. Please try again.');
+        }
+      }
+    };
+    
+    loadSharedConfiguration();
+  }, []);
+
+  // Keyboard support for editing
+  useEffect(() => {
+      const handleKeyPress = (e: KeyboardEvent) => {
+          if (editingPartId) {
+              if (e.key === 'Escape') {
+                  handleCancelEdit();
+              } else if (e.key === 'Enter' && e.ctrlKey) {
+                  handleSaveEdit();
+              }
+          }
+      };
+
+      document.addEventListener('keydown', handleKeyPress);
+      return () => document.removeEventListener('keydown', handleKeyPress);
+  }, [editingPartId, handleCancelEdit, handleSaveEdit]);
 
   // Simplified cart success handler
   const handleCartSuccess = useCallback(async (result: any): Promise<void> => {
@@ -1136,8 +1405,21 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
         <aside className="w-full md:w-[30rem] lg:w-[36rem] flex-shrink-0 h-[40vh] md:h-auto"> 
           <ScrollArea className="h-full">
             <div className="space-y-4 px-4 pb-4">
-              <div className="rounded-md border border-gray-200 bg-card p-4 space-y-3"> 
-                <h2 className="text-lg font-semibold mb-1">Configure New Part</h2>
+              <div className={`rounded-md border ${editingPartId ? 'border-blue-300 bg-blue-50' : 'border-gray-200 bg-card'} p-4 space-y-3`}> 
+                <div className="flex items-center justify-between mb-1">
+                  <h2 className="text-lg font-semibold">
+                    {editingPartId ? (
+                      <span className="text-blue-700">Edit Part</span>
+                    ) : (
+                      'Configure New Part'
+                    )}
+                  </h2>
+                  {editingPartId && (
+                    <div className="text-xs text-gray-500">
+                      Press Escape to cancel, Ctrl+Enter to save
+                    </div>
+                  )}
+                </div>
                 {isLoading && !product ? ( // Show loading in form area if product is still loading
                   <div>Loading form...</div>
                 ) : product ? ( // Only render form if product definition is available
@@ -1150,20 +1432,17 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
                     setSplitLinesHovered={setSplitLinesHovered}
                     quantity={currentPartQuantity}
                     onQuantityChange={handleCurrentPartQuantityChange}
+                    onAddPart={handleAddPart}
+                    isAddPartDisabled={isConfigIncomplete}
+                    isLoading={isLoading}
+                    error={error}
+                    isEditMode={editingPartId !== null}
+                    onSaveEdit={handleSaveEdit}
+                    onCancelEdit={handleCancelEdit}
                   />
                 ) : (
                    <div>Could not load product definition for the form.</div> // Fallback if product is null after load attempt
                 )}
-
-                <Button 
-                    onClick={handleAddPart}
-                    disabled={isLoading || !!error || isConfigIncomplete} // Disable if loading, error, or config incomplete
-                    className="w-full mt-3 bg-slate-800 hover:bg-slate-700 text-white"
-                    size="lg"
-                >
-                    <PlusCircle className="mr-2 h-4 w-4"/>
-                    Add Part to Sheet
-                </Button>
               </div>
 
               <div className="rounded-md border border-gray-200 bg-card p-4 space-y-4">
@@ -1173,26 +1452,50 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
                       {partsList.length === 0 ? (
                           <p className="text-sm text-muted-foreground">No parts added yet.</p>
                       ) : (
-                          <ul className="space-y-2">
+                                                    <ul className="space-y-2">
                               {partsList.map((part, index) => {
                                   const { displayString } = getInternalRadiusDisplay(part);
+                                  const isBeingEdited = editingPartId === part.id;
+                                  
                                   return (
-                                  <li key={part.id} className="flex justify-between items-center text-sm border-b border-dashed border-gray-200 pb-1">
+                                  <li key={part.id} className={`flex justify-between items-center text-sm border-b border-dashed border-gray-200 pb-1 ${isBeingEdited ? 'bg-blue-50 border-blue-200 p-2 rounded' : ''}`}>
                                       <span 
                                           className={`cursor-pointer transition-colors duration-200 flex-1 ${
                                               selectedPartId === part.id 
                                                   ? 'text-blue-600 font-medium bg-blue-50 px-2 py-1 rounded' 
-                                                  : 'hover:text-blue-500 hover:bg-gray-50 px-2 py-1 rounded'
+                                                  : isBeingEdited 
+                                                      ? 'text-blue-700 font-medium px-2 py-1'
+                                                      : 'hover:text-blue-500 hover:bg-gray-50 px-2 py-1 rounded'
                                           }`}
                                           onClick={() => setSelectedPartId(selectedPartId === part.id ? null : part.id)}
                                           title="Click to view in visualizer"
                                       >
                                           {`${index + 1}. ${displayString} (Qty: ${part.quantity})`}
                                           {part.numSplits > 1 && <span className="text-xs text-orange-500 ml-1">(Split x{part.numSplits})</span>}
+                                          {isBeingEdited && <span className="text-xs text-blue-600 ml-2 font-medium">(Editing)</span>}
                                       </span>
-                                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleDeletePart(part.id)}>
-                                          <Trash2 className="h-4 w-4 text-destructive" />
-                                      </Button>
+                                      <div className="flex items-center gap-1">
+                                          <Button 
+                                              variant="ghost" 
+                                              size="icon" 
+                                              className="h-6 w-6 hover:bg-blue-600 hover:border hover:border-blue-600 transition-colors" 
+                                              onClick={() => handleStartEdit(part)}
+                                              title="Edit part"
+                                              disabled={editingPartId !== null && editingPartId !== part.id}
+                                          >
+                                              <Pencil className="h-3 w-3 text-blue-600 hover:text-white transition-colors" />
+                                          </Button>
+                                          <Button 
+                                              variant="ghost" 
+                                              size="icon" 
+                                              className="h-6 w-6 hover:bg-red-100" 
+                                              onClick={() => handleDeletePart(part.id)}
+                                              title="Delete part"
+                                              disabled={editingPartId !== null && editingPartId !== part.id}
+                                          >
+                                              <Trash2 className="h-4 w-4 text-gray-500 hover:text-red-600 transition-colors" />
+                                          </Button>
+                                      </div>
                                   </li>
                                   );
                               })}
@@ -1263,6 +1566,32 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
                                       size="sm"
                                   >
                                       <RotateCcw className="mr-1 h-4 w-4" /> Reset Order
+                                  </Button>
+                                  <Button
+                                      onClick={handleSaveAndShare}
+                                      disabled={partsList.length === 0 || isSharing}
+                                      className="w-full font-bold transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                                      style={{
+                                          backgroundColor: '#F1EDE2', // Updated background color
+                                          color: '#8B4513', // Dark brown text
+                                          borderColor: '#E8DDD0' // Matching border
+                                      }}
+                                      onMouseEnter={(e) => {
+                                          if (!e.currentTarget.disabled) {
+                                              e.currentTarget.style.backgroundColor = '#EBE1D6'; // Slightly darker on hover
+                                              e.currentTarget.style.borderColor = '#DDD0C0'; // Darker border on hover
+                                          }
+                                      }}
+                                      onMouseLeave={(e) => {
+                                          if (!e.currentTarget.disabled) {
+                                              e.currentTarget.style.backgroundColor = '#F1EDE2';
+                                              e.currentTarget.style.borderColor = '#E8DDD0';
+                                          }
+                                      }}
+                                      size="lg"
+                                  >
+                                      <Share2 className="mr-2 h-4 w-4" />
+                                      {isSharing ? 'Generating Link...' : 'Save and Share'}
                                   </Button>
                                   <Button
                                       onClick={handleAddToCart} 
@@ -1363,6 +1692,66 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
           )}
         </main>
       </div>
+      
+      {/* Share Modal */}
+      {showShareModal && shareUrl && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Share Your Configuration</h3>
+              <button
+                onClick={handleCloseShareModal}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <XIcon className="h-5 w-5" />
+              </button>
+            </div>
+            
+            <div className="mb-4">
+              <p className="text-sm text-gray-600 mb-3">
+                Share this link with others so they can view your configuration and complete the checkout:
+              </p>
+              
+              <div className="flex items-center space-x-2 p-3 bg-gray-50 rounded-md border">
+                <input
+                  type="text"
+                  value={shareUrl}
+                  readOnly
+                  className="flex-1 bg-transparent border-none outline-none text-sm text-gray-800"
+                />
+                <button
+                  onClick={handleCopyShareUrl}
+                  className="flex items-center space-x-1 px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600 transition-colors"
+                >
+                  <Copy className="h-4 w-4" />
+                  <span>Copy</span>
+                </button>
+              </div>
+            </div>
+            
+            <div className="flex items-center justify-between">
+              <div className="text-xs text-gray-500">
+                <span>⏱️ Link expires in 30 days</span>
+              </div>
+              <div className="flex space-x-2">
+                <button
+                  onClick={() => window.open(shareUrl, '_blank')}
+                  className="flex items-center space-x-1 px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50 transition-colors"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  <span>Open</span>
+                </button>
+                <button
+                  onClick={handleCloseShareModal}
+                  className="px-4 py-1 bg-gray-600 text-white rounded text-sm hover:bg-gray-700 transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

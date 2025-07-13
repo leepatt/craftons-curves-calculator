@@ -14,7 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, PlusCircle, Check, X as XIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Minus, Plus } from "lucide-react";
 import { getApiBasePath } from '@/lib/utils';
@@ -31,6 +31,15 @@ interface CurvesBuilderFormProps {
   setSplitLinesHovered: (hovered: boolean) => void;
   quantity: number;
   onQuantityChange: (newQuantity: number) => void;
+  // New props for add part functionality
+  onAddPart?: () => void;
+  isAddPartDisabled?: boolean;
+  isLoading?: boolean;
+  error?: string | null;
+  // Edit mode props
+  isEditMode?: boolean;
+  onSaveEdit?: () => void;
+  onCancelEdit?: () => void;
 }
 
 export function CurvesBuilderForm({ 
@@ -41,7 +50,14 @@ export function CurvesBuilderForm({
   splitInfo, 
   setSplitLinesHovered,
   quantity,
-  onQuantityChange
+  onQuantityChange,
+  onAddPart,
+  isAddPartDisabled,
+  isLoading,
+  error,
+  isEditMode,
+  onSaveEdit,
+  onCancelEdit
 }: CurvesBuilderFormProps) {
   // Display states are now primarily synced from initialConfig prop
   const [displayAngle, setDisplayAngle] = useState<string | number>(String(initialConfig.angle ?? ''));
@@ -735,6 +751,18 @@ export function CurvesBuilderForm({
                   value={option.value} 
                   aria-label={option.label}
                   variant="outline"
+                  className="data-[state=on]:bg-[#F2F2F2] data-[state=on]:text-[#194431] data-[state=on]:border-[#194431] hover:bg-[#E8E8E8] hover:text-[#194431] hover:border-[#194431] text-sm border-gray-300 text-gray-600 transition-colors duration-200"
+                  style={{
+                    ...(String(initialConfig[radiusTypeParam.id] ?? 'internal') === option.value ? {
+                      backgroundColor: '#F2F2F2',
+                      color: '#194431',
+                      borderColor: '#194431'
+                    } : {
+                      backgroundColor: '#ffffff',
+                      color: '#6b7280',
+                      borderColor: '#d1d5db'
+                    })
+                  }}
                 >
                   {option.label}
                 </ToggleGroupItem>
@@ -919,38 +947,93 @@ export function CurvesBuilderForm({
       {/* Part Quantity */}
       <div>
         <Label htmlFor="part-quantity" className="block mb-1 font-medium text-foreground">Part Quantity</Label>
-        <div className="flex items-center w-fit">
-          <Button 
-            variant="outline" 
-            size="icon" 
-            className="h-9 w-9 rounded-r-none border-r-0" 
-            onClick={() => onQuantityChange(Math.max(1, quantity - 1))} 
-            aria-label="Decrease quantity"
-          >
-            <Minus className="h-4 w-4" />
-          </Button>
-          <Input 
-            id="part-quantity" 
-            type="number" 
-            value={String(quantity)} 
-            onChange={(e) => { 
-              const val = parseInt(e.target.value, 10); 
-              onQuantityChange(isNaN(val) || val < 1 ? 1 : val);
-            }} 
-            min={1} 
-            step={1} 
-            className="h-9 w-16 rounded-none border-x-0 text-center focus-visible:ring-0 focus-visible:ring-offset-0 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]" 
-            aria-label="Part quantity"
-          />
-          <Button 
-            variant="outline" 
-            size="icon" 
-            className="h-9 w-9 rounded-l-none border-l-0" 
-            onClick={() => onQuantityChange(quantity + 1)} 
-            aria-label="Increase quantity"
-          >
-            <Plus className="h-4 w-4" />
-          </Button>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center w-fit">
+            <Button 
+              variant="outline" 
+              size="icon" 
+              className="h-9 w-9 rounded-r-none border-r-0" 
+              onClick={() => onQuantityChange(Math.max(1, quantity - 1))} 
+              aria-label="Decrease quantity"
+            >
+              <Minus className="h-4 w-4" />
+            </Button>
+            <Input 
+              id="part-quantity" 
+              type="number" 
+              value={String(quantity)} 
+              onChange={(e) => { 
+                const val = parseInt(e.target.value, 10); 
+                onQuantityChange(isNaN(val) || val < 1 ? 1 : val);
+              }} 
+              min={1} 
+              step={1} 
+              className="h-9 w-16 rounded-none border-x-0 text-center focus-visible:ring-0 focus-visible:ring-offset-0 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]" 
+              aria-label="Part quantity"
+            />
+            <Button 
+              variant="outline" 
+              size="icon" 
+              className="h-9 w-9 rounded-l-none border-l-0" 
+              onClick={() => onQuantityChange(quantity + 1)} 
+              aria-label="Increase quantity"
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+          </div>
+          
+          {/* Add Part Button or Edit Mode Buttons */}
+          {isEditMode ? (
+            <div className="flex gap-2 flex-1">
+              <Button 
+                onClick={onSaveEdit}
+                disabled={isLoading || !!error || isAddPartDisabled} 
+                className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                size="default"
+              >
+                <Check className="mr-2 h-4 w-4"/>
+                Save Changes
+              </Button>
+              <Button 
+                onClick={onCancelEdit}
+                variant="outline"
+                className="flex-1"
+                size="default"
+              >
+                <XIcon className="mr-2 h-4 w-4"/>
+                Cancel
+              </Button>
+            </div>
+          ) : (
+            onAddPart && (
+              <Button 
+                onClick={onAddPart}
+                disabled={isLoading || !!error || isAddPartDisabled} 
+                className="flex-1 font-bold border-2"
+                style={{
+                  backgroundColor: (isLoading || !!error || isAddPartDisabled) ? '#e5e5e5' : '#DAE6D2',
+                  color: (isLoading || !!error || isAddPartDisabled) ? '#9ca3af' : '#194431',
+                  borderColor: (isLoading || !!error || isAddPartDisabled) ? '#d1d5db' : '#194431'
+                }}
+                onMouseEnter={(e) => {
+                  if (!e.currentTarget.disabled) {
+                    e.currentTarget.style.backgroundColor = '#CDD7C4';
+                    e.currentTarget.style.borderColor = '#0f3320';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!e.currentTarget.disabled) {
+                    e.currentTarget.style.backgroundColor = '#DAE6D2';
+                    e.currentTarget.style.borderColor = '#194431';
+                  }
+                }}
+                size="default"
+              >
+                <PlusCircle className="mr-2 h-4 w-4"/>
+                Add Part
+              </Button>
+            )
+          )}
         </div>
       </div>
     </div>
