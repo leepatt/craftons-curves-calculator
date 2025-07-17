@@ -30,16 +30,29 @@ interface ViewControlsProps {
 }
 
 const ViewControls: React.FC<ViewControlsProps> = ({ setTopView, resetCamera, is3DView }) => {
+  const toggleView = () => {
+    if (is3DView) {
+      setTopView();
+    } else {
+      resetCamera();
+    }
+  };
+
   return (
-    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10">
-      <div className="flex items-center gap-1 bg-card p-1 rounded-md shadow-md border border-border">
-        <Button variant={is3DView ? "default" : "ghost"} size="sm" onClick={resetCamera} title="3D View (Orbit)" className="h-8 w-8 p-0">
-          <Box className="h-4 w-4" />
-        </Button>
-        <Button variant={!is3DView ? "default" : "ghost"} size="sm" onClick={setTopView} title="Plan View (Top)" className="h-8 w-8 p-0">
-          <Square className="h-4 w-4" />
-        </Button>
-      </div>
+    <div className="absolute top-4 right-4 z-10">
+      <Button 
+        variant="outline" 
+        size="sm" 
+        onClick={toggleView} 
+        title={is3DView ? "Switch to 2D View" : "Switch to 3D View"}
+        className="h-14 w-14 p-0 border-gray-300"
+      >
+        {is3DView ? (
+          <Square className="h-7 w-7 text-gray-500" style={{stroke: "#9ca3af"}} />
+        ) : (
+          <Box className="h-7 w-7 text-gray-500" style={{strokeDasharray: "2,2", stroke: "#9ca3af"}} />
+        )}
+      </Button>
     </div>
   );
 };
@@ -603,7 +616,7 @@ const CurvesVisualizer: React.FC<CurvesVisualizerProps> = ({
   const previousProps = useRef({ radius, width, angle, materialThickness });
   
   // Scale for visualization (scales DOWN by this factor)
-  const scaleFactor = 500; // Reduced to make the part appear larger
+  const scaleFactor = 600; // Increased to make the part appear larger and reduce empty space
   const scaledRadius = radius / scaleFactor;
   const scaledWidth = width / scaleFactor;
   const scaledThickness = materialThickness / scaleFactor;
@@ -617,28 +630,28 @@ const CurvesVisualizer: React.FC<CurvesVisualizerProps> = ({
       outerRadius * Math.sin(angle * Math.PI / 180)
     ) / scaleFactor;
     
-    // Reduce padding to zoom in and minimize empty margins
-    const paddingFactor = angle > 180 ? 1.1 : 1.05;
+    // Reduce padding further to zoom in and minimize empty margins
+    const paddingFactor = angle > 180 ? 1.05 : 1.02;
     return maxExtent * paddingFactor;
   }, [radius, width, angle, scaleFactor]);
   
   // Calculate the initial camera distance factor - make it dependent on size
   const calculateDistanceFactor = useCallback((r: number, w: number, a: number) => {
-    // Base factor - increased slightly
-    let factor = 1.8;
+    // Base factor - reduced for tighter framing
+    let factor = 1.5;
     // Scale factor based on radius (more zoom out for larger radius)
     // Example: increase factor by 0.1 for every 1000mm increase over 2000mm
     if (r > 2000) {
-      factor += Math.floor((r - 2000) / 1000) * 0.15; 
+      factor += Math.floor((r - 2000) / 1000) * 0.1; 
     }
-    // Adjustments based on angle/ratio (keep existing logic)
+    // Adjustments based on angle/ratio (reduced for tighter framing)
     const radiusToWidthRatio = w > 0 ? r / w : Infinity;
-    if (a < 30) factor = Math.max(factor, 1.8); // Zoom in a bit more for small angles
-    else if (a > 180) factor = Math.max(factor, 2.2); // More padding for large angles
-    else if (radiusToWidthRatio > 20) factor = Math.max(factor, 2.0); // More padding for thin bands
+    if (a < 30) factor = Math.max(factor, 1.5); // Zoom in more for small angles
+    else if (a > 180) factor = Math.max(factor, 1.8); // Less padding for large angles
+    else if (radiusToWidthRatio > 20) factor = Math.max(factor, 1.7); // Less padding for thin bands
 
     // Set a max factor to prevent zooming out excessively
-    return Math.min(factor, 5.0); // Cap factor at 5.0
+    return Math.min(factor, 3.5); // Reduced cap factor for tighter framing
   }, []);
 
   const initialDistanceFactor = useMemo(() => {

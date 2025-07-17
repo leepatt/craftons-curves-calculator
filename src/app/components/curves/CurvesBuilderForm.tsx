@@ -276,7 +276,7 @@ export function CurvesBuilderForm({
         }
 
         if (isValidForConfig && !isNaN(calculatedAngle)) {
-          onConfigChange({ angle: Number(calculatedAngle.toFixed(6)) });
+          onConfigChange({ angle: Number(calculatedAngle.toFixed(2)) });
         }
       } catch {
         // Ignore calculation errors during typing
@@ -305,7 +305,7 @@ export function CurvesBuilderForm({
       // Reset to stored values if configuration is invalid
       const currentAngleFromStore = Number(initialConfig.angle);
       if (!isNaN(currentAngleFromStore) && currentAngleFromStore > 0) {
-        setDisplayAngle(String(currentAngleFromStore));
+        setDisplayAngle(currentAngleFromStore.toFixed(2));
         const angleRad = currentAngleFromStore * (Math.PI / 180);
         const calcArc = currentOuterR > 0 ? currentOuterR * angleRad : 0;
         
@@ -349,10 +349,10 @@ export function CurvesBuilderForm({
         
         // Validate calculated values before setting
         if (!isNaN(calculatedArc) && !isNaN(calculatedChord) && calculatedArc > 0 && calculatedChord > 0) {
-          setDisplayAngle(String(calculatedAngle));
+          setDisplayAngle(calculatedAngle.toFixed(2));
           setDisplayArcLength(calculatedArc.toFixed(2));
           setDisplayChordLength(calculatedChord.toFixed(2));
-          changedConfig = { angle: Number(calculatedAngle.toFixed(6)) };
+          changedConfig = { angle: Number(calculatedAngle.toFixed(2)) };
         } else {
           isValidInput = false;
         }
@@ -375,7 +375,7 @@ export function CurvesBuilderForm({
               setDisplayAngle(calculatedAngle.toFixed(2));
               setDisplayArcLength(String(numValue));
               setDisplayChordLength(calculatedChord.toFixed(2));
-              changedConfig = { angle: Number(calculatedAngle.toFixed(6)) };
+              changedConfig = { angle: Number(calculatedAngle.toFixed(2)) };
             } else {
               isValidInput = false;
             }
@@ -405,7 +405,7 @@ export function CurvesBuilderForm({
                 setDisplayAngle(calculatedAngle.toFixed(2));
                 setDisplayArcLength(calculatedArc.toFixed(2));
                 setDisplayChordLength(String(numValue));
-                changedConfig = { angle: Number(calculatedAngle.toFixed(6)) };
+                changedConfig = { angle: Number(calculatedAngle.toFixed(2)) };
               } else {
                 isValidInput = false;
               }
@@ -422,7 +422,7 @@ export function CurvesBuilderForm({
         // Invalid input - restore values from store
         const currentAngleFromStore = Number(initialConfig.angle);
         if (!isNaN(currentAngleFromStore) && currentAngleFromStore > 0) {
-          setDisplayAngle(String(currentAngleFromStore));
+          setDisplayAngle(currentAngleFromStore.toFixed(2));
           const angleRad = currentAngleFromStore * (Math.PI / 180);
           const calcArc = currentOuterR > 0 ? currentOuterR * angleRad : 0;
           
@@ -455,7 +455,7 @@ export function CurvesBuilderForm({
       // Restore from store on calculation error
       const currentAngleFromStore = Number(initialConfig.angle);
       if (!isNaN(currentAngleFromStore) && currentAngleFromStore > 0) {
-        setDisplayAngle(String(currentAngleFromStore));
+        setDisplayAngle(currentAngleFromStore.toFixed(2));
         const angleRad = currentAngleFromStore * (Math.PI / 180);
         const calcArc = currentOuterR > 0 ? currentOuterR * angleRad : 0;
         
@@ -751,19 +751,11 @@ export function CurvesBuilderForm({
                   value={option.value} 
                   aria-label={option.label}
                   variant="outline"
-                  className="data-[state=on]:bg-[#F2F2F2] data-[state=on]:text-[#194431] data-[state=on]:border-[#194431] data-[state=on]:font-medium data-[state=off]:hover:bg-[#E8E8E8] data-[state=off]:hover:text-[#194431] data-[state=off]:hover:border-[#194431] text-sm border-2 border-gray-300 text-gray-600 transition-colors duration-200"
-                  style={{
-                    ...(String(initialConfig[radiusTypeParam.id] ?? 'internal') === option.value ? {
-                      backgroundColor: '#F2F2F2',
-                      color: '#194431',
-                      borderColor: '#194431',
-                      fontWeight: '500'
-                    } : {
-                      backgroundColor: '#ffffff',
-                      color: '#6b7280',
-                      borderColor: '#d1d5db'
-                    })
-                  }}
+                  className={`text-sm font-medium transition-all duration-200 border rounded-lg px-4 py-2 ${
+                    String(initialConfig[radiusTypeParam.id] ?? 'internal') === option.value 
+                      ? 'bg-slate-100 text-slate-800 border-slate-400 shadow-sm' 
+                      : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50 hover:border-gray-400'
+                  }`}
                 >
                   {option.label}
                 </ToggleGroupItem>
@@ -913,12 +905,12 @@ export function CurvesBuilderForm({
                  />
               </div>
           </div>
-          <p className={`text-sm mt-3 px-2 py-1 rounded transition-all duration-200 ease-in-out ${
+          <p className={`text-sm mt-3 transition-all duration-200 ease-in-out ${
             activeField === 'angle' || activeField === 'arcLength' || activeField === 'chordLength'
-              ? 'text-foreground font-medium bg-blue-100 border-l-2 border-blue-400'
-              : 'text-muted-foreground'
+              ? 'text-amber-800 font-medium'
+              : 'text-gray-700'
           }`}>
-          Input Angle, Arc Length, or Chord Length; others auto-calculate.
+          Input Angle, Arc Length, or Chord Length and the others will auto-calculate.
           </p>
       </div>
 
@@ -934,13 +926,15 @@ export function CurvesBuilderForm({
       {/* Split Warning */}
       {splitInfo?.isTooLarge && (
           <div 
-            className="cursor-pointer"
+            className="cursor-pointer group"
             onMouseEnter={() => setSplitLinesHovered(true)}
             onMouseLeave={() => setSplitLinesHovered(false)}
           >
-              <div className="border border-orange-400/30 text-orange-600 px-3 py-2 rounded-md flex items-center text-sm shadow-md bg-white">
-                  <AlertTriangle className="h-4 w-4 mr-2 flex-shrink-0" />
-                  <span>Part is too large for a single sheet. Will be manufactured in {splitInfo.numSplits} sections.</span>
+              <div className="border border-amber-300/40 text-amber-700 bg-amber-50/95 px-4 py-3 rounded-lg flex items-center text-sm shadow-lg hover:shadow-xl transition-all duration-200 group-hover:border-amber-400/60">
+                  <AlertTriangle className="h-5 w-5 mr-3 flex-shrink-0 text-amber-600" />
+                  <div className="flex flex-col">
+                      <span className="font-medium">Part will be split into 3 sections due to size constraints.</span>
+                  </div>
               </div>
           </div>
       )}
@@ -953,7 +947,7 @@ export function CurvesBuilderForm({
             <Button 
               variant="outline" 
               size="icon" 
-              className="h-9 w-9 rounded-r-none border-r-0" 
+              className="h-9 w-9 rounded-r-none border-r-0 hover:bg-gray-50 border-gray-300 hover:border-gray-400 transition-all duration-200" 
               onClick={() => onQuantityChange(Math.max(1, quantity - 1))} 
               aria-label="Decrease quantity"
             >
@@ -969,13 +963,13 @@ export function CurvesBuilderForm({
               }} 
               min={1} 
               step={1} 
-              className="h-9 w-16 rounded-none border-x-0 text-center focus-visible:ring-0 focus-visible:ring-offset-0 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]" 
+              className="h-9 w-16 rounded-none border-x-0 text-center border-gray-300 focus-visible:ring-0 focus-visible:ring-offset-0 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]" 
               aria-label="Part quantity"
             />
             <Button 
               variant="outline" 
               size="icon" 
-              className="h-9 w-9 rounded-l-none border-l-0" 
+              className="h-9 w-9 rounded-l-none border-l-0 hover:bg-gray-50 border-gray-300 hover:border-gray-400 transition-all duration-200" 
               onClick={() => onQuantityChange(quantity + 1)} 
               aria-label="Increase quantity"
             >
@@ -989,7 +983,7 @@ export function CurvesBuilderForm({
               <Button 
                 onClick={onSaveEdit}
                 disabled={isLoading || !!error || isAddPartDisabled} 
-                className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                className="flex-1 bg-green-700 hover:bg-green-800 text-white font-semibold transition-all duration-200 border border-green-700 hover:border-green-800 rounded-lg shadow-md hover:shadow-lg"
                 size="default"
               >
                 <Check className="mr-2 h-4 w-4"/>
@@ -998,7 +992,7 @@ export function CurvesBuilderForm({
               <Button 
                 onClick={onCancelEdit}
                 variant="outline"
-                className="flex-1"
+                className="flex-1 font-semibold border border-gray-300 hover:bg-gray-50 hover:border-gray-400 text-gray-700 hover:text-gray-800 transition-all duration-200 rounded-lg"
                 size="default"
               >
                 <XIcon className="mr-2 h-4 w-4"/>
@@ -1010,23 +1004,22 @@ export function CurvesBuilderForm({
               <Button 
                 onClick={onAddPart}
                 disabled={isLoading || !!error || isAddPartDisabled} 
-                className="flex-1 font-bold border-2"
+                className="flex-1 font-semibold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg shadow-md hover:shadow-lg"
                 style={{
-                  backgroundColor: (isLoading || !!error || isAddPartDisabled) ? '#e5e5e5' : '#DAE6D2',
-                  color: (isLoading || !!error || isAddPartDisabled) ? '#9ca3af' : '#194431',
-                  borderColor: (isLoading || !!error || isAddPartDisabled) ? '#d1d5db' : '#194431'
+                    backgroundColor: '#192344',
+                    borderColor: '#192344'
                 }}
                 onMouseEnter={(e) => {
-                  if (!e.currentTarget.disabled) {
-                    e.currentTarget.style.backgroundColor = '#CDD7C4';
-                    e.currentTarget.style.borderColor = '#0f3320';
-                  }
+                    if (!e.currentTarget.disabled) {
+                        e.currentTarget.style.backgroundColor = '#0f1a35';
+                        e.currentTarget.style.borderColor = '#0f1a35';
+                    }
                 }}
                 onMouseLeave={(e) => {
-                  if (!e.currentTarget.disabled) {
-                    e.currentTarget.style.backgroundColor = '#DAE6D2';
-                    e.currentTarget.style.borderColor = '#194431';
-                  }
+                    if (!e.currentTarget.disabled) {
+                        e.currentTarget.style.backgroundColor = '#192344';
+                        e.currentTarget.style.borderColor = '#192344';
+                    }
                 }}
                 size="default"
               >

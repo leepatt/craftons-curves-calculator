@@ -1195,10 +1195,10 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
 
   // --- JSX Structure Update ---
   return (
-    <div className="flex h-screen max-h-screen flex-col text-foreground overflow-hidden bg-white"> 
-      <div className="flex flex-1 gap-1 md:flex-row flex-col overflow-hidden px-1 md:px-4 py-2"> 
+    <div className="flex h-screen max-h-screen flex-col text-foreground overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100"> 
+      <div className="flex flex-1 gap-4 md:flex-row flex-col overflow-hidden px-3 md:px-6 py-3"> 
         {/* Visualizer - now comes first for mobile-first approach */}
-        <main className="w-full md:flex-grow relative rounded-md border border-gray-200 bg-card flex flex-col items-center justify-center min-h-[300px] h-[50vh] md:h-auto md:min-h-0 max-h-[calc(100vh-200px)] overflow-hidden order-1 md:order-1 mx-2 md:mx-0">
+        <main className="w-full md:flex-grow relative rounded-xl border border-gray-200/60 bg-white shadow-lg shadow-gray-200/50 flex flex-col items-center justify-center min-h-[300px] h-[50vh] md:h-auto md:min-h-0 max-h-[calc(100vh-200px)] overflow-hidden order-1 md:order-1">
           {/* Selected Part Indicator */}
           {isDisplayingSelectedPart && (
             <div className="absolute top-2 left-2 z-10 bg-blue-100 border border-blue-300 text-blue-700 px-3 py-1 rounded-md text-sm shadow-sm">
@@ -1245,30 +1245,33 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
               onMouseEnter={() => setSplitLinesHovered(true)}
               onMouseLeave={() => setSplitLinesHovered(false)}
             >
-              <div className="border border-orange-400/30 text-orange-600 px-3 py-2 rounded-md flex items-center text-sm shadow-md bg-white">
-                <AlertTriangle className="h-4 w-4 mr-2 flex-shrink-0" />
-                <span>Will be manufactured in {displaySplitInfo.numSplits} sections due to size constraints</span>
+              <div className="border border-amber-300/40 text-amber-700 bg-amber-50/95 px-3 py-2 rounded-md flex items-center text-sm shadow-md">
+                <AlertTriangle className="h-4 w-4 mr-2 flex-shrink-0 text-amber-600" />
+                                  <span className="font-medium">Part will be split into {displaySplitInfo.numSplits} sections due to size constraints</span>
               </div>
             </div>
           )}
         </main>
 
         {/* Customizer - now comes second */}
-        <aside className="w-full md:w-[33rem] lg:w-[40rem] flex-shrink-0 flex-1 md:flex-initial min-h-0 order-2 md:order-2 mx-2 md:mx-0"> 
+        <aside className="w-full md:w-[44rem] lg:w-[53rem] flex-shrink-0 flex-1 md:flex-initial min-h-0 order-2 md:order-2"> 
           <ScrollArea className="h-full">
-            <div className="space-y-4 px-0 md:px-4 pb-4">
-              <div className={`rounded-md border ${editingPartId ? 'border-blue-300 bg-blue-50' : 'border-gray-200 bg-card'} p-4 space-y-3`}> 
-                <div className="flex items-center justify-between mb-1">
-                  <h2 className="text-lg font-semibold">
-                    {editingPartId ? (
-                      <span className="text-blue-700">Edit Part</span>
-                    ) : (
-                      'Configure New Part'
-                    )}
-                  </h2>
+            <div className="space-y-5 p-2 pb-4">
+              <div className={`rounded-xl border shadow-lg ${editingPartId ? 'border-blue-200/60 bg-gradient-to-br from-blue-50/80 to-blue-100/40 shadow-blue-200/30' : 'border-gray-200/60 bg-white shadow-gray-200/40'} p-5 space-y-4`}> 
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center space-x-3">
+                    {editingPartId && <div className="w-3 h-3 bg-blue-500 rounded-full animate-pulse"></div>}
+                    <h2 className="text-xl font-bold text-gray-900">
+                      {editingPartId ? (
+                        <span className="text-blue-700">Edit Part</span>
+                      ) : (
+                        'Configure New Part'
+                      )}
+                    </h2>
+                  </div>
                   {editingPartId && (
-                    <div className="text-xs text-gray-500">
-                      Press Escape to cancel, Ctrl+Enter to save
+                    <div className="text-xs text-gray-600 bg-white/60 px-3 py-1 rounded-full border border-gray-200/60">
+                      <kbd className="text-xs">Esc</kbd> to cancel • <kbd className="text-xs">Ctrl+Enter</kbd> to save
                     </div>
                   )}
                 </div>
@@ -1298,10 +1301,15 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
               </div>
 
               {partsList.length > 0 && (
-                <div className="rounded-md border border-gray-200 bg-card p-4 space-y-4">
+                <div className="rounded-xl border border-gray-200/60 bg-white shadow-lg shadow-gray-200/40 p-5 space-y-5">
                     {/* Parts List */} 
                     <div>
-                        <h2 className="text-lg font-semibold mb-3">Parts Added to Sheet</h2>
+                        <div className="flex items-center space-x-3 mb-4">
+                          <div className="flex items-center justify-center w-8 h-8 bg-slate-100 rounded-lg">
+                            <span className="text-slate-700 font-bold text-sm">{partsList.length}</span>
+                          </div>
+                          <h2 className="text-xl font-bold text-gray-900">Parts Added to Sheet</h2>
+                        </div>
                         <ul className="space-y-2">
                             {partsList.map((part, index) => {
                                 const { displayString } = getInternalRadiusDisplay(part);
@@ -1351,35 +1359,43 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
                             })}
                         </ul>
                     </div>
-                    <Separator/>
+                    <Separator className="my-6"/>
                     {/* Pricing Summary */} 
                     <div>
-                        <h2 className="text-lg font-semibold mb-3">Order Summary</h2>
+                        <div className="flex items-center space-x-3 mb-4">
+                          <div className="flex items-center justify-center w-8 h-8 bg-slate-100 rounded-lg">
+                            <span className="text-slate-700 font-bold text-sm">$</span>
+                          </div>
+                          <h2 className="text-xl font-bold text-gray-900">Order Summary</h2>
+                        </div>
                         
                         {totalPriceDetails ? (
-                            <div className="space-y-2 text-sm">
-                                {Object.entries(totalPriceDetails.sheetsByMaterial).map(([matId, count]) => (
-                                    <div key={matId} className="flex justify-between items-center">
-                                        <div className="flex items-center text-muted-foreground">
-                                          <Sheet className="h-4 w-4 mr-2" /> 
-                                          {materials?.find(m=>m.id===matId)?.name || matId} ({count} sheet{count !== 1 ? 's' : ''})
-                                        </div>
-                                    </div>
-                                ))}
-                                 <Separator className="my-1" />
+                            <div className="space-y-3 text-sm">
                                 <div className="flex justify-between items-center">
-                                    <span className="text-muted-foreground">Material Cost</span>
-                                    <span className="font-medium text-foreground">${totalPriceDetails.materialCost.toFixed(2)}</span>
+                                    <div className="flex items-center text-gray-600">
+                                        <span className="text-gray-600">Material Cost </span>
+                                        <span className="text-gray-500">
+                                            {Object.entries(totalPriceDetails.sheetsByMaterial).map(([matId, count], index) => {
+                                                const materialName = materials?.find(m=>m.id===matId)?.name || matId;
+                                                return (
+                                                    <span key={matId}>
+                                                        {index === 0 ? ' ' : ''}({materialName} x {count} Sheet{count !== 1 ? 's' : ''}) 
+                                                    </span>
+                                                );
+                                            })}
+                                        </span>
+                                    </div>
+                                    <span className="font-semibold text-gray-900">${totalPriceDetails.materialCost.toFixed(2)}</span>
                                 </div>
                                 <div className="flex justify-between items-center">
-                                     <span className="text-muted-foreground">Manufacturing Cost</span>
-                                    <span className="font-medium text-foreground">${totalPriceDetails.manufactureCost.toFixed(2)}</span>
+                                     <span className="text-gray-600">Manufacturing Cost</span>
+                                    <span className="font-semibold text-gray-900">${totalPriceDetails.manufactureCost.toFixed(2)}</span>
                                 </div>
                                 {partsList.length > 1 && (
                                     <div className="flex justify-between items-center">
                                         <div className="flex items-center gap-2">
-                                            <span className={`${isEngravingEnabled ? 'text-muted-foreground' : 'text-muted-foreground/50 line-through'}`}>
-                                                ⚡ Part ID Engraving
+                                            <span className={`${isEngravingEnabled ? 'text-gray-600' : 'text-gray-400 line-through'}`}>
+                                                Part ID Engraving
                                             </span>
                                             <Button
                                                 variant="ghost"
@@ -1391,52 +1407,35 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
                                                 <X className="h-3 w-3 text-red-500 hover:text-red-700" />
                                             </Button>
                                         </div>
-                                        <span className={`font-medium ${isEngravingEnabled ? 'text-foreground' : 'text-muted-foreground/50 line-through'}`}>
+                                        <span className={`font-semibold ${isEngravingEnabled ? 'text-gray-900' : 'text-gray-400 line-through'}`}>
                                             ${isEngravingEnabled ? totalPriceDetails.partIdEngravingCost.toFixed(2) : (totalPriceDetails.totalPartCount * 1.50).toFixed(2)}
                                         </span>
                                     </div>
                                 )}
                                 <Separator className="my-2 font-bold" />
                                 <div className="flex justify-between items-center pt-1">
-                                    <span className="text-base font-semibold text-foreground">Total Price (inc GST):</span>
-                                    <span className="text-xl font-bold text-foreground">${totalPriceDetails.totalIncGST.toFixed(2)}</span>
+                                    <span className="text-base font-semibold text-gray-900">Total Price (inc GST):</span>
+                                    <span className="text-xl font-bold text-gray-900">${totalPriceDetails.totalIncGST.toFixed(2)}</span>
                                 </div>
                                 <div className="flex justify-between items-center text-sm">
-                                    <span className="text-muted-foreground">Estimated Turnaround:</span>
-                                    <span className="font-medium text-foreground">
+                                    <span className="text-gray-600">Estimated Turnaround:</span>
+                                    <span className="font-semibold text-gray-900">
                                         {totalTurnaround ? `${totalTurnaround} Day${totalTurnaround !== 1 ? 's' : ''}` : 'N/A'}
                                     </span>
                                 </div>
-                                <div className="mt-4 flex flex-col space-y-2 pt-4 border-t border-gray-200">
+                                <div className="mt-6 flex flex-col space-y-3 pt-6 border-t border-gray-200/60">
                                     <Button
                                         variant="ghost"
                                         onClick={handleReset}
-                                        className="w-full text-muted-foreground hover:text-red-500 transition-colors duration-200"
+                                        className="w-full text-gray-600 hover:text-red-500 hover:bg-red-50 border border-gray-200/60 hover:border-red-200 transition-all duration-200 rounded-lg"
                                         size="sm"
                                     >
-                                        <RotateCcw className="mr-1 h-4 w-4" /> Reset Order
+                                        <RotateCcw className="mr-2 h-4 w-4" /> Reset Order
                                     </Button>
                                     <Button
                                         onClick={handleSaveAndShare}
                                         disabled={partsList.length === 0 || isSharing}
-                                        className="w-full font-bold transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                                        style={{
-                                            backgroundColor: '#F1EDE2', // Updated background color
-                                            color: '#8B4513', // Dark brown text
-                                            borderColor: '#E8DDD0' // Matching border
-                                        }}
-                                        onMouseEnter={(e) => {
-                                            if (!e.currentTarget.disabled) {
-                                                e.currentTarget.style.backgroundColor = '#EBE1D6'; // Slightly darker on hover
-                                                e.currentTarget.style.borderColor = '#DDD0C0'; // Darker border on hover
-                                            }
-                                        }}
-                                        onMouseLeave={(e) => {
-                                            if (!e.currentTarget.disabled) {
-                                                e.currentTarget.style.backgroundColor = '#F1EDE2';
-                                                e.currentTarget.style.borderColor = '#E8DDD0';
-                                            }
-                                        }}
+                                        className="w-full font-semibold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 hover:border-slate-300 rounded-lg shadow-sm hover:shadow-md"
                                         size="lg"
                                     >
                                         <Share2 className="mr-2 h-4 w-4" />
@@ -1445,18 +1444,21 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
                                     <Button
                                         onClick={handleAddToCart} 
                                         disabled={partsList.length === 0 || isAddingToCart}
-                                        className="w-full text-white font-bold transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        className="w-full text-white font-bold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg shadow-md hover:shadow-lg"
                                         style={{
-                                            backgroundColor: '#194431'
+                                            backgroundColor: '#194431',
+                                            borderColor: '#194431'
                                         }}
                                         onMouseEnter={(e) => {
                                             if (!e.currentTarget.disabled) {
-                                                e.currentTarget.style.backgroundColor = '#225539';
+                                                e.currentTarget.style.backgroundColor = '#0f3320';
+                                                e.currentTarget.style.borderColor = '#0f3320';
                                             }
                                         }}
                                         onMouseLeave={(e) => {
                                             if (!e.currentTarget.disabled) {
                                                 e.currentTarget.style.backgroundColor = '#194431';
+                                                e.currentTarget.style.borderColor = '#194431';
                                             }
                                         }}
                                         size="lg"
