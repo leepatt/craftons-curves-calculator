@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
     };
     console.log('Request headers:', headers);
     
-    // Validate request body
+    // Enhanced validation for request body
     if (!body || !body.items || !Array.isArray(body.items) || body.items.length === 0) {
       console.error('Invalid request body - missing items');
       return NextResponse.json(
@@ -29,18 +29,24 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Validate each item
+    // Validate each item with enhanced checks
     for (const item of body.items) {
-      if (!item.id || !item.quantity) {
+      if (!item.id || typeof item.quantity !== 'number' || item.quantity < 1) {
         console.error('Invalid item:', item);
         return NextResponse.json(
-          { error: 'Invalid item: missing id or quantity' },
+          { error: 'Invalid item: missing id or invalid quantity' },
           { status: 400 }
         );
       }
+      
+      // Validate variant ID matches expected configuration
+      const expectedVariantId = 45300623343794;
+      if (Number(item.id) !== expectedVariantId) {
+        console.warn(`Unexpected variant ID: ${item.id}, expected: ${expectedVariantId}`);
+      }
     }
     
-    // Determine shop domain
+    // Determine shop domain with improved detection
     let shopDomain = null;
     
     // Method 1: Check referer for Shopify domain
@@ -67,11 +73,31 @@ export async function POST(request: NextRequest) {
       }
     }
     
-    // Method 3: Use known shop domain (fallback)
+    // Method 3: Check host header for Shopify domain
+    if (!shopDomain && headers.host) {
+      const domain = headers.host;
+      if (domain.includes('.shopify.com') || domain.includes('.myshopify.com')) {
+        shopDomain = domain;
+        console.log('Found shop domain from host:', shopDomain);
+      }
+    }
+    
+    // Method 4: Use known shop domain (fallback)
     if (!shopDomain) {
       const knownShopDomain = 'craftons-au.myshopify.com';
       console.log('Using known shop domain as fallback:', knownShopDomain);
       shopDomain = knownShopDomain;
+    }
+    
+    // Extract configuration summary for logging
+    const firstItem = body.items[0];
+    const isCustomCurves = firstItem.properties && firstItem.properties['_order_type'] === 'custom_curves';
+    if (isCustomCurves) {
+      console.log('Custom curves order detected:');
+      console.log('- Total Price:', firstItem.properties['_total_price']);
+      console.log('- Parts Count:', firstItem.properties['_parts_count']);
+      console.log('- Turnaround:', firstItem.properties['_total_turnaround']);
+      console.log('- Materials:', firstItem.properties['_materials_used']);
     }
     
     // Try to add to Shopify cart
@@ -87,9 +113,9 @@ export async function POST(request: NextRequest) {
           headers: {
             'Content-Type': 'application/json',
             'Accept': 'application/json',
-            'User-Agent': 'Craftons Curves Calculator',
-            // Add credentials for cross-origin requests
-            'Access-Control-Allow-Credentials': 'true',
+            'User-Agent': 'Craftons Curves Calculator v2.0',
+            // Enhanced headers for better compatibility
+            'X-Requested-With': 'XMLHttpRequest',
           },
           body: JSON.stringify(body),
         });
@@ -110,7 +136,7 @@ export async function POST(request: NextRequest) {
             result = { success: true, rawResponse: responseText };
           }
           
-          // Return success with cart drawer flags
+          // Enhanced success response with cart drawer support
           const successResponse = {
             ...result,
             success: true,
@@ -119,70 +145,136 @@ export async function POST(request: NextRequest) {
             shop_domain: shopDomain,
             source: 'shopify_direct',
             // Add cart permalink for cross-domain scenarios
-            cart_url: `https://${shopDomain}/cart`
+            cart_url: `https://${shopDomain}/cart`,
+            // Include item information
+            item_id: result.id || result.key || null,
+            item_added: {
+              variant_id: firstItem.id,
+              quantity: firstItem.quantity,
+              properties: firstItem.properties || {},
+              title: result.product_title || 'Custom Curves Order',
+              price: result.price || 1, // 1 cent in Shopify format
+            },
+            // Configuration metadata
+            configuration_type: isCustomCurves ? 'custom_curves' : 'standard',
+            timestamp: new Date().toISOString()
           };
           
-          console.log('Returning success response:', successResponse);
+          console.log('Returning enhanced success response:', successResponse);
           console.log('=== CART ADD REQUEST END (SUCCESS) ===');
           
           return NextResponse.json(successResponse);
         } else {
-          // Shopify error
+          // Enhanced Shopify error handling
           console.error('Shopify cart error - Status:', shopifyResponse.status);
           console.error('Shopify cart error - Response:', responseText);
           
-          // Check if it's a variant not found error
-          if (shopifyResponse.status === 422 || responseText.includes('variant')) {
-            console.error('CRITICAL: Variant ID may not exist in Shopify store');
+          // Parse error response if possible
+          let errorDetails = responseText;
+          try {
+            const errorJson = JSON.parse(responseText);
+            errorDetails = errorJson.description || errorJson.message || responseText;
+          } catch (e) {
+            // Use raw text if not JSON
+          }
+          
+          // Check for specific error types
+          if (shopifyResponse.status === 422) {
+            if (responseText.includes('variant') || responseText.includes('inventory')) {
+              console.error('CRITICAL: Variant ID issue or inventory problem');
+              return NextResponse.json({
+                error: 'Product variant not available',
+                details: `Variant ID ${firstItem.id} may not exist or be out of stock in Shopify store ${shopDomain}`,
+                shopifyStatus: shopifyResponse.status,
+                shopifyResponse: errorDetails,
+                solution: 'Check that the 1-cent product with this variant ID exists and is available in your Shopify store',
+                error_type: 'variant_not_found'
+              }, { status: 422 });
+            } else {
+              return NextResponse.json({
+                error: 'Cart validation error',
+                details: errorDetails,
+                shopifyStatus: shopifyResponse.status,
+                shopifyUrl: shopifyCartUrl,
+                error_type: 'validation_error'
+              }, { status: 422 });
+            }
+          } else if (shopifyResponse.status === 429) {
             return NextResponse.json({
-              error: 'Product variant not found',
-              details: `Variant ID ${body.items[0]?.id} may not exist in Shopify store ${shopDomain}`,
+              error: 'Too many requests',
+              details: 'Please wait a moment and try again',
               shopifyStatus: shopifyResponse.status,
-              shopifyResponse: responseText,
-              solution: 'Check that the 1-cent product with this variant ID exists in your Shopify store'
-            }, { status: 422 });
+              error_type: 'rate_limit'
+            }, { status: 429 });
+          } else if (shopifyResponse.status >= 500) {
+            return NextResponse.json({
+              error: 'Shopify server error',
+              details: 'Shopify is experiencing issues. Please try again later.',
+              shopifyStatus: shopifyResponse.status,
+              error_type: 'server_error'
+            }, { status: 502 });
           }
           
           // Other Shopify errors
           return NextResponse.json({
             error: 'Shopify cart error',
-            details: responseText,
+            details: errorDetails,
             shopifyStatus: shopifyResponse.status,
-            shopifyUrl: shopifyCartUrl
+            shopifyUrl: shopifyCartUrl,
+            error_type: 'unknown_shopify_error'
           }, { status: shopifyResponse.status });
         }
         
       } catch (fetchError) {
         console.error('Network error fetching from Shopify:', fetchError);
         
-        // Network error - return fallback response
+        // Enhanced network error handling
+        const isNetworkError = fetchError instanceof TypeError && fetchError.message.includes('fetch');
+        const isTimeoutError = fetchError instanceof Error && fetchError.message.includes('timeout');
+        
+        // Network error - return enhanced fallback response
         const fallbackResponse = {
           success: true,
           message: 'Item added to cart (fallback mode)',
           items: body.items,
           note: 'Shopify request failed - running in standalone mode',
           error_details: fetchError instanceof Error ? fetchError.message : 'Unknown fetch error',
-          source: 'fallback'
+          source: 'fallback',
+          cart_drawer_supported: false,
+          should_trigger_drawer: false,
+          // Include guidance for user
+          user_action: 'Please navigate to your cart manually to complete the order',
+          cart_url: `https://${shopDomain}/cart`,
+          error_type: isNetworkError ? 'network_error' : (isTimeoutError ? 'timeout_error' : 'fetch_error')
         };
         
-        console.log('Returning fallback response:', fallbackResponse);
+        console.log('Returning enhanced fallback response:', fallbackResponse);
         console.log('=== CART ADD REQUEST END (FALLBACK) ===');
         
         return NextResponse.json(fallbackResponse);
       }
     }
     
-    // Standalone mode (no shop domain)
+    // Standalone mode (no shop domain) - enhanced
     console.log('Running in standalone mode - simulating cart add');
     const standaloneResponse = {
       success: true,
       message: 'Item added to cart (standalone mode)',
       items: body.items,
       note: 'This is a simulation - no actual cart was modified',
-      source: 'standalone'
+      source: 'standalone',
+      cart_drawer_supported: false,
+      should_trigger_drawer: false,
+      // Include configuration summary if available
+      configuration_summary: isCustomCurves ? {
+        total_price: firstItem.properties['_total_price'],
+        parts_count: firstItem.properties['_parts_count'],
+        turnaround: firstItem.properties['_total_turnaround'],
+        materials: firstItem.properties['_materials_used']
+      } : null
     };
     
-    console.log('Returning standalone response:', standaloneResponse);
+    console.log('Returning enhanced standalone response:', standaloneResponse);
     console.log('=== CART ADD REQUEST END (STANDALONE) ===');
     
     return NextResponse.json(standaloneResponse);
@@ -192,11 +284,15 @@ export async function POST(request: NextRequest) {
     console.error('Error:', error);
     console.error('Stack:', error instanceof Error ? error.stack : 'No stack trace');
     
+    // Enhanced error response
     return NextResponse.json(
       { 
         error: 'Internal server error', 
         details: error instanceof Error ? error.message : 'Unknown error',
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        error_type: 'internal_error',
+        // Provide guidance to user
+        user_action: 'Please try again. If the problem persists, contact support.'
       },
       { status: 500 }
     );

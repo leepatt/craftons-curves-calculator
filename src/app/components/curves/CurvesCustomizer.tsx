@@ -1003,63 +1003,193 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
       alert("No parts to add to cart!");
       return;
     }
-
+  
     setIsAddingToCart(true);
-
+  
     try {
-      // Step 1: Save the configuration to our backend (which saves to a Shopify Metaobject)
-      const saveResponse = await fetch('/api/cart/save-configuration', {
+      // Prepare cart item data for Shopify cart
+      const cartItemData = {
+        items: [{
+          id: APP_CONFIG.business.shopifyVariantId,
+          quantity: 1,
+          properties: {
+            '_order_type': 'custom_curves',
+            '_total_price': totalPriceDetails.totalIncGST.toFixed(2),
+            '_parts_count': partsList.length.toString(),
+            '_total_turnaround': totalTurnaround ? `${totalTurnaround} days` : 'TBD',
+            '_configuration_summary': partsList.map((part, index) => {
+              const { displayString } = getInternalRadiusDisplay(part);
+              return `${index + 1}. ${displayString} (Qty: ${part.quantity})${part.numSplits > 1 ? ` [Split x${part.numSplits}]` : ''}`;
+            }).join('; '),
+            // Add engraving info if applicable
+            ...(partsList.length > 1 && isEngravingEnabled ? {
+              '_part_id_engraving': 'Included',
+              '_engraving_cost': totalPriceDetails.partIdEngravingCost.toFixed(2)
+            } : {}),
+            // Add material breakdown
+            '_materials_used': Object.entries(totalPriceDetails.sheetsByMaterial).map(([matId, count]) => {
+              const materialName = materials?.find(m => m.id === matId)?.name || matId;
+              return `${materialName}: ${count} sheet${count !== 1 ? 's' : ''}`;
+            }).join(', '),
+            '_timestamp': new Date().toISOString()
+          }
+        }]
+      };
+
+      console.log('Adding to cart with data:', cartItemData);
+
+      // Step 1: Add to Shopify cart (this will trigger cart drawer)
+      const cartResponse = await fetch('/api/cart/add', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          partsList,
-          totalPriceDetails,
-          totalTurnaround,
-          isEngravingEnabled,
-        }),
+        body: JSON.stringify(cartItemData),
       });
 
-      const saveData = await saveResponse.json();
+      const cartResult = await cartResponse.json();
+      console.log('Cart add response:', cartResult);
 
-      if (!saveResponse.ok || !saveData.configurationId) {
-        throw new Error(saveData.details || 'Failed to save configuration.');
-      }
+      if (cartResponse.ok && cartResult.success) {
+        // Step 2: Save detailed configuration as backup (non-blocking)
+        try {
+          const configResponse = await fetch('/api/cart/save-configuration', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              partsList,
+              totalPriceDetails,
+              totalTurnaround,
+              isEngravingEnabled,
+              cartItemId: cartResult.item_id || null, // Link to cart item if available
+            }),
+          });
 
-      const { configurationId } = saveData;
+          const configResult = await configResponse.json();
+          if (configResponse.ok) {
+            console.log('Configuration saved successfully:', configResult);
+          } else {
+            console.warn('Configuration save failed (non-critical):', configResult.error);
+          }
+        } catch (configError) {
+          console.warn('Configuration save error (non-critical):', configError);
+        }
 
-      // Step 2: Build the Shopify cart permalink
-      const totalPriceCents = Math.round(totalPriceDetails.totalIncGST * 100);
-      if (isNaN(totalPriceCents) || totalPriceCents <= 0) {
-        alert("Cannot add item with zero or invalid price.");
-        return;
-      }
+        // Step 3: Handle cart drawer or redirect
+        if (cartResult.cart_drawer_supported && cartResult.should_trigger_drawer) {
+          console.log('Triggering cart drawer...');
+          
+          // Try multiple cart drawer trigger methods
+          const cartDrawerEvents = ['cart:open', 'cart-drawer:open', 'drawer:open', 'cartDrawer:open', 'theme:cart:open', 'cart:toggle', 'cart:refresh'];
+          
+          cartDrawerEvents.forEach(eventName => {
+            try {
+              // Trigger custom events for themes that listen to them
+              window.dispatchEvent(new CustomEvent(eventName, { 
+                detail: { 
+                  source: 'curves-calculator',
+                  item: cartResult 
+                }
+              }));
+            } catch (e) {
+              console.debug(`Event ${eventName} dispatch failed:`, e);
+            }
+          });
 
-      const shopDomain = 'craftons-au.myshopify.com';
-      const cartUrl = new URL(`https://${shopDomain}/cart/${APP_CONFIG.business.shopifyVariantId}:${totalPriceCents}`);
+          // Try common cart drawer function calls
+          const cartDrawerFunctions = [
+            () => (window as any).openCartDrawer?.(),
+            () => (window as any).toggleCartDrawer?.(),
+            () => (window as any).showCartDrawer?.(),
+            () => (window as any).CartDrawer?.open?.(),
+            () => (window as any).theme?.CartDrawer?.open?.(),
+            () => (window as any).Shopify?.CartDrawer?.open?.()
+          ];
 
-      // Add the configuration ID as a line item property.
-      // We use a short, unique key to minimize URL length.
-      cartUrl.searchParams.append('properties[configurationId]', configurationId);
-      
-      // Also add a user-friendly summary property
-      const summary = `Custom Curves Order - ${partsList.length} part(s)`;
-      cartUrl.searchParams.append('properties[Summary]', summary);
+          cartDrawerFunctions.forEach((fn, index) => {
+            try {
+              fn();
+            } catch (e) {
+              console.debug(`Cart drawer function ${index} failed:`, e);
+            }
+          });
 
-      // Step 3: Redirect the user to the Shopify cart
-      if (typeof window !== 'undefined') {
-        (window.top ?? window).location.href = cartUrl.toString();
+          // Show success message
+          alert(`✅ Added to cart successfully!\n\nTotal: $${totalPriceDetails.totalIncGST.toFixed(2)}\nParts: ${partsList.length}\nTurnaround: ${totalTurnaround ? `${totalTurnaround} days` : 'TBD'}`);
+
+        } else if (cartResult.cart_url) {
+          // Fallback: redirect to cart page
+          console.log('Redirecting to cart page:', cartResult.cart_url);
+          alert(`✅ Added to cart successfully!\n\nRedirecting to cart...`);
+          
+          // Use window.top to break out of iframe if embedded
+          setTimeout(() => {
+            (window.top ?? window).location.href = cartResult.cart_url;
+          }, 1000);
+        } else {
+          // Final fallback: show success and let user navigate manually
+          alert(`✅ Added to cart successfully!\n\nTotal: $${totalPriceDetails.totalIncGST.toFixed(2)}\nPlease check your cart to complete the order.`);
+        }
+
+      } else {
+        throw new Error(cartResult.error || cartResult.details || 'Failed to add to cart');
       }
 
     } catch (error) {
       console.error('Error adding to cart:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      alert(`Error adding item to cart: ${errorMessage}`);
+      
+      // Enhanced error handling with specific user guidance
+      let errorMessage = 'Failed to add to cart. ';
+      if (error instanceof Error) {
+        if (error.message.includes('variant')) {
+          errorMessage += 'Product configuration error. Please contact support.';
+        } else if (error.message.includes('network')) {
+          errorMessage += 'Network error. Please check your connection and try again.';
+        } else {
+          errorMessage += error.message;
+        }
+      } else {
+        errorMessage += 'Unknown error occurred.';
+      }
+      
+      // Offer fallback option
+      const userWantsBackup = confirm(`${errorMessage}\n\nWould you like to try an alternative checkout method?`);
+      
+      if (userWantsBackup) {
+        try {
+          // Fallback: Try draft order approach
+          const saveResponse = await fetch('/api/cart/save-configuration', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              partsList,
+              totalPriceDetails,
+              totalTurnaround,
+              isEngravingEnabled,
+            }),
+          });
+
+          const saveData = await saveResponse.json();
+
+          if (saveResponse.ok && saveData.checkoutUrl) {
+            alert('✅ Alternative checkout created successfully!\nRedirecting to checkout...');
+            (window.top ?? window).location.href = saveData.checkoutUrl;
+          } else {
+            throw new Error(saveData.details || 'Alternative checkout failed');
+          }
+        } catch (fallbackError) {
+          console.error('Fallback checkout failed:', fallbackError);
+          alert('❌ All checkout methods failed. Please contact support with your configuration details.');
+        }
+      }
     } finally {
       setIsAddingToCart(false);
     }
-  }, [partsList, totalPriceDetails, totalTurnaround, isEngravingEnabled]);
+  }, [partsList, totalPriceDetails, totalTurnaround, isEngravingEnabled, materials, getInternalRadiusDisplay]);
 
   const handleReset = useCallback(() => {
     if (product) {
