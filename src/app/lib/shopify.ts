@@ -107,34 +107,53 @@ export async function createDraftOrder(session: Session, configurationData: any)
     const productId = APP_CONFIG.business.shopifyVariantId;
     const { totalPriceDetails } = configurationData;
     
+    console.log('Draft order creation - Product ID:', productId);
+    console.log('Draft order creation - Total price details:', totalPriceDetails);
+    
+    const draftOrderData = {
+      draft_order: {
+        line_items: [
+          {
+            variant_id: productId,
+            quantity: 1, // Always set quantity to 1
+            properties: [
+              {
+                name: '_configuration_data',
+                value: JSON.stringify(configurationData)
+              },
+              {
+                name: 'Product Type',
+                value: 'Custom Curves Order'
+              }
+            ],
+            // Use price override instead of quantity hack
+            price: (totalPriceDetails.totalIncGST || totalPriceDetails.totalPrice || 0.01).toFixed(2)
+          }
+        ],
+        note: 'Custom Curves Configuration - Auto-generated',
+        use_customer_default_address: false
+      }
+    };
+    
+    console.log('Draft order payload:', JSON.stringify(draftOrderData, null, 2));
+    
     const response = await client.post({
       path: 'draft_orders',
-      data: {
-        draft_order: {
-          line_items: [
-            {
-              variant_id: productId,
-              quantity: Math.round((totalPriceDetails.totalPrice || 0.01) * 100), // Convert to cents
-              properties: [
-                {
-                  name: '_configuration_data',
-                  value: JSON.stringify(configurationData)
-                },
-                {
-                  name: 'Product Type',
-                  value: 'Custom Curves Order'
-                }
-              ]
-            }
-          ],
-          note: 'Custom Curves Configuration - Auto-generated',
-          use_customer_default_address: false
-        }
-      }
+      data: draftOrderData
     });
+    
+    console.log('Shopify response body:', JSON.stringify(response.body, null, 2));
+    
     return response.body;
-  } catch (error) {
-    console.error('Error creating draft order:', error);
+  } catch (error: any) {
+    console.error('Error creating draft order:');
+    if (error.response) {
+      console.error('Status:', error.response.statusCode);
+      console.error('Headers:', JSON.stringify(error.response.headers, null, 2));
+      console.error('Body:', JSON.stringify(error.response.body, null, 2));
+    } else {
+      console.error('Error details:', error);
+    }
     throw error;
   }
 }
@@ -149,6 +168,21 @@ export async function getDraftOrder(session: Session, draftOrderId: string) {
     return response.body;
   } catch (error) {
     console.error(`Error fetching draft order ${draftOrderId}:`, error);
+    throw error;
+  }
+}
+
+export async function getProducts(session: Session, limit = 10) {
+  const client = new shopify.clients.Rest({ session });
+
+  try {
+    const response = await client.get({
+      path: 'products',
+      query: { limit: limit.toString() },
+    });
+    return response.body;
+  } catch (error) {
+    console.error('Error fetching products:', error);
     throw error;
   }
 }

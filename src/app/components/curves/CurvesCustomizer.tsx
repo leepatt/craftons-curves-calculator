@@ -1041,7 +1041,7 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
 
       // Add the configuration ID as a line item property.
       // We use a short, unique key to minimize URL length.
-      cartUrl.searchParams.append('properties[_configurationId]', configurationId);
+      cartUrl.searchParams.append('properties[configurationId]', configurationId);
       
       // Also add a user-friendly summary property
       const summary = `Custom Curves Order - ${partsList.length} part(s)`;

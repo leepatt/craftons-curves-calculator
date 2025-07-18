@@ -30,7 +30,9 @@ export async function POST(request: NextRequest) {
     const session = createSession(accessToken);
 
     // Save configuration as a draft order
+    console.log('Creating draft order with data:', JSON.stringify(configurationData, null, 2));
     const result = await createDraftOrder(session, configurationData);
+    console.log('Draft order result:', JSON.stringify(result, null, 2));
 
     if (result && result.draft_order && result.draft_order.id) {
       return NextResponse.json({
@@ -38,11 +40,24 @@ export async function POST(request: NextRequest) {
         configurationId: result.draft_order.id.toString(),
         details: 'Configuration saved successfully as draft order.',
       });
-    } else {
-      return NextResponse.json({ error: 'Failed to save configuration: Invalid response from Shopify.' }, { status: 500 });
     }
+
+    if (result && Array.isArray(result.draft_orders) && result.draft_orders.length > 0) {
+      const draftOrder = result.draft_orders[0];
+      if (draftOrder && draftOrder.id) {
+        return NextResponse.json({
+          success: true,
+          configurationId: draftOrder.id.toString(),
+          details: 'Configuration saved successfully as draft order.',
+        });
+      }
+    }
+
+    console.error('Invalid Shopify response structure:', result);
+    return NextResponse.json({ error: 'Failed to save configuration: Invalid response from Shopify.' }, { status: 500 });
   } catch (error) {
     console.error('Error in save-configuration:', error);
+    console.error('Error details:', error instanceof Error ? error.stack : 'No stack trace');
     return NextResponse.json({ error: 'Failed to save configuration.', details: error instanceof Error ? error.message : 'Unknown error' }, { status: 500 });
   }
 } 
