@@ -999,69 +999,67 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
 
 
   const handleAddToCart = useCallback(async () => {
-      if (!totalPriceDetails || partsList.length === 0) {
-          alert("No parts to add to cart!");
-          return;
+    if (!totalPriceDetails || partsList.length === 0) {
+      alert("No parts to add to cart!");
+      return;
+    }
+
+    setIsAddingToCart(true);
+
+    try {
+      // Step 1: Save the configuration to our backend (which saves to a Shopify Metaobject)
+      const saveResponse = await fetch('/api/cart/save-configuration', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          partsList,
+          totalPriceDetails,
+          totalTurnaround,
+          isEngravingEnabled,
+        }),
+      });
+
+      const saveData = await saveResponse.json();
+
+      if (!saveResponse.ok || !saveData.configurationId) {
+        throw new Error(saveData.details || 'Failed to save configuration.');
       }
 
-      try {
-          console.log("Adding to cart with 1 Cent Rule:");
-          console.log("Parts:", partsList);
-          console.log("Totals:", totalPriceDetails);
+      const { configurationId } = saveData;
 
-          // Calculate quantity for 1 cent rule (price * 100 to handle cents)
-          const totalPriceCents = Math.round(totalPriceDetails.totalIncGST * 100);
-          
-          if (isNaN(totalPriceCents) || totalPriceCents <= 0) {
-              alert("Cannot add item with zero or invalid price.");
-              return;
-          }
-
-          // Create detailed description of the order
-          const orderDescription = partsList.map((part, index) => {
-              const material = materials?.find(m => m.id === part.config.material);
-              const { displayString } = getInternalRadiusDisplay(part);
-              
-              return `Part ${index + 1}: ${displayString} - ${material?.name || 'Unknown'} - Qty: ${part.quantity}${part.numSplits > 1 ? ` (${part.numSplits} splits)` : ''}`;
-          }).join('\n');
-
-          setIsAddingToCart(true);
-
-          // --- Direct cart permalink approach ---
-          // Since we're cross-domain, the most reliable approach is to redirect directly
-          // to a Shopify cart URL that adds the item. This bypasses all session issues.
-          const shopDomain = 'craftons-au.myshopify.com';
-          
-          // Create a simple cart permalink with just the essential data
-          const cartUrl = new URL(`https://${shopDomain}/cart/${APP_CONFIG.business.shopifyVariantId}:${totalPriceCents}`);
-          
-          // Add only the most critical properties to avoid URL length issues
-          const essentialProperties = {
-              'Order': `Craftons Curves - ${partsList.length} part${partsList.length !== 1 ? 's' : ''}`,
-              'Total': `$${totalPriceDetails.totalIncGST.toFixed(2)}`,
-              'Details': orderDescription.length > 200 ? orderDescription.substring(0, 200) + '...' : orderDescription
-          };
-          
-          Object.entries(essentialProperties).forEach(([key, value]) => {
-              cartUrl.searchParams.append(`properties[${key}]`, String(value));
-          });
-
-          console.log("Redirecting to cart URL:", cartUrl.toString());
-
-          // Redirect the customer (breaking out of the iframe if necessary)
-          if (typeof window !== 'undefined') {
-              (window.top ?? window).location.href = cartUrl.toString();
-              return;
-          }
-          
-      } catch (error) {
-          console.error('Error adding to cart:', error);
-          const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-          alert(`Error adding item to cart: ${errorMessage}`);
-      } finally {
-          setIsAddingToCart(false);
+      // Step 2: Build the Shopify cart permalink
+      const totalPriceCents = Math.round(totalPriceDetails.totalIncGST * 100);
+      if (isNaN(totalPriceCents) || totalPriceCents <= 0) {
+        alert("Cannot add item with zero or invalid price.");
+        return;
       }
-  }, [partsList, totalPriceDetails, materials, totalTurnaround]);
+
+      const shopDomain = 'craftons-au.myshopify.com';
+      const cartUrl = new URL(`https://${shopDomain}/cart/${APP_CONFIG.business.shopifyVariantId}:${totalPriceCents}`);
+
+      // Add the configuration ID as a line item property.
+      // We use a short, unique key to minimize URL length.
+      cartUrl.searchParams.append('properties[_configurationId]', configurationId);
+      
+      // Also add a user-friendly summary property
+      const summary = `Custom Curves Order - ${partsList.length} part(s)`;
+      cartUrl.searchParams.append('properties[Summary]', summary);
+
+      // Step 3: Redirect the user to the Shopify cart
+      if (typeof window !== 'undefined') {
+        (window.top ?? window).location.href = cartUrl.toString();
+      }
+
+    } catch (error) {
+      console.error('Error adding to cart:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      alert(`Error adding item to cart: ${errorMessage}`);
+    } finally {
+      setIsAddingToCart(false);
+    }
+  }, [partsList, totalPriceDetails, totalTurnaround, isEngravingEnabled]);
 
   const handleReset = useCallback(() => {
     if (product) {

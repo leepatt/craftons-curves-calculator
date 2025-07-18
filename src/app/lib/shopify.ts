@@ -1,27 +1,28 @@
 import { shopifyApi, ApiVersion, Session } from '@shopify/shopify-api';
 import { restResources } from '@shopify/shopify-api/rest/admin/2024-01';
+import '@shopify/shopify-api/adapters/node';
 
 // Initialize Shopify API
 const shopify = shopifyApi({
-  apiKey: process.env.SHOPIFY_API_KEY!,
-  apiSecretKey: process.env.SHOPIFY_API_SECRET!,
-  scopes: ['read_products', 'write_products', 'read_orders', 'write_orders', 'read_checkouts', 'write_checkouts'],
+  apiKey: process.env.SHOPIFY_API_KEY || 'dummy-key',
+  apiSecretKey: process.env.SHOPIFY_API_SECRET || 'dummy-secret',
+  scopes: ['read_products', 'write_products', 'read_orders', 'write_orders', 'read_metaobjects', 'write_metaobjects'],
   hostName: process.env.SHOPIFY_APP_URL?.replace(/https?:\/\//, '') || 'localhost:3000',
   hostScheme: 'https',
   apiVersion: ApiVersion.January24,
-  isEmbeddedApp: true,
+  isEmbeddedApp: false,
   restResources,
 });
 
 // Create a session for API calls
 export function createSession(accessToken: string): Session {
   return new Session({
-    id: `offline_${process.env.SHOPIFY_STORE_DOMAIN}`,
-    shop: process.env.SHOPIFY_STORE_DOMAIN!,
+    id: `offline_${process.env.SHOPIFY_STORE_DOMAIN || 'default'}`,
+    shop: process.env.SHOPIFY_STORE_DOMAIN || 'default.myshopify.com',
     state: '',
     isOnline: false,
     accessToken,
-    scope: 'read_products,write_products,read_orders,write_orders,read_checkouts,write_checkouts',
+    scope: 'read_products,write_products,read_orders,write_orders,read_metaobjects,write_metaobjects',
   });
 }
 
@@ -74,7 +75,8 @@ export async function updateProduct(session: Session, productId: string, product
   }
 }
 
-// Cart and checkout functions
+// Cart and checkout functions (DEPRECATED - was for Shopify Plus plan)
+/*
 export async function createCheckout(session: Session, lineItems: any[]) {
   const client = new shopify.clients.Rest({ session });
   
@@ -90,6 +92,25 @@ export async function createCheckout(session: Session, lineItems: any[]) {
     return response.body;
   } catch (error) {
     console.error('Error creating checkout:', error);
+    throw error;
+  }
+}
+*/
+
+// Metaobject functions
+export async function createMetaobject(session: Session, metaobject: { type: string; fields: { key: string; value: string }[] }) {
+  const client = new shopify.clients.Rest({ session });
+  
+  try {
+    const response = await client.post({
+      path: 'metaobjects',
+      data: {
+        metaobject: metaobject,
+      },
+    });
+    return response.body;
+  } catch (error) {
+    console.error('Error creating metaobject:', error);
     throw error;
   }
 }
@@ -120,6 +141,20 @@ export async function getOrders(session: Session, limit = 50) {
     return response.body;
   } catch (error) {
     console.error('Error fetching orders:', error);
+    throw error;
+  }
+}
+
+export async function getMetaobject(session: Session, metaobjectId: string) {
+  const client = new shopify.clients.Rest({ session });
+
+  try {
+    const response = await client.get({
+      path: `metaobjects/${metaobjectId}`,
+    });
+    return response.body;
+  } catch (error) {
+    console.error(`Error fetching metaobject ${metaobjectId}:`, error);
     throw error;
   }
 }
