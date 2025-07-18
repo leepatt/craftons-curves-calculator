@@ -1,6 +1,7 @@
 import { shopifyApi, ApiVersion, Session } from '@shopify/shopify-api';
 import { restResources } from '@shopify/shopify-api/rest/admin/2024-01';
 import '@shopify/shopify-api/adapters/node';
+import { APP_CONFIG } from './config';
 
 // Initialize Shopify API
 const shopify = shopifyApi({
@@ -97,20 +98,57 @@ export async function createCheckout(session: Session, lineItems: any[]) {
 }
 */
 
-// Metaobject functions
-export async function createMetaobject(session: Session, metaobject: { type: string; fields: { key: string; value: string }[] }) {
+// Draft order functions for storing cart configurations
+export async function createDraftOrder(session: Session, configurationData: any) {
   const client = new shopify.clients.Rest({ session });
   
   try {
+    // Get the main product ID from config (should be your 1-cent product)
+    const productId = APP_CONFIG.business.shopifyVariantId;
+    const { totalPriceDetails } = configurationData;
+    
     const response = await client.post({
-      path: 'metaobjects',
+      path: 'draft_orders',
       data: {
-        metaobject: metaobject,
-      },
+        draft_order: {
+          line_items: [
+            {
+              variant_id: productId,
+              quantity: Math.round((totalPriceDetails.totalPrice || 0.01) * 100), // Convert to cents
+              properties: [
+                {
+                  name: '_configuration_data',
+                  value: JSON.stringify(configurationData)
+                },
+                {
+                  name: 'Product Type',
+                  value: 'Custom Curves Order'
+                }
+              ]
+            }
+          ],
+          note: 'Custom Curves Configuration - Auto-generated',
+          use_customer_default_address: false
+        }
+      }
     });
     return response.body;
   } catch (error) {
-    console.error('Error creating metaobject:', error);
+    console.error('Error creating draft order:', error);
+    throw error;
+  }
+}
+
+export async function getDraftOrder(session: Session, draftOrderId: string) {
+  const client = new shopify.clients.Rest({ session });
+
+  try {
+    const response = await client.get({
+      path: `draft_orders/${draftOrderId}`,
+    });
+    return response.body;
+  } catch (error) {
+    console.error(`Error fetching draft order ${draftOrderId}:`, error);
     throw error;
   }
 }

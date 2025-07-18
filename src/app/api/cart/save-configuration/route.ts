@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSession, createMetaobject } from '@/lib/shopify';
+import { createSession, createDraftOrder } from '@/lib/shopify';
 
 export async function POST(request: NextRequest) {
   try {
@@ -29,31 +29,20 @@ export async function POST(request: NextRequest) {
     // Create a Shopify session
     const session = createSession(accessToken);
 
-    // Prepare the metaobject for creation
-    const metaobjectPayload = {
-      type: 'custom_curve_configuration',
-      fields: [
-        {
-          key: 'configuration_data',
-          value: JSON.stringify(configurationData),
-        }
-      ]
-    };
+    // Save configuration as a draft order
+    const result = await createDraftOrder(session, configurationData);
 
-    const response = await createMetaobject(session, metaobjectPayload);
-
-    if (response && response.metaobject) {
-      // The ID we need for the cart is the GID (GraphQL ID)
-      const configurationId = response.metaobject.id;
-      return NextResponse.json({ success: true, configurationId: configurationId });
+    if (result && result.draft_order && result.draft_order.id) {
+      return NextResponse.json({
+        success: true,
+        configurationId: result.draft_order.id.toString(),
+        details: 'Configuration saved successfully as draft order.',
+      });
     } else {
-      console.error('Failed to create metaobject, response:', response);
-      throw new Error('Failed to save configuration to Shopify.');
+      return NextResponse.json({ error: 'Failed to save configuration: Invalid response from Shopify.' }, { status: 500 });
     }
-
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.error('Error in /api/cart/save-configuration:', error);
-    return NextResponse.json({ error: 'Failed to save configuration.', details: errorMessage }, { status: 500 });
+    console.error('Error in save-configuration:', error);
+    return NextResponse.json({ error: 'Failed to save configuration.', details: error instanceof Error ? error.message : 'Unknown error' }, { status: 500 });
   }
 } 
