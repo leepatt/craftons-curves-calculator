@@ -1134,7 +1134,42 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
         }
 
       } else {
-        throw new Error(cartResult.error || cartResult.details || 'Failed to add to cart');
+        // Cart operation failed - check if we should automatically try fallback
+        console.log('Cart operation failed:', cartResult);
+        
+        if (cartResult.suggested_action === 'use_draft_order_fallback') {
+          console.log('Automatically trying draft order fallback...');
+          
+          // Show user we're trying alternative method
+          alert('Cart system unavailable. Trying alternative checkout method...');
+          
+          // Fallback: Try draft order approach automatically
+          const saveResponse = await fetch('/api/cart/save-configuration', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              partsList,
+              totalPriceDetails,
+              totalTurnaround,
+              isEngravingEnabled,
+            }),
+          });
+
+          const saveData = await saveResponse.json();
+
+          if (saveResponse.ok && saveData.checkoutUrl) {
+            alert('✅ Alternative checkout created successfully!\nRedirecting to checkout...');
+            (window.top ?? window).location.href = saveData.checkoutUrl;
+            return; // Exit function successfully
+          } else {
+            throw new Error(saveData.details || 'Alternative checkout also failed');
+          }
+        } else {
+          // Other types of cart errors
+          throw new Error(cartResult.error || cartResult.message || 'Failed to add to cart');
+        }
       }
 
     } catch (error) {
@@ -1154,38 +1189,7 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
         errorMessage += 'Unknown error occurred.';
       }
       
-      // Offer fallback option
-      const userWantsBackup = confirm(`${errorMessage}\n\nWould you like to try an alternative checkout method?`);
-      
-      if (userWantsBackup) {
-        try {
-          // Fallback: Try draft order approach
-          const saveResponse = await fetch('/api/cart/save-configuration', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              partsList,
-              totalPriceDetails,
-              totalTurnaround,
-              isEngravingEnabled,
-            }),
-          });
-
-          const saveData = await saveResponse.json();
-
-          if (saveResponse.ok && saveData.checkoutUrl) {
-            alert('✅ Alternative checkout created successfully!\nRedirecting to checkout...');
-            (window.top ?? window).location.href = saveData.checkoutUrl;
-          } else {
-            throw new Error(saveData.details || 'Alternative checkout failed');
-          }
-        } catch (fallbackError) {
-          console.error('Fallback checkout failed:', fallbackError);
-          alert('❌ All checkout methods failed. Please contact support with your configuration details.');
-        }
-      }
+      alert(`❌ ${errorMessage}\n\nPlease try again or contact support if the problem persists.`);
     } finally {
       setIsAddingToCart(false);
     }

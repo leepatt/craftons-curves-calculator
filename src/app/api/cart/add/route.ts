@@ -232,52 +232,47 @@ export async function POST(request: NextRequest) {
         const isNetworkError = fetchError instanceof TypeError && fetchError.message.includes('fetch');
         const isTimeoutError = fetchError instanceof Error && fetchError.message.includes('timeout');
         
-        // Network error - return enhanced fallback response
-        const fallbackResponse = {
-          success: true,
-          message: 'Item added to cart (fallback mode)',
-          items: body.items,
-          note: 'Shopify request failed - running in standalone mode',
-          error_details: fetchError instanceof Error ? fetchError.message : 'Unknown fetch error',
-          source: 'fallback',
+        // Network error - return error response instead of claiming success
+        const errorResponse = {
+          success: false,
+          error: 'Failed to add to cart',
+          message: 'Unable to connect to Shopify cart system',
+          details: fetchError instanceof Error ? fetchError.message : 'Unknown fetch error',
+          source: 'network_error',
           cart_drawer_supported: false,
           should_trigger_drawer: false,
-          // Include guidance for user
-          user_action: 'Please navigate to your cart manually to complete the order',
-          cart_url: `https://${shopDomain}/cart`,
-          error_type: isNetworkError ? 'network_error' : (isTimeoutError ? 'timeout_error' : 'fetch_error')
+          // Provide user guidance
+          user_action: 'Please try the alternative checkout method below',
+          error_type: isNetworkError ? 'network_error' : (isTimeoutError ? 'timeout_error' : 'fetch_error'),
+          // Suggest fallback
+          suggested_action: 'use_draft_order_fallback'
         };
         
-        console.log('Returning enhanced fallback response:', fallbackResponse);
-        console.log('=== CART ADD REQUEST END (FALLBACK) ===');
+        console.log('Returning network error response:', errorResponse);
+        console.log('=== CART ADD REQUEST END (NETWORK ERROR) ===');
         
-        return NextResponse.json(fallbackResponse);
+        return NextResponse.json(errorResponse, { status: 503 });
       }
     }
     
-    // Standalone mode (no shop domain) - enhanced
-    console.log('Running in standalone mode - simulating cart add');
+    // Standalone mode (no shop domain) - return error instead of claiming success
+    console.log('Running in standalone mode - no shop domain detected');
     const standaloneResponse = {
-      success: true,
-      message: 'Item added to cart (standalone mode)',
-      items: body.items,
-      note: 'This is a simulation - no actual cart was modified',
+      success: false,
+      error: 'Shop domain not detected',
+      message: 'Unable to determine Shopify store location',
+      details: 'The cart system requires a valid Shopify store context',
       source: 'standalone',
       cart_drawer_supported: false,
       should_trigger_drawer: false,
-      // Include configuration summary if available
-      configuration_summary: isCustomCurves ? {
-        total_price: firstItem.properties['_total_price'],
-        parts_count: firstItem.properties['_parts_count'],
-        turnaround: firstItem.properties['_total_turnaround'],
-        materials: firstItem.properties['_materials_used']
-      } : null
+      user_action: 'Please try the alternative checkout method',
+      suggested_action: 'use_draft_order_fallback'
     };
     
-    console.log('Returning enhanced standalone response:', standaloneResponse);
-    console.log('=== CART ADD REQUEST END (STANDALONE) ===');
+    console.log('Returning standalone error response:', standaloneResponse);
+    console.log('=== CART ADD REQUEST END (NO SHOP DOMAIN) ===');
     
-    return NextResponse.json(standaloneResponse);
+    return NextResponse.json(standaloneResponse, { status: 400 });
     
   } catch (error) {
     console.error('=== CART ADD REQUEST ERROR ===');
