@@ -974,13 +974,18 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
       return;
     }
 
-    // Check if we're in demo/direct access mode
+    // Check if we're in iframe/embedded context (means we're likely in Shopify)
+    const isEmbedded = typeof window !== 'undefined' && window !== window.parent;
+    
+    // Only show demo mode if NOT embedded AND accessing directly from non-Shopify domain
     const isDemoMode = typeof window !== 'undefined' && 
+      !isEmbedded &&
       !window.location.hostname.includes('myshopify.com') && 
-      !window.location.hostname.includes('shopify.com');
+      !window.location.hostname.includes('shopify.com') &&
+      !window.location.hostname.includes('localhost');
     
     if (isDemoMode) {
-      // Demo mode - show what would happen
+      // Demo mode - show what would happen (only for direct access to production app)
       alert(`🎯 DEMO MODE - Cart Simulation\n\n` +
             `✅ Cart data prepared successfully!\n` +
             `💰 Total: $${totalPriceDetails.totalIncGST.toFixed(2)}\n` +
@@ -1037,20 +1042,33 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
       // 🎯 SMART CONTEXT DETECTION: Use appropriate URL based on environment
       let cartUrl = '/cart/add.js';
       let isShopifyContext = false;
+      let isEmbedded = false;
       
       // Detect if we're in a Shopify environment
       if (typeof window !== 'undefined') {
         const hostname = window.location.hostname;
-        isShopifyContext = hostname.includes('myshopify.com') || hostname.includes('shopify.com');
+        isEmbedded = window !== window.parent;
         
-        // If not in Shopify context but we have a shop domain configured, use it
-        if (!isShopifyContext && process.env.NEXT_PUBLIC_SHOP_DOMAIN) {
+        // We're in Shopify context if:
+        // 1. Hostname includes shopify domains, OR
+        // 2. We're embedded in an iframe (likely Shopify embedding our app)
+        isShopifyContext = hostname.includes('myshopify.com') || 
+                          hostname.includes('shopify.com') || 
+                          isEmbedded;
+        
+        // If embedded in iframe, use relative URL (same-origin to parent)
+        if (isEmbedded) {
+          cartUrl = '/cart/add.js';
+          console.log('🎯 Embedded context detected - using relative URL for same-origin request');
+        }
+        // If not in Shopify context and we have a shop domain configured, use absolute URL
+        else if (!isShopifyContext && process.env.NEXT_PUBLIC_SHOP_DOMAIN) {
           cartUrl = `https://${process.env.NEXT_PUBLIC_SHOP_DOMAIN}/cart/add.js`;
           console.log('🌐 Using configured Shopify domain for cart API');
         }
       }
       
-      console.log(`🎯 Cart context detected - Shopify: ${isShopifyContext}, URL: ${cartUrl}`);
+      console.log(`🎯 Cart context - Embedded: ${isEmbedded}, Shopify: ${isShopifyContext}, URL: ${cartUrl}`);
       
       const cartResponse = await fetch(cartUrl, {
         method: 'POST',
