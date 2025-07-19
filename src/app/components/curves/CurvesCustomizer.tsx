@@ -1267,7 +1267,7 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
 
   // --- JSX Structure Update ---
   return (
-    <div className="flex h-screen max-h-screen flex-col text-foreground overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100"> 
+    <div className="flex min-h-screen flex-col text-foreground overflow-x-hidden bg-gradient-to-br from-gray-50 to-gray-100"> 
       <div className="flex flex-1 gap-4 md:flex-row flex-col overflow-hidden px-3 md:px-6 py-3"> 
         {/* Visualizer - now comes first for mobile-first approach */}
         <main className="w-full md:flex-grow relative rounded-xl border border-gray-200/60 bg-white shadow-lg shadow-gray-200/50 flex flex-col items-center justify-center min-h-[300px] h-[50vh] md:h-auto md:min-h-0 max-h-[calc(100vh-200px)] overflow-hidden order-1 md:order-1">
@@ -1293,7 +1293,7 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
               materialThickness={currentMaterialThickness}
               arcLength={displayDerivedMeasurements.arcLength} 
               chordLength={displayDerivedMeasurements.chordLength} 
-              showDimensions={true} 
+              showDimensions={!showShareModal} 
                               isPlaceholderMode={!isDisplayingSelectedPart && (
                   Number(displayConfig.specifiedRadius) <= 0 || 
                   Number(displayConfig.width) <= 0 || 
@@ -1373,7 +1373,7 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
               </div>
 
               {partsList.length > 0 && (
-                <div className="rounded-xl border border-gray-200/60 bg-white shadow-lg shadow-gray-200/40 p-5 space-y-5">
+                <div className="rounded-xl border border-gray-200/60 bg-white shadow-lg shadow-gray-200/40 p-4 space-y-4"> 
                     {/* Parts List */} 
                     <div>
                         <div className="flex items-center space-x-3 mb-4">
@@ -1431,7 +1431,6 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
                             })}
                         </ul>
                     </div>
-                    <Separator className="my-6"/>
                     {/* Pricing Summary */} 
                     <div>
                         <div className="flex items-center space-x-3 mb-4">
@@ -1495,7 +1494,7 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
                                         {totalTurnaround ? `${totalTurnaround} Day${totalTurnaround !== 1 ? 's' : ''}` : 'N/A'}
                                     </span>
                                 </div>
-                                <div className="mt-6 flex flex-col space-y-3 pt-6 border-t border-gray-200/60">
+                                <div className="mt-4 flex flex-col space-y-3">
                                     <Button
                                         variant="ghost"
                                         onClick={handleReset}
@@ -1552,7 +1551,7 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
       
       {/* Share Modal */}
       {showShareModal && shareUrl && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 backdrop-blur-sm bg-black/30 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900">Share Your Configuration</h3>
