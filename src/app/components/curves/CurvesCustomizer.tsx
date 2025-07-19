@@ -995,8 +995,15 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
             '_parts_count': partsList.length.toString(),
             '_total_turnaround': totalTurnaround ? `${totalTurnaround} days` : 'TBD',
             '_configuration_summary': partsList.map((part, index) => {
-              const { displayString } = getInternalRadiusDisplay(part);
-              return `${index + 1}. ${displayString} (Qty: ${part.quantity})${part.numSplits > 1 ? ` [Split x${part.numSplits}]` : ''}`;
+              // Build compact summary: "1. R:3200 W:90 A:90 Qty:3 Split:3"
+              const rType = part.config.radiusType as 'internal' | 'external';
+              const specifiedRadius = Number(part.config.specifiedRadius);
+              const width = Number(part.config.width);
+              const angle = Number(part.config.angle);
+              const internalRadiusCalc = rType === 'internal' ? specifiedRadius : specifiedRadius - width;
+              const internalRadius = internalRadiusCalc < 0 ? 0 : internalRadiusCalc;
+              const splitStr = part.numSplits > 1 ? ` Split:${part.numSplits}` : '';
+              return `${index + 1}. R:${internalRadius} W:${width} A:${angle} Qty:${part.quantity}${splitStr}`;
             }).join('; '),
             // Add engraving info if applicable
             ...(partsList.length > 1 && isEngravingEnabled ? {
@@ -1020,112 +1027,88 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
       console.log('📦 Cart data:', JSON.stringify(cartItemData, null, 2));
 
       // 🎯 FIXED CART URL LOGIC: Use the internal proxy to avoid CORS issues.
-      const cartUrl = '/api/cart/add';
+      // const cartUrl = '/api/cart/add';
+      // 
+      // console.log(`🎯 Cart request - Using proxy URL: ${cartUrl}`);
+      // 
+      // const cartResponse = await fetch(cartUrl, {
+      //   method: 'POST',
+      //   headers: {
+      //     'Content-Type': 'application/json'
+      //   },
+      //   body: JSON.stringify(cartItemData)
+      // });
+      //
+      // console.log('📬 Response received. Status:', cartResponse.status, 'OK:', cartResponse.ok);
+      //
+      // if (!cartResponse.ok) {
+      //   // Enhanced error handling with detailed Shopify error messages
+      //   let errorData;
+      //   try {
+      //     errorData = await cartResponse.json();
+      //   } catch {
+      //     errorData = { message: `HTTP ${cartResponse.status}` };
+      //   }
+      //   
+      //   console.error('🚨 Shopify Error Response:', errorData);
+      //   throw new Error(errorData.description || errorData.message || `Failed to add item to cart (${cartResponse.status})`);
+      // }
+      // 
+      // const cartResult = await cartResponse.json();
+      // console.log('✅ Successfully added to cart:', cartResult);
+      // 
+      // --- NEW PERMALINK IMPLEMENTATION ---
+      // Instead of relying on the server-side proxy (which can't pass session cookies
+      // back to the browser), we build a Shopify cart permalink that encodes all
+      // line-item properties in Base64 and sends the customer straight to the cart
+      // page with their item pre-loaded. This guarantees that the cart page always
+      // shows the newly-added item, even when the calculator is running on a
+      // different origin (e.g. craftons-curves-calculator.vercel.app).
       
-      console.log(`🎯 Cart request - Using proxy URL: ${cartUrl}`);
-      
-      const cartResponse = await fetch(cartUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(cartItemData)
+      // --- Build visible part summaries as separate properties ---
+      const visiblePartProps: Record<string,string> = {};
+      partsList.forEach((part, idx) => {
+        const rType = part.config.radiusType as 'internal' | 'external';
+        const specifiedRadius = Number(part.config.specifiedRadius);
+        const width = Number(part.config.width);
+        const angle = Number(part.config.angle);
+        const internalRadiusCalc = rType === 'internal' ? specifiedRadius : specifiedRadius - width;
+        const internalRadius = internalRadiusCalc < 0 ? 0 : internalRadiusCalc;
+        const splitStr = part.numSplits > 1 ? ` Split:${part.numSplits}` : '';
+        visiblePartProps[`${idx + 1}.`] = `R:${internalRadius} W:${width} A:${angle} Qty:${part.quantity}${splitStr}`;
       });
 
-      console.log('📬 Response received. Status:', cartResponse.status, 'OK:', cartResponse.ok);
+      // Merge visible props into the main properties object
+      cartItemData.items[0].properties = {
+        ...cartItemData.items[0].properties,
+        ...visiblePartProps,
+      };
 
-      if (!cartResponse.ok) {
-        // Enhanced error handling with detailed Shopify error messages
-        let errorData;
-        try {
-          errorData = await cartResponse.json();
-        } catch {
-          errorData = { message: `HTTP ${cartResponse.status}` };
-        }
-        
-        console.error('🚨 Shopify Error Response:', errorData);
-        throw new Error(errorData.description || errorData.message || `Failed to add item to cart (${cartResponse.status})`);
+      const propsJson = JSON.stringify(cartItemData.items[0].properties);
+      // Base64-URL encode the JSON string (Shopify requires URL-safe Base64)
+      const base64Props = btoa(unescape(encodeURIComponent(propsJson)))
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=+$/, '');
+
+      const shopDomain = process.env.NEXT_PUBLIC_SHOP_DOMAIN || 'craftons-au.myshopify.com';
+      const variantId = APP_CONFIG.business.shopifyVariantId;
+      const permalink = `https://${shopDomain}/cart/${variantId}:${quantity}?properties=${encodeURIComponent(base64Props)}&storefront=true`;
+
+      console.log('🚀 Redirecting to cart permalink:', permalink);
+
+      // Optionally log to console for debugging but no popup
+      console.log(`Added ${partsList.length} part(s) to cart. Redirecting…`);
+
+      // If embedded inside an iframe (Shopify app embed), redirect the parent;
+      // otherwise redirect the current window.
+      if (window.top) {
+        window.top.location.href = permalink;
+      } else {
+        window.location.href = permalink;
       }
-      
-      const cartResult = await cartResponse.json();
-      console.log('✅ Successfully added to cart:', cartResult);
 
-      // 🎉 Success! Try to trigger cart drawer or redirect to cart
-      try {
-        // Attempt to trigger common Shopify theme cart drawer events
-        const cartEvents = ['cart:open', 'cart-drawer:open', 'drawer:open', 'cartDrawer:open', 'theme:cart:open'];
-        let drawerOpened = false;
-
-                 // Try triggering cart drawer events
-         cartEvents.forEach(eventName => {
-           try {
-             const event = new CustomEvent(eventName, { 
-               detail: { 
-                 item: cartResult,
-                 source: 'curves-calculator' 
-               },
-               bubbles: true 
-             });
-             window.dispatchEvent(event);
-             
-             // Also try on parent window if in iframe
-             if (window !== window.parent) {
-               window.parent.dispatchEvent(event);
-             }
-           } catch (e) {
-             console.log(`Could not dispatch ${eventName}:`, e instanceof Error ? e.message : 'Unknown error');
-           }
-         });
-
-         // Try calling common cart drawer functions
-         const cartFunctions = [
-           'openCartDrawer', 'toggleCartDrawer', 'showCartDrawer',
-           () => (window as any).CartDrawer?.open?.(),
-           () => (window as any).theme?.CartDrawer?.open?.()
-         ];
-
-         cartFunctions.forEach(fn => {
-           try {
-             if (typeof fn === 'string' && typeof (window as any)[fn] === 'function') {
-               (window as any)[fn]();
-               drawerOpened = true;
-             } else if (typeof fn === 'function') {
-               fn();
-               drawerOpened = true;
-             }
-           } catch (e) {
-             // Silent fail for cart drawer attempts
-           }
-         });
-
-        // Show success message
-        alert(`✅ Successfully added custom curves to cart!\n💰 Total: $${totalPriceDetails.totalIncGST.toFixed(2)}\n📦 ${partsList.length} part${partsList.length !== 1 ? 's' : ''} configured`);
-
-        // Fallback: redirect to the actual Shopify cart page after a brief delay
-        setTimeout(() => {
-          const shopDomain = process.env.NEXT_PUBLIC_SHOP_DOMAIN || 'craftons-au.myshopify.com';
-          const shopifyCartPageUrl = `https://${shopDomain}/cart`;
-          
-          // If the app is embedded in an iframe, redirect the top-level page.
-          if (window.top) {
-            window.top.location.href = shopifyCartPageUrl;
-          } else {
-            // Otherwise, redirect the current window (for standalone use).
-            window.location.href = shopifyCartPageUrl;
-          }
-        }, 1500);
-
-      } catch (postAddError) {
-        console.warn('Post-add cart handling failed:', postAddError);
-        // Fallback in case of error should also go to the correct URL
-        const shopDomain = process.env.NEXT_PUBLIC_SHOP_DOMAIN || 'craftons-au.myshopify.com';
-        const shopifyCartPageUrl = `https://${shopDomain}/cart`;
-        if (window.top) {
-          window.top.location.href = shopifyCartPageUrl;
-        } else {
-          window.location.href = shopifyCartPageUrl;
-        }
-      }
+      return; // Skip legacy proxy logic
 
     } catch (error) {
       console.error('💥 Error adding to cart:', error);
