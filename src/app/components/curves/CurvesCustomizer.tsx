@@ -1019,22 +1019,10 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
       console.log('🛒 Adding to cart with quantity:', quantity, 'for price:', totalPriceDetails.totalIncGST.toFixed(2));
       console.log('📦 Cart data:', JSON.stringify(cartItemData, null, 2));
 
-      // 🎯 FIXED CART URL LOGIC: Always use Shopify domain when available
-      let cartUrl = '/cart/add.js';
-      let isEmbedded = false;
+      // 🎯 FIXED CART URL LOGIC: Use the internal proxy to avoid CORS issues.
+      const cartUrl = '/api/cart/add';
       
-      // Detect if we're in an iframe
-      if (typeof window !== 'undefined') {
-        isEmbedded = window !== window.parent;
-        
-        // ALWAYS use the Shopify domain when we have it configured
-        // Even when embedded, we need to make requests to Shopify's domain, not our app's domain
-        const shopDomain = process.env.NEXT_PUBLIC_SHOP_DOMAIN || 'craftons-au.myshopify.com';
-        cartUrl = `https://${shopDomain}/cart/add.js`;
-        console.log('🎯 Using Shopify domain for cart API:', cartUrl);
-      }
-      
-      console.log(`🎯 Cart request - Embedded: ${isEmbedded}, URL: ${cartUrl}`);
+      console.log(`🎯 Cart request - Using proxy URL: ${cartUrl}`);
       
       const cartResponse = await fetch(cartUrl, {
         method: 'POST',

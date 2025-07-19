@@ -1,6 +1,7 @@
-const testAddToCart = async () => {
-  console.log('🧪 Testing the FIXED "Price as Quantity" add-to-cart flow...');
-  console.log('🎯 KEY FIX: Using relative URL /cart/add.js instead of absolute URL to avoid CORS issues!');
+const assert = require('assert');
+
+const testAddToCartProxy = async () => {
+  console.log('🧪 Testing the PROXY "Price as Quantity" add-to-cart flow...');
 
   const totalPrice = 173.44;
   const expectedQuantity = Math.round(totalPrice * 100);
@@ -21,43 +22,40 @@ const testAddToCart = async () => {
     }]
   };
 
-  let finalResult = '🟡 PENDING';
-
   try {
-    console.log(`\n📦 Testing the FIXED add-to-cart with relative URL and quantity: ${expectedQuantity}`);
+    console.log(`\n📦 Testing the proxy add-to-cart with URL /api/cart/add and quantity: ${expectedQuantity}`);
     
-    // Test the new relative URL approach that actually works
-    const response = await fetch('/cart/add.js', {
+    const response = await fetch('http://localhost:3000/api/cart/add', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(testConfiguration)
     });
 
     console.log(`\n📬 Received response with status: ${response.status}`);
-
-    if (response.ok) {
-      const result = await response.json();
-      console.log('✅ SUCCESS: Shopify accepted the request.');
-      console.log('🛒 Item added to cart. Response from Shopify:');
-      console.log(JSON.stringify(result, null, 2));
-      finalResult = '✅ TEST PASSED';
-    } else {
+    
+    if (!response.ok) {
       const errorText = await response.text();
-      console.error('❌ FAILURE: Shopify rejected the request.');
-      console.error('📝 Error details from Shopify:', errorText);
-      finalResult = '❌ TEST FAILED';
+      console.error('❌ Proxy returned an error response (raw text):', errorText);
     }
 
+    assert.strictEqual(response.ok, true, `Shopify request failed with status ${response.status}`);
+    
+    const result = await response.json();
+    console.log('✅ SUCCESS: Shopify accepted the request via proxy.');
+    console.log('🛒 Item added to cart. Response from Shopify:');
+    console.log(JSON.stringify(result, null, 2));
+    
+    console.log('\n\n🎯 Final Result: ✅ TEST PASSED');
+
   } catch (error) {
-    console.error('❌ TEST FAILED with a network or application error:', error.message);
-    finalResult = '❌ TEST FAILED';
-  } finally {
-    // Adding a small delay to ensure all logs are flushed before exiting.
-    setTimeout(() => {
-      console.log(`\n\n🎯 Final Result: ${finalResult}`);
-    }, 500);
+    console.error('❌ TEST FAILED with an error:', error.message);
+    console.error(error);
+    throw new Error('Add to cart proxy test failed.');
   }
 };
 
 // Run the test
-testAddToCart(); 
+testAddToCartProxy().catch(e => {
+  console.error(e);
+  process.exit(1);
+}); 
