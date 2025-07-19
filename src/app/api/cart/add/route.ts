@@ -18,11 +18,18 @@ export async function POST(req: NextRequest) {
     const shopifyCartUrl = `https://${shopDomain}/cart/add.js`;
     console.log(`[Proxy] 4. Forwarding request to Shopify URL: ${shopifyCartUrl}`);
 
+    // Forward cookies from the original request to maintain the user's session
+    const requestHeaders: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+    const cookie = req.headers.get('cookie');
+    if (cookie) {
+      requestHeaders['Cookie'] = cookie;
+    }
+
     const shopifyResponse = await fetch(shopifyCartUrl, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: requestHeaders,
       body: JSON.stringify(body),
     });
     console.log(`[Proxy] 5. Received response from Shopify with status: ${shopifyResponse.status}`);
