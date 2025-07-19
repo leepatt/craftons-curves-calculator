@@ -1101,15 +1101,30 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
         // Show success message
         alert(`✅ Successfully added custom curves to cart!\n💰 Total: $${totalPriceDetails.totalIncGST.toFixed(2)}\n📦 ${partsList.length} part${partsList.length !== 1 ? 's' : ''} configured`);
 
-        // Fallback: redirect to cart page after a brief delay to show the success message
+        // Fallback: redirect to the actual Shopify cart page after a brief delay
         setTimeout(() => {
-          window.location.href = '/cart';
+          const shopDomain = process.env.NEXT_PUBLIC_SHOP_DOMAIN || 'craftons-au.myshopify.com';
+          const shopifyCartPageUrl = `https://${shopDomain}/cart`;
+          
+          // If the app is embedded in an iframe, redirect the top-level page.
+          if (window.top) {
+            window.top.location.href = shopifyCartPageUrl;
+          } else {
+            // Otherwise, redirect the current window (for standalone use).
+            window.location.href = shopifyCartPageUrl;
+          }
         }, 1500);
 
       } catch (postAddError) {
         console.warn('Post-add cart handling failed:', postAddError);
-        // Still redirect to cart as fallback
-        window.location.href = '/cart';
+        // Fallback in case of error should also go to the correct URL
+        const shopDomain = process.env.NEXT_PUBLIC_SHOP_DOMAIN || 'craftons-au.myshopify.com';
+        const shopifyCartPageUrl = `https://${shopDomain}/cart`;
+        if (window.top) {
+          window.top.location.href = shopifyCartPageUrl;
+        } else {
+          window.location.href = shopifyCartPageUrl;
+        }
       }
 
     } catch (error) {
