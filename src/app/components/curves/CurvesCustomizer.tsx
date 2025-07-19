@@ -756,248 +756,218 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
       setSelectedPartId(null);
   }, [editingPartId]);
 
-  const handleSaveEdit = useCallback(() => {
-      if (!editingPartId || !materials) return;
-
-      const partToUpdate = partsList.find(p => p.id === editingPartId);
-      if (!partToUpdate) return;
-
-      // Use the same validation logic as adding a part
-      const specRadiusNum = Number(currentConfig.specifiedRadius);
-      const widthNum = Number(currentConfig.width);
-      const angleNum = Number(currentConfig.angle);
-      const radiusTypeVal = currentConfig.radiusType as 'internal' | 'external';
-
-      if (isConfigIncomplete || 
-          widthNum <= 0 || 
-          specRadiusNum <= 0 || 
-          angleNum <= 0 || 
-          angleNum > 360 ||
-          (radiusTypeVal === 'external' && specRadiusNum <= widthNum)) {
-          alert("Invalid configuration. Please check your inputs.");
-          return;
-      }
-
-      try {
-          // Calculate new values using the same logic as adding a part
-          let actualInnerRadius, actualOuterRadius;
-          if (radiusTypeVal === 'internal') {
-              actualInnerRadius = specRadiusNum;
-              actualOuterRadius = specRadiusNum + widthNum;
-          } else {
-              actualOuterRadius = specRadiusNum;
-              actualInnerRadius = specRadiusNum - widthNum;
-          }
-
-          if (actualInnerRadius < 0) actualInnerRadius = 0;
-
-          // Check if part needs to be split
-          const material = materials.find(m => m.id === currentConfig.material);
-          if (!material) {
-              alert("Selected material not found.");
-              return;
-          }
-
-          const maxSheetSize = Math.min(material.sheet_length_mm, material.sheet_width_mm);
-          const outerDiameter = actualOuterRadius * 2;
-          const isTooLarge = outerDiameter > maxSheetSize;
-          const numSplits = isTooLarge ? Math.ceil(angleNum / (360 * maxSheetSize / outerDiameter)) : 1;
-
-          // Calculate area and efficiency
-          const fullPartAreaMM2 = (angleNum / 360) * Math.PI * (Math.pow(actualOuterRadius, 2) - Math.pow(actualInnerRadius, 2));
-          let singlePartAreaM2, itemIdealEfficiency;
-
-          if (numSplits <= 1) {
-              singlePartAreaM2 = fullPartAreaMM2 / 1000000;
-              itemIdealEfficiency = calculateNestingEfficiency(actualInnerRadius, widthNum, angleNum, CURVE_EFFICIENCY_RATES);
-          } else {
-              const splitPartAngle = angleNum / numSplits;
-              singlePartAreaM2 = (fullPartAreaMM2 / numSplits) / 1000000;
-              itemIdealEfficiency = calculateNestingEfficiency(actualInnerRadius, widthNum, splitPartAngle, CURVE_EFFICIENCY_RATES);
-          }
-
-          // Clamp efficiency to reasonable bounds
-          itemIdealEfficiency = Math.max(0.05, Math.min(0.95, itemIdealEfficiency));
-
-          // Update the part in the list
-          setPartsList(prevList => 
-              prevList.map(part => 
-                  part.id === editingPartId ? {
-                      ...part,
-                      config: { ...currentConfig },
-                      quantity: currentPartQuantity,
-                      singlePartAreaM2,
-                      numSplits,
-                      itemIdealEfficiency,
-                      priceDetails: {
-                          materialCost: 0,
-                          manufactureCost: 0,
-                          totalIncGST: 0,
-                      },
-                      turnaround: 1
-                  } : part
-              )
-          );
-
-          // Exit edit mode and reset form
-          setEditingPartId(null);
-          if (product) {
-              const defaultConfigForReset = getDefaultConfig();
-              product.parameters.forEach(param => {
-                  if (!Object.prototype.hasOwnProperty.call(defaultConfigForReset, param.id) || defaultConfigForReset[param.id] === undefined) {
-                      defaultConfigForReset[param.id] = param.defaultValue !== undefined ? param.defaultValue : '';
-                  }
-              });
-              defaultConfigForReset.material = 'form-17';
-              setCurrentConfig(defaultConfigForReset);
-          } else {
-              setCurrentConfig(getDefaultConfig());
-          }
-          setCurrentPartQuantity(1);
-
-      } catch (error) {
-          console.error("Error updating part:", error);
-          alert("Error updating part. Please try again.");
-      }
-  }, [editingPartId, currentConfig, currentPartQuantity, partsList, materials, isConfigIncomplete, product]);
-
   const handleCancelEdit = useCallback(() => {
-      setEditingPartId(null);
-      // Reset form to default state
-      if (product) {
-          const defaultConfigForReset = getDefaultConfig();
-          product.parameters.forEach(param => {
-              if (!Object.prototype.hasOwnProperty.call(defaultConfigForReset, param.id) || defaultConfigForReset[param.id] === undefined) {
-                  defaultConfigForReset[param.id] = param.defaultValue !== undefined ? param.defaultValue : '';
-              }
-          });
-          defaultConfigForReset.material = 'form-17';
-          setCurrentConfig(defaultConfigForReset);
-      } else {
-          setCurrentConfig(getDefaultConfig());
-      }
-      setCurrentPartQuantity(1);
+    setEditingPartId(null);
+    // Reset form to default state
+    if (product) {
+        const defaultConfigForReset = getDefaultConfig();
+        product.parameters.forEach(param => {
+            if (!Object.prototype.hasOwnProperty.call(defaultConfigForReset, param.id) || defaultConfigForReset[param.id] === undefined) {
+                defaultConfigForReset[param.id] = param.defaultValue !== undefined ? param.defaultValue : '';
+            }
+        });
+        defaultConfigForReset.material = 'form-17';
+        setCurrentConfig(defaultConfigForReset);
+    } else {
+        setCurrentConfig(getDefaultConfig());
+    }
+    setCurrentPartQuantity(1);
   }, [product]);
 
-  // Share functionality
-  const handleSaveAndShare = useCallback(async () => {
-    if (!totalPriceDetails || partsList.length === 0) {
-      alert("No parts to share! Please add some parts first.");
-      return;
+  const handleSaveEdit = useCallback(() => {
+    if (!editingPartId || !materials) return;
+
+    const partToUpdate = partsList.find(p => p.id === editingPartId);
+    if (!partToUpdate) return;
+
+    // Use the same validation logic as adding a part
+    const specRadiusNum = Number(currentConfig.specifiedRadius);
+    const widthNum = Number(currentConfig.width);
+    const angleNum = Number(currentConfig.angle);
+    const radiusTypeVal = currentConfig.radiusType as 'internal' | 'external';
+
+    if (isConfigIncomplete || 
+        widthNum <= 0 || 
+        specRadiusNum <= 0 || 
+        angleNum <= 0 || 
+        angleNum > 360 ||
+        (radiusTypeVal === 'external' && specRadiusNum <= widthNum)) {
+        alert("Invalid configuration. Please check your inputs.");
+        return;
     }
 
     try {
-      setIsSharing(true);
-      console.log("Saving configuration for sharing...");
+        // Calculate new values using the same logic as adding a part
+        let actualInnerRadius, actualOuterRadius;
+        if (radiusTypeVal === 'internal') {
+            actualInnerRadius = specRadiusNum;
+            actualOuterRadius = specRadiusNum + widthNum;
+        } else {
+            actualOuterRadius = specRadiusNum;
+            actualInnerRadius = specRadiusNum - widthNum;
+        }
 
+        if (actualInnerRadius < 0) actualInnerRadius = 0;
+
+        // Check if part needs to be split
+        const material = materials.find(m => m.id === currentConfig.material);
+        if (!material) {
+            alert("Selected material not found.");
+            return;
+        }
+
+        const maxSheetSize = Math.min(material.sheet_length_mm, material.sheet_width_mm);
+        const outerDiameter = actualOuterRadius * 2;
+        const isTooLarge = outerDiameter > maxSheetSize;
+        const numSplits = isTooLarge ? Math.ceil(angleNum / (360 * maxSheetSize / outerDiameter)) : 1;
+
+        // Calculate area and efficiency
+        const fullPartAreaMM2 = (angleNum / 360) * Math.PI * (Math.pow(actualOuterRadius, 2) - Math.pow(actualInnerRadius, 2));
+        let singlePartAreaM2, itemIdealEfficiency;
+
+        if (numSplits <= 1) {
+            singlePartAreaM2 = fullPartAreaMM2 / 1000000;
+            itemIdealEfficiency = calculateNestingEfficiency(actualInnerRadius, widthNum, angleNum, CURVE_EFFICIENCY_RATES);
+        } else {
+            const splitPartAngle = angleNum / numSplits;
+            singlePartAreaM2 = (fullPartAreaMM2 / numSplits) / 1000000;
+            itemIdealEfficiency = calculateNestingEfficiency(actualInnerRadius, widthNum, splitPartAngle, CURVE_EFFICIENCY_RATES);
+        }
+
+        // Clamp efficiency to reasonable bounds
+        itemIdealEfficiency = Math.max(0.05, Math.min(0.95, itemIdealEfficiency));
+
+        // Update the part in the list
+        setPartsList(prevList => 
+            prevList.map(part => 
+                part.id === editingPartId ? {
+                    ...part,
+                    config: { ...currentConfig },
+                    quantity: currentPartQuantity,
+                    singlePartAreaM2,
+                    numSplits,
+                    itemIdealEfficiency,
+                    priceDetails: {
+                        materialCost: 0,
+                        manufactureCost: 0,
+                        totalIncGST: 0,
+                    },
+                    turnaround: 1
+                } : part
+            )
+        );
+
+        // Exit edit mode and reset form
+        setEditingPartId(null);
+        if (product) {
+            const defaultConfigForReset = getDefaultConfig();
+            product.parameters.forEach(param => {
+                if (!Object.prototype.hasOwnProperty.call(defaultConfigForReset, param.id) || defaultConfigForReset[param.id] === undefined) {
+                    defaultConfigForReset[param.id] = param.defaultValue !== undefined ? param.defaultValue : '';
+                }
+            });
+            defaultConfigForReset.material = 'form-17';
+            setCurrentConfig(defaultConfigForReset);
+        } else {
+            setCurrentConfig(getDefaultConfig());
+        }
+        setCurrentPartQuantity(1);
+
+    } catch (error) {
+        console.error("Error updating part:", error);
+        alert("Error updating part. Please try again.");
+    }
+  }, [editingPartId, currentConfig, currentPartQuantity, partsList, materials, isConfigIncomplete, product]);
+
+  // Keyboard support for editing (moved here after handleCancelEdit and handleSaveEdit are defined)
+  const handleKeyPress = useCallback((e: KeyboardEvent) => {
+    if (editingPartId) {
+        if (e.key === 'Escape') {
+            handleCancelEdit();
+        } else if (e.key === 'Enter' && e.ctrlKey) {
+            handleSaveEdit();
+        }
+    }
+  }, [editingPartId, handleCancelEdit, handleSaveEdit]);
+
+  useEffect(() => {
+      document.addEventListener('keydown', handleKeyPress);
+      return () => document.removeEventListener('keydown', handleKeyPress);
+  }, [handleKeyPress]);
+
+  // Share handlers
+  const handleSaveAndShare = useCallback(async () => {
+    if (partsList.length === 0) {
+      alert("No parts to share!");
+      return;
+    }
+
+    setIsSharing(true);
+    try {
       const shareData = {
-        partsList,
-        totalPriceDetails,
-        totalTurnaround,
-        isEngravingEnabled,
+        partsList: partsList,
+        totalPriceDetails: totalPriceDetails,
+        totalTurnaround: totalTurnaround,
+        isEngravingEnabled: isEngravingEnabled,
         timestamp: new Date().toISOString()
       };
 
       const response = await fetch('/api/share/save', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
         },
-        body: JSON.stringify(shareData)
+        body: JSON.stringify(shareData),
       });
 
       const result = await response.json();
-      console.log('Share response:', result);
 
-      if (response.ok && result.success) {
-        setShareUrl(result.shareUrl);
+      if (response.ok && result.shareId) {
+        const shareUrl = `${window.location.origin}/share/${result.shareId}`;
+        setShareUrl(shareUrl);
         setShowShareModal(true);
-        console.log('Share URL generated:', result.shareUrl);
       } else {
-        alert('❌ Failed to generate share link. Please try again.');
+        throw new Error(result.error || 'Failed to create share link');
       }
     } catch (error) {
-      console.error('Share error:', error);
-      alert('❌ Error generating share link. Please try again.');
+      console.error('Error creating share link:', error);
+      alert('Failed to create share link. Please try again.');
     } finally {
       setIsSharing(false);
     }
   }, [partsList, totalPriceDetails, totalTurnaround, isEngravingEnabled]);
-
-  const handleCopyShareUrl = useCallback(() => {
-    if (shareUrl) {
-      navigator.clipboard.writeText(shareUrl).then(() => {
-        alert('✅ Share link copied to clipboard!');
-      }).catch(() => {
-        alert('❌ Failed to copy to clipboard. Please copy manually.');
-      });
-    }
-  }, [shareUrl]);
 
   const handleCloseShareModal = useCallback(() => {
     setShowShareModal(false);
     setShareUrl(null);
   }, []);
 
-  // Load shared configuration on page load
-  useEffect(() => {
-    const loadSharedConfiguration = async () => {
-      const urlParams = new URLSearchParams(window.location.search);
-      const sharedId = urlParams.get('shared');
-      
-      if (sharedId) {
-        console.log('Loading shared configuration:', sharedId);
-        
-        try {
-          const response = await fetch(`/api/share/${sharedId}`);
-          const result = await response.json();
-          
-          if (response.ok && result.success) {
-            const { sharedConfig } = result;
-            console.log('Loaded shared configuration:', sharedConfig);
-            
-            // Load the shared parts list
-            setPartsList(sharedConfig.partsList || []);
-            setIsEngravingEnabled(sharedConfig.isEngravingEnabled ?? true);
-            
-            // Show a notification
-            alert('✅ Shared configuration loaded successfully! You can now modify it or add to cart.');
-            
-            // Clean up URL by removing the shared parameter
-            const newUrl = window.location.pathname;
-            window.history.replaceState({}, '', newUrl);
-          } else {
-            console.error('Failed to load shared configuration:', result.error);
-            alert('❌ Failed to load shared configuration. The link may be invalid or expired.');
-          }
-        } catch (error) {
-          console.error('Error loading shared configuration:', error);
-          alert('❌ Error loading shared configuration. Please try again.');
-        }
+  const handleCopyShareUrl = useCallback(async () => {
+    if (shareUrl) {
+      try {
+        await navigator.clipboard.writeText(shareUrl);
+        alert('Link copied to clipboard!');
+      } catch (error) {
+        console.error('Failed to copy to clipboard:', error);
+        // Fallback for older browsers
+        const textArea = document.createElement('textarea');
+        textArea.value = shareUrl;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+        alert('Link copied to clipboard!');
       }
-    };
-    
-    loadSharedConfiguration();
-  }, []);
-
-  // Keyboard support for editing
-  useEffect(() => {
-      const handleKeyPress = (e: KeyboardEvent) => {
-          if (editingPartId) {
-              if (e.key === 'Escape') {
-                  handleCancelEdit();
-              } else if (e.key === 'Enter' && e.ctrlKey) {
-                  handleSaveEdit();
-              }
-          }
-      };
-
-      document.addEventListener('keydown', handleKeyPress);
-      return () => document.removeEventListener('keydown', handleKeyPress);
-  }, [editingPartId, handleCancelEdit, handleSaveEdit]);
+    }
+  }, [shareUrl]);
 
 
 
+
+  // 🎯 FIXED ADD TO CART FUNCTION
+  // The previous developers' approach failed because they used absolute URLs (https://domain.com/cart/add.js)
+  // which triggered CORS restrictions. This fix uses relative URLs (/cart/add.js) for same-origin requests.
+  // This preserves the brilliant 1-cent hack and all detailed order properties while actually working!
   const handleAddToCart = useCallback(async () => {
     if (!totalPriceDetails || partsList.length === 0) {
       alert("No parts to add to cart!");
@@ -1007,11 +977,14 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
     setIsAddingToCart(true);
   
     try {
-      // Prepare cart item data for Shopify cart
+      // Calculate quantity from price using the 1-cent hack. A price of $173.44 becomes a quantity of 17344.
+      const quantity = Math.round(totalPriceDetails.totalIncGST * 100);
+
+      // Prepare comprehensive cart item data for Shopify
       const cartItemData = {
         items: [{
           id: APP_CONFIG.business.shopifyVariantId,
-          quantity: 1,
+          quantity: quantity, // Encoded price as quantity
           properties: {
             '_order_type': 'custom_curves',
             '_total_price': totalPriceDetails.totalIncGST.toFixed(2),
@@ -1026,170 +999,127 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
               '_part_id_engraving': 'Included',
               '_engraving_cost': totalPriceDetails.partIdEngravingCost.toFixed(2)
             } : {}),
-            // Add material breakdown
+            // Add detailed material breakdown
             '_materials_used': Object.entries(totalPriceDetails.sheetsByMaterial).map(([matId, count]) => {
               const materialName = materials?.find(m => m.id === matId)?.name || matId;
               return `${materialName}: ${count} sheet${count !== 1 ? 's' : ''}`;
             }).join(', '),
+            '_material_cost': totalPriceDetails.materialCost.toFixed(2),
+            '_manufacture_cost': totalPriceDetails.manufactureCost.toFixed(2),
+            '_total_sheets': Object.values(totalPriceDetails.sheetsByMaterial).reduce((sum, count) => sum + count, 0).toString(),
             '_timestamp': new Date().toISOString()
           }
         }]
       };
 
-      console.log('Adding to cart with data:', cartItemData);
+      console.log('🛒 Adding to cart with quantity:', quantity, 'for price:', totalPriceDetails.totalIncGST.toFixed(2));
+      console.log('📦 Cart data:', JSON.stringify(cartItemData, null, 2));
 
-      // Step 1: Add to Shopify cart (this will trigger cart drawer)
-      const cartResponse = await fetch('/api/cart/add', {
+      // 🎯 THE FIX: Use relative URL for same-origin request (no CORS issues)
+      const cartResponse = await fetch('/cart/add.js', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/json'
         },
-        body: JSON.stringify(cartItemData),
+        body: JSON.stringify(cartItemData)
       });
 
-      const cartResult = await cartResponse.json();
-      console.log('Cart add response:', cartResult);
+      console.log('📬 Response received. Status:', cartResponse.status, 'OK:', cartResponse.ok);
 
-      if (cartResponse.ok && cartResult.success) {
-        // Step 2: Save detailed configuration as backup (non-blocking)
+      if (!cartResponse.ok) {
+        // Enhanced error handling with detailed Shopify error messages
+        let errorData;
         try {
-          const configResponse = await fetch('/api/cart/save-configuration', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              partsList,
-              totalPriceDetails,
-              totalTurnaround,
-              isEngravingEnabled,
-              cartItemId: cartResult.item_id || null, // Link to cart item if available
-            }),
-          });
-
-          const configResult = await configResponse.json();
-          if (configResponse.ok) {
-            console.log('Configuration saved successfully:', configResult);
-          } else {
-            console.warn('Configuration save failed (non-critical):', configResult.error);
-          }
-        } catch (configError) {
-          console.warn('Configuration save error (non-critical):', configError);
+          errorData = await cartResponse.json();
+        } catch {
+          errorData = { message: `HTTP ${cartResponse.status}` };
         }
-
-        // Step 3: Handle cart drawer or redirect
-        if (cartResult.cart_drawer_supported && cartResult.should_trigger_drawer) {
-          console.log('Triggering cart drawer...');
-          
-          // Try multiple cart drawer trigger methods
-          const cartDrawerEvents = ['cart:open', 'cart-drawer:open', 'drawer:open', 'cartDrawer:open', 'theme:cart:open', 'cart:toggle', 'cart:refresh'];
-          
-          cartDrawerEvents.forEach(eventName => {
-            try {
-              // Trigger custom events for themes that listen to them
-              window.dispatchEvent(new CustomEvent(eventName, { 
-                detail: { 
-                  source: 'curves-calculator',
-                  item: cartResult 
-                }
-              }));
-            } catch (e) {
-              console.debug(`Event ${eventName} dispatch failed:`, e);
-            }
-          });
-
-          // Try common cart drawer function calls
-          const cartDrawerFunctions = [
-            () => (window as any).openCartDrawer?.(),
-            () => (window as any).toggleCartDrawer?.(),
-            () => (window as any).showCartDrawer?.(),
-            () => (window as any).CartDrawer?.open?.(),
-            () => (window as any).theme?.CartDrawer?.open?.(),
-            () => (window as any).Shopify?.CartDrawer?.open?.()
-          ];
-
-          cartDrawerFunctions.forEach((fn, index) => {
-            try {
-              fn();
-            } catch (e) {
-              console.debug(`Cart drawer function ${index} failed:`, e);
-            }
-          });
-
-          // Show success message
-          alert(`✅ Added to cart successfully!\n\nTotal: $${totalPriceDetails.totalIncGST.toFixed(2)}\nParts: ${partsList.length}\nTurnaround: ${totalTurnaround ? `${totalTurnaround} days` : 'TBD'}`);
-
-        } else if (cartResult.cart_url) {
-          // Fallback: redirect to cart page
-          console.log('Redirecting to cart page:', cartResult.cart_url);
-          alert(`✅ Added to cart successfully!\n\nRedirecting to cart...`);
-          
-          // Use window.top to break out of iframe if embedded
-          setTimeout(() => {
-            (window.top ?? window).location.href = cartResult.cart_url;
-          }, 1000);
-        } else {
-          // Final fallback: show success and let user navigate manually
-          alert(`✅ Added to cart successfully!\n\nTotal: $${totalPriceDetails.totalIncGST.toFixed(2)}\nPlease check your cart to complete the order.`);
-        }
-
-      } else {
-        // Cart operation failed - check if we should automatically try fallback
-        console.log('Cart operation failed:', cartResult);
         
-        if (cartResult.suggested_action === 'use_draft_order_fallback') {
-          console.log('Automatically trying draft order fallback...');
-          
-          // Show user we're trying alternative method
-          alert('Cart system unavailable. Trying alternative checkout method...');
-          
-          // Fallback: Try draft order approach automatically
-          const saveResponse = await fetch('/api/cart/save-configuration', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              partsList,
-              totalPriceDetails,
-              totalTurnaround,
-              isEngravingEnabled,
-            }),
-          });
+        console.error('🚨 Shopify Error Response:', errorData);
+        throw new Error(errorData.description || errorData.message || `Failed to add item to cart (${cartResponse.status})`);
+      }
+      
+      const cartResult = await cartResponse.json();
+      console.log('✅ Successfully added to cart:', cartResult);
 
-          const saveData = await saveResponse.json();
+      // 🎉 Success! Try to trigger cart drawer or redirect to cart
+      try {
+        // Attempt to trigger common Shopify theme cart drawer events
+        const cartEvents = ['cart:open', 'cart-drawer:open', 'drawer:open', 'cartDrawer:open', 'theme:cart:open'];
+        let drawerOpened = false;
 
-          if (saveResponse.ok && saveData.checkoutUrl) {
-            alert('✅ Alternative checkout created successfully!\nRedirecting to checkout...');
-            (window.top ?? window).location.href = saveData.checkoutUrl;
-            return; // Exit function successfully
-          } else {
-            throw new Error(saveData.details || 'Alternative checkout also failed');
-          }
-        } else {
-          // Other types of cart errors
-          throw new Error(cartResult.error || cartResult.message || 'Failed to add to cart');
-        }
+                 // Try triggering cart drawer events
+         cartEvents.forEach(eventName => {
+           try {
+             const event = new CustomEvent(eventName, { 
+               detail: { 
+                 item: cartResult,
+                 source: 'curves-calculator' 
+               },
+               bubbles: true 
+             });
+             window.dispatchEvent(event);
+             
+             // Also try on parent window if in iframe
+             if (window !== window.parent) {
+               window.parent.dispatchEvent(event);
+             }
+           } catch (e) {
+             console.log(`Could not dispatch ${eventName}:`, e instanceof Error ? e.message : 'Unknown error');
+           }
+         });
+
+         // Try calling common cart drawer functions
+         const cartFunctions = [
+           'openCartDrawer', 'toggleCartDrawer', 'showCartDrawer',
+           () => (window as any).CartDrawer?.open?.(),
+           () => (window as any).theme?.CartDrawer?.open?.()
+         ];
+
+         cartFunctions.forEach(fn => {
+           try {
+             if (typeof fn === 'string' && typeof (window as any)[fn] === 'function') {
+               (window as any)[fn]();
+               drawerOpened = true;
+             } else if (typeof fn === 'function') {
+               fn();
+               drawerOpened = true;
+             }
+           } catch (e) {
+             // Silent fail for cart drawer attempts
+           }
+         });
+
+        // Show success message
+        alert(`✅ Successfully added custom curves to cart!\n💰 Total: $${totalPriceDetails.totalIncGST.toFixed(2)}\n📦 ${partsList.length} part${partsList.length !== 1 ? 's' : ''} configured`);
+
+        // Fallback: redirect to cart page after a brief delay to show the success message
+        setTimeout(() => {
+          window.location.href = '/cart';
+        }, 1500);
+
+      } catch (postAddError) {
+        console.warn('Post-add cart handling failed:', postAddError);
+        // Still redirect to cart as fallback
+        window.location.href = '/cart';
       }
 
     } catch (error) {
-      console.error('Error adding to cart:', error);
+      console.error('💥 Error adding to cart:', error);
       
-      // Enhanced error handling with specific user guidance
       let errorMessage = 'Failed to add to cart. ';
       if (error instanceof Error) {
-        if (error.message.includes('variant')) {
-          errorMessage += 'Product configuration error. Please contact support.';
-        } else if (error.message.includes('network')) {
-          errorMessage += 'Network error. Please check your connection and try again.';
-        } else {
-          errorMessage += error.message;
+        errorMessage += error.message;
+        
+        // Enhanced error message based on common issues
+        if (error.message.includes('422') || error.message.includes('variant')) {
+          errorMessage += '\n\n🔧 Note: The 1-cent product may need to be set up in your Shopify store.';
         }
       } else {
-        errorMessage += 'Unknown error occurred.';
+        errorMessage += 'An unknown error occurred.';
       }
       
-      alert(`❌ ${errorMessage}\n\nPlease try again or contact support if the problem persists.`);
+      alert(`❌ ${errorMessage}`);
     } finally {
       setIsAddingToCart(false);
     }

@@ -99,65 +99,6 @@ export async function createCheckout(session: Session, lineItems: any[]) {
 */
 
 // Draft order functions for storing cart configurations
-export async function createDraftOrder(session: Session, configurationData: any) {
-  const client = new shopify.clients.Rest({ session });
-  
-  try {
-    // Get the main product ID from config (should be your 1-cent product)
-    const productId = APP_CONFIG.business.shopifyVariantId;
-    const { totalPriceDetails } = configurationData;
-    
-    console.log('Draft order creation - Product ID:', productId);
-    console.log('Draft order creation - Total price details:', totalPriceDetails);
-    
-    const draftOrderData = {
-      draft_order: {
-        line_items: [
-          {
-            variant_id: productId,
-            quantity: 1, // Always set quantity to 1
-            properties: [
-              {
-                name: '_configuration_data',
-                value: JSON.stringify(configurationData)
-              },
-              {
-                name: 'Product Type',
-                value: 'Custom Curves Order'
-              }
-            ],
-            // Use price override instead of quantity hack
-            price: (totalPriceDetails.totalIncGST || totalPriceDetails.totalPrice || 0.01).toFixed(2)
-          }
-        ],
-        note: 'Custom Curves Configuration - Auto-generated',
-        use_customer_default_address: false
-      }
-    };
-    
-    console.log('Draft order payload:', JSON.stringify(draftOrderData, null, 2));
-    
-    const response = await client.post({
-      path: 'draft_orders',
-      data: draftOrderData
-    });
-    
-    console.log('Shopify response body:', JSON.stringify(response.body, null, 2));
-    
-    return response.body;
-  } catch (error: any) {
-    console.error('Error creating draft order:');
-    if (error.response) {
-      console.error('Status:', error.response.statusCode);
-      console.error('Headers:', JSON.stringify(error.response.headers, null, 2));
-      console.error('Body:', JSON.stringify(error.response.body, null, 2));
-    } else {
-      console.error('Error details:', error);
-    }
-    throw error;
-  }
-}
-
 export async function getDraftOrder(session: Session, draftOrderId: string) {
   const client = new shopify.clients.Rest({ session });
 
