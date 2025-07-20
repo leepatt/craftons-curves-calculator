@@ -1340,7 +1340,7 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
     <div className="flex min-h-screen flex-col text-foreground overflow-x-hidden bg-gradient-to-br from-gray-50 to-gray-100"> 
       <div className="flex flex-1 gap-4 md:flex-row flex-col overflow-hidden px-3 md:px-6 py-3"> 
         {/* Visualizer - now comes first for mobile-first approach */}
-        <main className="w-full relative rounded-xl border border-gray-200/60 bg-white shadow-lg shadow-gray-200/50 flex flex-col items-center justify-center h-[400px] overflow-hidden order-1 md:order-1" style={{flexShrink: 0}}>
+        <main className="w-full md:flex-grow relative rounded-xl border border-gray-200/60 bg-white shadow-lg shadow-gray-200/50 flex flex-col items-center justify-center h-[400px] overflow-hidden order-1 md:order-1" style={{flexShrink: 0}}>
           {/* Selected Part Indicator */}
           {isDisplayingSelectedPart && (
             <div className="absolute top-2 left-2 z-10 bg-blue-100 border border-blue-300 text-blue-700 px-3 py-1 rounded-md text-sm shadow-sm">
