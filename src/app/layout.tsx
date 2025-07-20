@@ -1,15 +1,13 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import IframeResizer from "./components/IframeResizer"; // Import the new component
 
-const inter = Inter({
-  variable: "--font-inter",
-  subsets: ["latin"],
-});
+const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "Craftons Curves Calculator",
-  description: "Advanced curves calculator for custom timber elements",
+  description: "Create custom curves for your next project",
 };
 
 export default function RootLayout({
@@ -19,14 +17,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <head>
-        <meta httpEquiv="X-Frame-Options" content="ALLOWALL" />
-        <meta httpEquiv="Content-Security-Policy" content="frame-ancestors 'self' https://*.shopify.com https://*.myshopify.com https://craftons.com.au;" />
-      </head>
-      <body
-        className={`${inter.variable} antialiased`}
-      >
+      <body className={inter.className}>
         {children}
+        <IframeResizer /> {/* Add the resizer component here */}
       </body>
     </html>
   );
