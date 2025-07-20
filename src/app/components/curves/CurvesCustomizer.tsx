@@ -775,7 +775,7 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
 
       setPartsList(prevList => [...prevList, newPart]);
       
-      // Reset configurator to default state with FORMPLY
+      // Reset configurator to default state, keeping the last used material
       if (product) {
         const defaultConfigForReset = getDefaultConfig();
         product.parameters.forEach(param => {
@@ -783,8 +783,8 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
             defaultConfigForReset[param.id] = param.defaultValue !== undefined ? param.defaultValue : '';
           }
         });
-        // Ensure material defaults to FORMPLY
-        defaultConfigForReset.material = 'form-17';
+        // Ensure material defaults to the last used material
+        defaultConfigForReset.material = currentConfig.material;
         setCurrentConfig(defaultConfigForReset);
       } else {
         setCurrentConfig(getDefaultConfig());
@@ -836,13 +836,14 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
                 defaultConfigForReset[param.id] = param.defaultValue !== undefined ? param.defaultValue : '';
             }
         });
-        defaultConfigForReset.material = 'form-17';
+        // On cancel, default to the material of the last part in the list, or Formply if empty.
+        defaultConfigForReset.material = partsList.length > 0 ? partsList[partsList.length - 1].config.material : 'form-17';
         setCurrentConfig(defaultConfigForReset);
     } else {
         setCurrentConfig(getDefaultConfig());
     }
     setCurrentPartQuantity(1);
-  }, [product]);
+  }, [product, partsList]);
 
   const handleSaveEdit = useCallback(() => {
     if (!editingPartId || !materials) return;
@@ -936,7 +937,8 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
                     defaultConfigForReset[param.id] = param.defaultValue !== undefined ? param.defaultValue : '';
                 }
             });
-            defaultConfigForReset.material = 'form-17';
+            // Ensure material defaults to the material of the part just edited
+            defaultConfigForReset.material = currentConfig.material;
             setCurrentConfig(defaultConfigForReset);
         } else {
             setCurrentConfig(getDefaultConfig());
@@ -1096,37 +1098,6 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
       console.log('🛒 Adding to cart with quantity:', quantity, 'for price:', totalPriceDetails.totalIncGST.toFixed(2));
       console.log('📦 Cart data:', JSON.stringify(cartItemData, null, 2));
 
-      // 🎯 FIXED CART URL LOGIC: Use the internal proxy to avoid CORS issues.
-      // const cartUrl = '/api/cart/add';
-      // 
-      // console.log(`🎯 Cart request - Using proxy URL: ${cartUrl}`);
-      // 
-      // const cartResponse = await fetch(cartUrl, {
-      //   method: 'POST',
-      //   headers: {
-      //     'Content-Type': 'application/json'
-      //   },
-      //   body: JSON.stringify(cartItemData)
-      // });
-      //
-      // console.log('📬 Response received. Status:', cartResponse.status, 'OK:', cartResponse.ok);
-      //
-      // if (!cartResponse.ok) {
-      //   // Enhanced error handling with detailed Shopify error messages
-      //   let errorData;
-      //   try {
-      //     errorData = await cartResponse.json();
-      //   } catch {
-      //     errorData = { message: `HTTP ${cartResponse.status}` };
-      //   }
-      //   
-      //   console.error('🚨 Shopify Error Response:', errorData);
-      //   throw new Error(errorData.description || errorData.message || `Failed to add item to cart (${cartResponse.status})`);
-      // }
-      // 
-      // const cartResult = await cartResponse.json();
-      // console.log('✅ Successfully added to cart:', cartResult);
-      // 
       // --- NEW PERMALINK IMPLEMENTATION ---
       // Instead of relying on the server-side proxy (which can't pass session cookies
       // back to the browser), we build a Shopify cart permalink that encodes all
@@ -1204,28 +1175,6 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
       setIsAddingToCart(false);
     }
   }, [partsList, totalPriceDetails, totalTurnaround, isEngravingEnabled, materials, getInternalRadiusDisplay]);
-
-  const handleReset = useCallback(() => {
-    if (product) {
-        const defaultConfigForReset = getDefaultConfig();
-         product.parameters.forEach(param => {
-          if (!Object.prototype.hasOwnProperty.call(defaultConfigForReset, param.id) || defaultConfigForReset[param.id] === undefined) {
-            defaultConfigForReset[param.id] = param.defaultValue !== undefined ? param.defaultValue : '';
-          }
-        });
-        // Ensure material defaults to FORMPLY
-        defaultConfigForReset.material = 'form-17';
-        setCurrentConfig(defaultConfigForReset);
-    } else {
-        setCurrentConfig(getDefaultConfig());
-    }
-    setCurrentPartQuantity(1);
-    setPartsList([]);
-    setTotalPriceDetails(null);
-    setTotalTurnaround(null);
-    setSelectedPartId(null); // Clear selected part when resetting
-    setIsEngravingEnabled(true); // Reset engraving to enabled
-  }, [product]);
 
   // --- Visualizer Props Extraction ---
   // Check if we should show a selected part or the current configuration
@@ -1337,10 +1286,10 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
 
   // --- JSX Structure Update ---
   return (
-    <div className="flex min-h-screen flex-col text-foreground overflow-x-hidden bg-gradient-to-br from-gray-50 to-gray-100"> 
-      <div className="flex flex-1 gap-4 md:flex-row flex-col px-3 md:px-6 py-3"> 
+    <div className="flex flex-col text-foreground overflow-x-hidden bg-gradient-to-br from-gray-50 to-gray-100"> 
+      <div className="flex flex-1 gap-4 md:flex-row flex-col px-2 md:px-6 pb-2.5"> 
         {/* Visualizer - now comes first for mobile-first approach */}
-        <main className="w-full md:flex-1 relative rounded-xl border border-gray-200/60 bg-white shadow-lg shadow-gray-200/50 flex flex-col items-center justify-center h-[576px] overflow-hidden order-1 md:order-1" style={{flexShrink: 0}}>
+        <main className="w-full md:flex-1 relative rounded-xl border border-gray-200/60 bg-white shadow-lg shadow-gray-200/50 flex flex-col items-center justify-center h-[340px] md:h-[576px] overflow-hidden order-1 md:order-1" style={{flexShrink: 0}}>
           {/* Selected Part Indicator */}
           {isDisplayingSelectedPart && (
             <div className="absolute top-2 left-2 z-10 bg-blue-100 border border-blue-300 text-blue-700 px-3 py-1 rounded-md text-sm shadow-sm">
@@ -1398,12 +1347,12 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
         {/* Customizer - now comes second */}
         <aside className="w-full md:w-[31rem] lg:w-[37rem] flex-shrink-0 min-h-0 order-2 md:order-2"> 
           <ScrollArea className="h-full">
-            <div className="space-y-5 px-2 pb-4">
-              <div className={`rounded-xl border shadow-lg ${editingPartId ? 'border-blue-200/60 bg-gradient-to-br from-blue-50/80 to-blue-100/40 shadow-blue-200/30' : 'border-gray-200/60 bg-white shadow-gray-200/40'} p-5 space-y-4`}> 
+            <div className="space-y-5 pb-4">
+              <div className={`rounded-xl border shadow-lg ${editingPartId ? 'border-blue-200/60 bg-gradient-to-br from-blue-50/80 to-blue-100/40 shadow-blue-200/30' : 'border-gray-200/60 bg-white shadow-gray-200/40'} p-3 md:p-5 space-y-4`}> 
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center space-x-3">
                     {editingPartId && <div className="w-3 h-3 bg-blue-500 rounded-full animate-pulse"></div>}
-                    <h2 className="text-xl font-bold text-gray-900">
+                    <h2 className="text-lg md:text-xl font-bold text-gray-900">
                       {editingPartId ? (
                         <span className="text-blue-700">Edit Part</span>
                       ) : (
@@ -1443,14 +1392,14 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
               </div>
 
               {partsList.length > 0 && (
-                <div className="rounded-xl border border-gray-200/60 bg-white shadow-lg shadow-gray-200/40 p-4 space-y-4"> 
+                <div className="rounded-xl border border-gray-200/60 bg-white shadow-lg shadow-gray-200/40 p-3 md:p-4 space-y-4"> 
                     {/* Parts List */} 
                     <div>
                         <div className="flex items-center space-x-3 mb-4">
                           <div className="flex items-center justify-center w-8 h-8 bg-slate-100 rounded-lg">
                             <span className="text-slate-700 font-bold text-sm">{partsList.length}</span>
                           </div>
-                          <h2 className="text-xl font-bold text-gray-900">Parts Added to Sheet</h2>
+                          <h2 className="text-lg md:text-xl font-bold text-gray-900">Parts Added to Sheet</h2>
                         </div>
                         <ul className="space-y-2">
                             {partsList.map((part, index) => {
@@ -1507,7 +1456,7 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
                           <div className="flex items-center justify-center w-8 h-8 bg-slate-100 rounded-lg">
                             <span className="text-slate-700 font-bold text-sm">$</span>
                           </div>
-                          <h2 className="text-xl font-bold text-gray-900">Order Summary</h2>
+                          <h2 className="text-lg md:text-xl font-bold text-gray-900">Order Summary</h2>
                         </div>
                         
                         {totalPriceDetails ? (
@@ -1565,14 +1514,6 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
                                     </span>
                                 </div>
                                 <div className="mt-4 flex flex-col space-y-3">
-                                    <Button
-                                        variant="ghost"
-                                        onClick={handleReset}
-                                        className="w-full text-gray-600 hover:text-red-500 hover:bg-red-50 border border-gray-200/60 hover:border-red-200 transition-all duration-200 rounded-lg"
-                                        size="sm"
-                                    >
-                                        <RotateCcw className="mr-2 h-4 w-4" /> Reset Order
-                                    </Button>
                                     <Button
                                         onClick={handleSaveAndShare}
                                         disabled={partsList.length === 0 || isSharing}

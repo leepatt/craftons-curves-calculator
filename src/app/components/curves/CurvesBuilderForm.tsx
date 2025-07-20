@@ -836,8 +836,8 @@ export function CurvesBuilderForm({
         
       {/* Angle, Arc Length, Chord Length Row */}
       <div>
-          <div className="grid grid-cols-3 gap-2 md:gap-4">
-              <div>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-2 md:gap-4">
+              <div className="col-span-2 md:col-span-1">
                  <Label htmlFor="angle" className="block mb-1 font-medium text-foreground">Angle (θ)</Label>
                  <Input 
                    type="number" 
