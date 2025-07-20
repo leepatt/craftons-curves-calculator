@@ -23,14 +23,9 @@ import { getApiBasePath } from '@/lib/utils';
 // Add iframe height communication utilities
 const communicateHeightToParent = () => {
   if (window.parent && window.parent !== window) {
-    // Find the visualizer (main element with order-1)
-    const visualizerMain = document.querySelector('main[class*="order-1"]') as HTMLElement;
-    let visualizerHeight = 400; // Default fallback
-    
-    if (visualizerMain) {
-      visualizerHeight = visualizerMain.offsetHeight;
-      console.log('📐 Visualizer height:', visualizerHeight + 'px');
-    }
+    // Visualizer has fixed height of 400px (as set in CSS)
+    const visualizerHeight = 400; // Fixed height - matches CSS h-[400px]
+    console.log('📐 Visualizer height: FIXED at', visualizerHeight + 'px');
     
     // Find the customizer sidebar (aside element with order-2)
     const customizerAside = document.querySelector('aside[class*="order-2"]') as HTMLElement;
@@ -1345,7 +1340,7 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
     <div className="flex min-h-screen flex-col text-foreground overflow-x-hidden bg-gradient-to-br from-gray-50 to-gray-100"> 
       <div className="flex flex-1 gap-4 md:flex-row flex-col overflow-hidden px-3 md:px-6 py-3"> 
         {/* Visualizer - now comes first for mobile-first approach */}
-        <main className="w-full md:flex-grow relative rounded-xl border border-gray-200/60 bg-white shadow-lg shadow-gray-200/50 flex flex-col items-center justify-center min-h-[300px] h-[50vh] md:h-auto md:min-h-0 max-h-[calc(100vh-200px)] overflow-hidden order-1 md:order-1">
+        <main className="w-full relative rounded-xl border border-gray-200/60 bg-white shadow-lg shadow-gray-200/50 flex flex-col items-center justify-center h-[400px] overflow-hidden order-1 md:order-1" style={{flexShrink: 0}}>
           {/* Selected Part Indicator */}
           {isDisplayingSelectedPart && (
             <div className="absolute top-2 left-2 z-10 bg-blue-100 border border-blue-300 text-blue-700 px-3 py-1 rounded-md text-sm shadow-sm">
