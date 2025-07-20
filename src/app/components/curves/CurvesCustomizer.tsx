@@ -53,30 +53,15 @@ const communicateHeightToParent = () => {
   }
 };
 
-// Hook to observe content changes and update height
+// Hook to communicate height changes when content actually changes
 const useIframeHeightCommunication = (dependencies: any[]) => {
   useEffect(() => {
-    // Initial height communication
-    communicateHeightToParent();
+    // Debounce height communication to avoid excessive messages
+    const timeoutId = setTimeout(() => {
+      communicateHeightToParent();
+    }, 100);
     
-    // Set up ResizeObserver to detect content changes
-    const resizeObserver = new ResizeObserver(() => {
-      // Debounce height updates to avoid excessive messages
-      setTimeout(communicateHeightToParent, 100);
-    });
-    
-    // Observe document body for size changes
-    if (document.body) {
-      resizeObserver.observe(document.body);
-    }
-    
-    // Also communicate height after a short delay to catch any async content
-    const delayedUpdate = setTimeout(communicateHeightToParent, 500);
-    
-    return () => {
-      resizeObserver.disconnect();
-      clearTimeout(delayedUpdate);
-    };
+    return () => clearTimeout(timeoutId);
   }, dependencies);
 };
 
@@ -187,15 +172,16 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
   // Set up iframe height communication to resize iframe when content changes
   useIframeHeightCommunication([partsList, totalPriceDetails, editingPartId, selectedPartId]);
   
-  // Communicate initial height when app loads
+  // Communicate initial height when app loads (one-time only)
   useEffect(() => {
     // Delay initial height communication to ensure DOM is fully rendered
     const initialHeightTimeout = setTimeout(() => {
+      console.log('🎯 Iframe Height: Initial height communication on app load');
       communicateHeightToParent();
     }, 1000);
     
     return () => clearTimeout(initialHeightTimeout);
-  }, []);
+  }, []); // Empty dependency array - runs only once
   
   // Share state management
   const [isSharing, setIsSharing] = useState<boolean>(false);
