@@ -23,25 +23,41 @@ import { getApiBasePath } from '@/lib/utils';
 // Add iframe height communication utilities
 const communicateHeightToParent = () => {
   if (window.parent && window.parent !== window) {
-    // Get the full document height including all content
-    const documentHeight = Math.max(
-      document.body.scrollHeight,
-      document.body.offsetHeight,
-      document.documentElement.clientHeight,
-      document.documentElement.scrollHeight,
-      document.documentElement.offsetHeight
-    );
+    // Find the visualizer (main element with order-1)
+    const visualizerMain = document.querySelector('main[class*="order-1"]') as HTMLElement;
+    let visualizerHeight = 400; // Default fallback
     
-    // Add some padding to prevent cutting off content
-    const heightWithPadding = documentHeight + 50;
+    if (visualizerMain) {
+      visualizerHeight = visualizerMain.offsetHeight;
+      console.log('📐 Visualizer height:', visualizerHeight + 'px');
+    }
     
-    console.log('📏 Iframe Height: Communicating to parent ->', heightWithPadding + 'px');
+    // Find the customizer sidebar (aside element with order-2)
+    const customizerAside = document.querySelector('aside[class*="order-2"]') as HTMLElement;
+    let customizerHeight = 600; // Default fallback
+    
+    if (customizerAside) {
+      // Measure the actual customizer content height
+      customizerHeight = Math.max(
+        customizerAside.scrollHeight,
+        customizerAside.offsetHeight
+      );
+      console.log('📐 Customizer panel height:', customizerHeight + 'px');
+    } else {
+      console.log('⚠️ Could not find customizer panel, using fallback height');
+    }
+    
+    // Use the larger of the two heights + padding for overall layout
+    const paddingHeight = 100; // Space for margins and container padding
+    const totalHeight = Math.max(visualizerHeight, customizerHeight) + paddingHeight;
+    
+    console.log('📏 Iframe Height: Visualizer=' + visualizerHeight + 'px, Customizer=' + customizerHeight + 'px, Using=' + Math.max(visualizerHeight, customizerHeight) + 'px, Total=' + totalHeight + 'px');
     
     // Send height to parent window
     try {
       window.parent.postMessage({
         type: 'IFRAME_HEIGHT_CHANGE',
-        height: heightWithPadding,
+        height: totalHeight,
         source: 'craftons-curves-calculator'
       }, '*');
       console.log('📤 Iframe Height: Message sent successfully');
