@@ -23,8 +23,8 @@ import { getApiBasePath } from '@/lib/utils';
 // Add iframe height communication utilities
 const communicateHeightToParent = () => {
   if (window.parent && window.parent !== window) {
-    // Visualizer has fixed height of 400px (as set in CSS)
-    const visualizerHeight = 400; // Fixed height - matches CSS h-[400px]
+    // Visualizer has fixed height of 576px (as set in CSS)
+    const visualizerHeight = 576; // Fixed height - matches CSS h-[576px]
     console.log('📐 Visualizer height: FIXED at', visualizerHeight + 'px');
     
     // Find the customizer sidebar (aside element with order-2)
@@ -1340,7 +1340,7 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
     <div className="flex min-h-screen flex-col text-foreground overflow-x-hidden bg-gradient-to-br from-gray-50 to-gray-100"> 
       <div className="flex flex-1 gap-4 md:flex-row flex-col px-3 md:px-6 py-3"> 
         {/* Visualizer - now comes first for mobile-first approach */}
-        <main className="w-full md:flex-1 relative rounded-xl border border-gray-200/60 bg-white shadow-lg shadow-gray-200/50 flex flex-col items-center justify-center h-[400px] overflow-hidden order-1 md:order-1" style={{flexShrink: 0}}>
+        <main className="w-full md:flex-1 relative rounded-xl border border-gray-200/60 bg-white shadow-lg shadow-gray-200/50 flex flex-col items-center justify-center h-[576px] overflow-hidden order-1 md:order-1" style={{flexShrink: 0}}>
           {/* Selected Part Indicator */}
           {isDisplayingSelectedPart && (
             <div className="absolute top-2 left-2 z-10 bg-blue-100 border border-blue-300 text-blue-700 px-3 py-1 rounded-md text-sm shadow-sm">
@@ -1396,9 +1396,9 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
         </main>
 
         {/* Customizer - now comes second */}
-        <aside className="w-full md:w-[44rem] lg:w-[53rem] flex-shrink-0 min-h-0 order-2 md:order-2"> 
+        <aside className="w-full md:w-[31rem] lg:w-[37rem] flex-shrink-0 min-h-0 order-2 md:order-2"> 
           <ScrollArea className="h-full">
-            <div className="space-y-5 p-2 pb-4">
+            <div className="space-y-5 px-2 pb-4">
               <div className={`rounded-xl border shadow-lg ${editingPartId ? 'border-blue-200/60 bg-gradient-to-br from-blue-50/80 to-blue-100/40 shadow-blue-200/30' : 'border-gray-200/60 bg-white shadow-gray-200/40'} p-5 space-y-4`}> 
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center space-x-3">
