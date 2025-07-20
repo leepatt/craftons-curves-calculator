@@ -86,6 +86,7 @@ Every push to your `main` branch will automatically trigger a new deployment.
 ✅ **Edge Caching** - Fast global content delivery
 ✅ **HTTPS** - Automatic SSL certificates
 ✅ **Shopify Embedding** - Proper headers for iframe embedding
+✅ **Dynamic Iframe Height** - Automatic height adjustment to prevent dual scrollbars
 ✅ **Mobile Responsive** - Works on all devices
 
 ## Troubleshooting
@@ -103,6 +104,7 @@ Every push to your `main` branch will automatically trigger a new deployment.
 - Verify CORS headers are set correctly
 - Check that iframe embedding is allowed
 - Ensure HTTPS is enabled
+- Update Liquid section to include dynamic height script (see DYNAMIC_IFRAME_HEIGHT_GUIDE.md)
 
 ## Performance
 

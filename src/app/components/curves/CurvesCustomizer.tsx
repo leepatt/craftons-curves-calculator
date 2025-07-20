@@ -20,6 +20,63 @@ import {
 import { calculateNestingEfficiency, CURVE_EFFICIENCY_RATES } from '@/lib/pricingUtils';
 import { getApiBasePath } from '@/lib/utils';
 
+// Add iframe height communication utilities
+const communicateHeightToParent = () => {
+  if (window.parent && window.parent !== window) {
+    // Get the full document height including all content
+    const documentHeight = Math.max(
+      document.body.scrollHeight,
+      document.body.offsetHeight,
+      document.documentElement.clientHeight,
+      document.documentElement.scrollHeight,
+      document.documentElement.offsetHeight
+    );
+    
+    // Add some padding to prevent cutting off content
+    const heightWithPadding = documentHeight + 50;
+    
+    console.log('📏 Communicating height to parent:', heightWithPadding);
+    
+    // Send height to parent window
+    try {
+      window.parent.postMessage({
+        type: 'IFRAME_HEIGHT_CHANGE',
+        height: heightWithPadding,
+        source: 'craftons-curves-calculator'
+      }, '*');
+    } catch (error) {
+      console.warn('Could not communicate with parent window:', error);
+    }
+  }
+};
+
+// Hook to observe content changes and update height
+const useIframeHeightCommunication = (dependencies: any[]) => {
+  useEffect(() => {
+    // Initial height communication
+    communicateHeightToParent();
+    
+    // Set up ResizeObserver to detect content changes
+    const resizeObserver = new ResizeObserver(() => {
+      // Debounce height updates to avoid excessive messages
+      setTimeout(communicateHeightToParent, 100);
+    });
+    
+    // Observe document body for size changes
+    if (document.body) {
+      resizeObserver.observe(document.body);
+    }
+    
+    // Also communicate height after a short delay to catch any async content
+    const delayedUpdate = setTimeout(communicateHeightToParent, 500);
+    
+    return () => {
+      resizeObserver.disconnect();
+      clearTimeout(delayedUpdate);
+    };
+  }, dependencies);
+};
+
 // Define Props Interface (Ensuring it exists)
 interface CurvesCustomizerProps {
   onBack: () => void;
@@ -123,6 +180,19 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
   
   // Edit state management
   const [editingPartId, setEditingPartId] = useState<string | null>(null);
+  
+  // Set up iframe height communication to resize iframe when content changes
+  useIframeHeightCommunication([partsList, totalPriceDetails, editingPartId, selectedPartId]);
+  
+  // Communicate initial height when app loads
+  useEffect(() => {
+    // Delay initial height communication to ensure DOM is fully rendered
+    const initialHeightTimeout = setTimeout(() => {
+      communicateHeightToParent();
+    }, 1000);
+    
+    return () => clearTimeout(initialHeightTimeout);
+  }, []);
   
   // Share state management
   const [isSharing, setIsSharing] = useState<boolean>(false);

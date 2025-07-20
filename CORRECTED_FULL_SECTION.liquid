@@ -44,6 +44,67 @@
   }
 </style>
 
+<script>
+(function() {
+  // Dynamic iframe height adjustment for Craftons Curves Calculator
+  let calculatorIframe = null;
+  let isResizing = false;
+  
+  // Find the calculator iframe
+  function findCalculatorIframe() {
+    const iframes = document.querySelectorAll('iframe[title="Craftons Curves Calculator"]');
+    if (iframes.length > 0) {
+      calculatorIframe = iframes[0];
+      console.log('📱 Found Craftons Curves Calculator iframe');
+    }
+  }
+  
+  // Handle height change messages from the iframe
+  function handleHeightMessage(event) {
+    // Security check: verify message is from our calculator
+    if (!event.data || 
+        event.data.type !== 'IFRAME_HEIGHT_CHANGE' || 
+        event.data.source !== 'craftons-curves-calculator') {
+      return;
+    }
+    
+    if (!calculatorIframe) {
+      findCalculatorIframe();
+    }
+    
+    if (calculatorIframe && !isResizing) {
+      isResizing = true;
+      const newHeight = event.data.height;
+      
+      console.log('📏 Adjusting iframe height to:', newHeight + 'px');
+      
+      // Smooth height transition
+      calculatorIframe.style.transition = 'height 0.3s ease-out';
+      calculatorIframe.style.height = newHeight + 'px';
+      
+      // Reset transition after animation
+      setTimeout(() => {
+        calculatorIframe.style.transition = '';
+        isResizing = false;
+      }, 300);
+    }
+  }
+  
+  // Set up message listener
+  window.addEventListener('message', handleHeightMessage, false);
+  
+  // Initialize when DOM is ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', findCalculatorIframe);
+  } else {
+    findCalculatorIframe();
+  }
+  
+  // Fallback: find iframe after a delay in case it loads later
+  setTimeout(findCalculatorIframe, 1000);
+})();
+</script>
+
 {% schema %}
 {
   "name": "Curves Calculator",
