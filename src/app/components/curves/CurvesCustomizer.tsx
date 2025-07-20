@@ -35,7 +35,7 @@ const communicateHeightToParent = () => {
     // Add some padding to prevent cutting off content
     const heightWithPadding = documentHeight + 50;
     
-    console.log('📏 Communicating height to parent:', heightWithPadding);
+    console.log('📏 Iframe Height: Communicating to parent ->', heightWithPadding + 'px');
     
     // Send height to parent window
     try {
@@ -44,9 +44,12 @@ const communicateHeightToParent = () => {
         height: heightWithPadding,
         source: 'craftons-curves-calculator'
       }, '*');
+      console.log('📤 Iframe Height: Message sent successfully');
     } catch (error) {
-      console.warn('Could not communicate with parent window:', error);
+      console.warn('❌ Iframe Height: Could not communicate with parent window:', error);
     }
+  } else {
+    console.log('📌 Iframe Height: Not in iframe context (window.parent === window)');
   }
 };
 

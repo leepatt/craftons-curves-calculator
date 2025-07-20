@@ -37,26 +37,6 @@
   </div>
 </div>
 
-<script>
-  document.addEventListener('DOMContentLoaded', function () {
-    const iframe = document.getElementById('curves-calculator-iframe');
-
-    window.addEventListener('message', function (event) {
-      // Security: check the origin of the message
-      if (event.origin !== "https://craftons-curves-calculator.vercel.app") {
-        return;
-      }
-
-      if (event.data && typeof event.data === 'object' && event.data.type === 'curves-resize') {
-        if (iframe && event.data.height) {
-          // Add a small buffer for safety and prevent scrollbar flashing
-          iframe.style.height = (event.data.height + 20) + 'px';
-        }
-      }
-    });
-  });
-</script>
-
 <style>
   /* The media query for mobile height is removed as height is now dynamic. */
 </style>
