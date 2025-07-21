@@ -19,6 +19,7 @@ import {
 // Import the efficiency calculation logic
 import { calculateNestingEfficiency, CURVE_EFFICIENCY_RATES } from '@/lib/pricingUtils';
 import { getApiBasePath } from '@/lib/utils';
+import { ProductContext } from '@/types/productContext';
 
 // Add iframe height communication utilities
 const communicateHeightToParent = () => {
@@ -79,6 +80,8 @@ const useIframeHeightCommunication = (dependencies: any[]) => {
 // Define Props Interface (Ensuring it exists)
 interface CurvesCustomizerProps {
   onBack: () => void;
+  defaultMaterial: string;
+  productContext?: ProductContext | null;
 }
 
 // Pricing interface - all prices are GST-inclusive as per Shopify standard
@@ -132,20 +135,22 @@ const A_PLACEHOLDER = 90;
 const THICKNESS_PLACEHOLDER = 18; // Default thickness if no material for placeholder
 const RADIUS_TYPE_PLACEHOLDER = 'internal'; // For placeholder, assume radiusType is 'internal' and R_PLACEHOLDER is inner radius
 
-const getDefaultConfig = (): ProductConfiguration => ({
-  material: 'form-17', // Default to FORMPLY
-  radiusType: 'internal', // Default radiusType
-  specifiedRadius: '',   // New field, formerly radius
-  width: '',   
-  angle: '',   
-  // Other parameters will be added from product definition with their API defaults
+const getDefaultConfig = (defaultMaterial: string): ProductConfiguration => ({
+  material: defaultMaterial, // Use the provided default material
+  radiusType: 'internal',
+  specifiedRadius: '',
+  width: '',
+  angle: '',
 });
 
-
-const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
-  // State specific to Curves Builder
+const CurvesCustomizer: React.FC<CurvesCustomizerProps> = ({ 
+  onBack, 
+  defaultMaterial,
+  productContext 
+}) => {
+  // Initialize state with defaultMaterial
   const [product, setProduct] = useState<ProductDefinition | null>(null);
-  const [currentConfig, setCurrentConfig] = useState<ProductConfiguration>(getDefaultConfig());
+  const [currentConfig, setCurrentConfig] = useState<ProductConfiguration>(getDefaultConfig(defaultMaterial));
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [materials, setMaterials] = useState<Material[] | null>(null);
@@ -199,53 +204,53 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [showShareModal, setShowShareModal] = useState<boolean>(false);
 
-  // --- Data Fetching (remains largely the same) ---
+  // Add effect to log product context information
+  useEffect(() => {
+    if (productContext) {
+      console.log(`Calculator opened from product: ${productContext.productTitle || 'Unknown Product'}`);
+      if (productContext.config) {
+        console.log('Product-specific configuration:', productContext.config);
+      }
+    }
+  }, [productContext]);
+
+  // Data Fetching
   useEffect(() => {
     const loadData = async () => {
       setIsLoading(true);
       setError(null);
-      setProduct(null);
-      setTotalPriceDetails(null);
-      setTotalTurnaround(null);
       try {
         const basePath = getApiBasePath();
         const productUrl = `${basePath}/api/products/curves.json`;
-        console.log('[CurvesCustomizer] Fetching product from URL:', productUrl);
-        
         const productRes = await fetch(productUrl);
-        console.log('[CurvesCustomizer] Product fetch response status:', productRes.status);
         
-        if (!productRes.ok) throw new Error(`Failed to fetch product: ${productRes.statusText} (Status: ${productRes.status})`);
+        if (!productRes.ok) throw new Error(`Failed to fetch product: ${productRes.statusText}`);
         const productData: ProductDefinition = await productRes.json();
-        console.log('[CurvesCustomizer] Product loaded successfully');
         setProduct(productData);
 
-        const initialConfig = getDefaultConfig();
+        const initialConfig = getDefaultConfig(defaultMaterial);
         productData.parameters.forEach(param => {
-          // Add all params to initialConfig, using their defaultValue from JSON if defined, 
-          // otherwise they'll keep what getDefaultConfig set (e.g. '' for core, 'internal' for radiusType)
-          if (!Object.prototype.hasOwnProperty.call(initialConfig, param.id) || initialConfig[param.id] === undefined) {
-            initialConfig[param.id] = param.defaultValue !== undefined ? param.defaultValue : '';
+          if (!Object.prototype.hasOwnProperty.call(initialConfig, param.id)) {
+            initialConfig[param.id] = param.defaultValue || '';
           }
         });
         setCurrentConfig(initialConfig);
         setCurrentPartQuantity(1);
 
       } catch (err: unknown) {
-        console.error("Failed to load Curves product data:", err);
-        const errorMessage = (err instanceof Error) ? err.message : 'Failed to load configuration data.';
+        const errorMessage = err instanceof Error ? err.message : 'Failed to load configuration data.';
         setError(errorMessage);
         setProduct(null);
-        setCurrentConfig(getDefaultConfig()); // Reset to default on error
+        setCurrentConfig(getDefaultConfig(defaultMaterial));
         setMaterials(null);
-        setTotalPriceDetails(null);
-        setTotalTurnaround(null);
       } finally {
         setIsLoading(false);
       }
     };
     loadData();
-  }, []);
+  }, [defaultMaterial]);
+
+
 
   // Effect to fetch materials 
   useEffect(() => {
@@ -760,7 +765,7 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
       const newPart: PartListItem = {
         id: uuidv4(),
         partType: 'curve',
-        config: { ...currentConfig }, 
+        config: { ...currentConfig },
         quantity: currentPartQuantity,
         singlePartAreaM2: singlePartAreaM2,
         numSplits: numSplitsValue,
@@ -775,19 +780,17 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
 
       setPartsList(prevList => [...prevList, newPart]);
       
-      // Reset configurator to default state, keeping the last used material
+      // Reset configurator to default state, keeping the current material
       if (product) {
-        const defaultConfigForReset = getDefaultConfig();
+        const defaultConfigForReset = getDefaultConfig(currentConfig.material);
         product.parameters.forEach(param => {
           if (!Object.prototype.hasOwnProperty.call(defaultConfigForReset, param.id) || defaultConfigForReset[param.id] === undefined) {
             defaultConfigForReset[param.id] = param.defaultValue !== undefined ? param.defaultValue : '';
           }
         });
-        // Ensure material defaults to the last used material
-        defaultConfigForReset.material = currentConfig.material;
         setCurrentConfig(defaultConfigForReset);
       } else {
-        setCurrentConfig(getDefaultConfig());
+        setCurrentConfig(getDefaultConfig(currentConfig.material));
       }
       setCurrentPartQuantity(1);
 
@@ -830,20 +833,21 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
     setEditingPartId(null);
     // Reset form to default state
     if (product) {
-        const defaultConfigForReset = getDefaultConfig();
+        const defaultConfigForReset = getDefaultConfig(defaultMaterial);
         product.parameters.forEach(param => {
             if (!Object.prototype.hasOwnProperty.call(defaultConfigForReset, param.id) || defaultConfigForReset[param.id] === undefined) {
                 defaultConfigForReset[param.id] = param.defaultValue !== undefined ? param.defaultValue : '';
             }
         });
-        // On cancel, default to the material of the last part in the list, or Formply if empty.
-        defaultConfigForReset.material = partsList.length > 0 ? partsList[partsList.length - 1].config.material : 'form-17';
+        // On cancel, default to the material of the last part in the list, or the initial default, or Formply if empty.
+        const lastMaterial = partsList.length > 0 ? partsList[partsList.length - 1].config.material : defaultMaterial;
+        defaultConfigForReset.material = lastMaterial || 'form-17';
         setCurrentConfig(defaultConfigForReset);
     } else {
-        setCurrentConfig(getDefaultConfig());
+        setCurrentConfig(getDefaultConfig(defaultMaterial));
     }
     setCurrentPartQuantity(1);
-  }, [product, partsList]);
+  }, [product, partsList, defaultMaterial]);
 
   const handleSaveEdit = useCallback(() => {
     if (!editingPartId || !materials) return;
@@ -931,17 +935,16 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
         // Exit edit mode and reset form
         setEditingPartId(null);
         if (product) {
-            const defaultConfigForReset = getDefaultConfig();
+            const defaultConfigForReset = getDefaultConfig(currentConfig.material); // Pass current material
             product.parameters.forEach(param => {
                 if (!Object.prototype.hasOwnProperty.call(defaultConfigForReset, param.id) || defaultConfigForReset[param.id] === undefined) {
                     defaultConfigForReset[param.id] = param.defaultValue !== undefined ? param.defaultValue : '';
                 }
             });
-            // Ensure material defaults to the material of the part just edited
-            defaultConfigForReset.material = currentConfig.material;
+            // The material is now correctly set by getDefaultConfig
             setCurrentConfig(defaultConfigForReset);
         } else {
-            setCurrentConfig(getDefaultConfig());
+            setCurrentConfig(getDefaultConfig(currentConfig.material));
         }
         setCurrentPartQuantity(1);
 
@@ -994,9 +997,8 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = () => {
 
       const result = await response.json();
 
-      if (response.ok && result.shareId) {
-        const shareUrl = `${window.location.origin}/share/${result.shareId}`;
-        setShareUrl(shareUrl);
+      if (response.ok && result.shareUrl) {
+        setShareUrl(result.shareUrl);
         setShowShareModal(true);
       } else {
         throw new Error(result.error || 'Failed to create share link');

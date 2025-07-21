@@ -32,14 +32,14 @@ export async function POST(request: NextRequest) {
       expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
     };
     
-    shareStorage.save(sharedConfig);
+    await shareStorage.save(sharedConfig);
     
     // Generate the share URL
     const baseUrl = process.env.VERCEL_URL 
       ? `https://${process.env.VERCEL_URL}` 
       : 'http://localhost:3000';
     
-    const shareUrl = `${baseUrl}/?shared=${shareId}`;
+    const shareUrl = `${baseUrl}/share/${shareId}`;
     
     console.log('Generated share URL:', shareUrl);
     console.log('=== SHARE SAVE SUCCESS ===');
@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
 
 export async function GET() {
   // Return stats about shared configurations
-  const stats = shareStorage.getStats();
+  const stats = await shareStorage.getStats();
   return NextResponse.json({
     ...stats,
     message: 'Share save endpoint is working'

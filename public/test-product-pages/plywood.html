@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test - Plywood Radius Curves</title>
+    <style>
+        .calculator-wrapper {
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .calculator-wrapper iframe {
+            width: 100%;
+            min-height: 800px;
+            border: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="calculator-wrapper">
+        <h1>Plywood Radius Curves</h1>
+        <iframe 
+            id="curves-calculator"
+            src="http://localhost:3000"
+            style="width: 100%; border: none;"
+            allow="payment"
+        ></iframe>
+    </div>
+
+    <script>
+        // Simulate Shopify product context
+        window.productContext = {
+            productId: "test-plywood",
+            productTitle: "Plywood Radius Curves",
+            material: "CD-19"
+        };
+    </script>
+</body>
+</html> 

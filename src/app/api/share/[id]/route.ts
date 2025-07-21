@@ -19,7 +19,7 @@ export async function GET(
     }
     
     // Get the shared configuration
-    const sharedConfig = shareStorage.get(shareId);
+    const sharedConfig = await shareStorage.get(shareId);
     
     if (!sharedConfig) {
       return NextResponse.json(

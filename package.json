@@ -21,6 +21,7 @@
     "@shopify/shopify-api": "^11.13.0",
     "@shopify/shopify-app-express": "^5.0.18",
     "@shopify/shopify-app-session-storage-memory": "^4.0.18",
+    "@vercel/kv": "^3.0.0",
     "autoprefixer": "^10.4.21",
     "axios": "^1.10.0",
     "class-variance-authority": "^0.7.1",
