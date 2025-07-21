@@ -6,7 +6,7 @@ import { CurvesBuilderForm } from './CurvesBuilderForm';
 import CurvesVisualizer from './CurvesVisualizer';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ProductDefinition, ProductConfiguration, Material, PartListItem } from '@/types'; // Added PartListItem
+import { ProductDefinition, ProductConfiguration, Material, PartListItem, TotalPriceDetails } from '@/types'; // Added PartListItem
 import { AlertTriangle, Trash2, Sheet, RotateCcw, X, Pencil, Check, X as XIcon, Share2, Copy, ExternalLink } from 'lucide-react'; // Added icons for edit functionality
 import { Separator } from "@/components/ui/separator"; // Added Separator
 import { ScrollArea } from "@/components/ui/scroll-area"; // Added ScrollArea
@@ -19,7 +19,7 @@ import {
 // Import the efficiency calculation logic
 import { calculateNestingEfficiency, CURVE_EFFICIENCY_RATES } from '@/lib/pricingUtils';
 import { getApiBasePath } from '@/lib/utils';
-import { ProductContext } from '@/types/productContext';
+import { SharedConfiguration } from '@/lib/shareStorage';
 
 // Add iframe height communication utilities
 const communicateHeightToParent = () => {
@@ -79,19 +79,9 @@ const useIframeHeightCommunication = (dependencies: any[]) => {
 
 // Define Props Interface (Ensuring it exists)
 interface CurvesCustomizerProps {
-  onBack: () => void;
-  defaultMaterial: string;
-  productContext?: ProductContext | null;
-}
-
-// Pricing interface - all prices are GST-inclusive as per Shopify standard
-interface TotalPriceDetails {
-    materialCost: number; // inc GST
-    manufactureCost: number; // inc GST
-    partIdEngravingCost: number; // inc GST - $1.50 per part (including splits)
-    totalIncGST: number; // Total price (all components already inc GST)
-    sheetsByMaterial: { [materialId: string]: number }; // Track sheets per material
-    totalPartCount: number; // Total number of parts for engraving (including splits)
+  onBack?: () => void;
+  defaultMaterial?: string;
+  initialData?: SharedConfiguration;
 }
 
 // Interface for derived measurements (remains the same)
@@ -145,8 +135,8 @@ const getDefaultConfig = (defaultMaterial: string): ProductConfiguration => ({
 
 const CurvesCustomizer: React.FC<CurvesCustomizerProps> = ({ 
   onBack, 
-  defaultMaterial,
-  productContext 
+  defaultMaterial = 'form-17',
+  initialData
 }) => {
   // Initialize state with defaultMaterial
   const [product, setProduct] = useState<ProductDefinition | null>(null);
@@ -156,16 +146,16 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = ({
   const [materials, setMaterials] = useState<Material[] | null>(null);
 
   // State for the list of parts added by the user
-  const [partsList, setPartsList] = useState<PartListItem[]>([]);
+  const [partsList, setPartsList] = useState<PartListItem[]>(initialData?.partsList || []);
   // State for the quantity of the part currently being configured
   const [currentPartQuantity, setCurrentPartQuantity] = useState<number>(1);
   
   // State for the calculated quote FOR THE ENTIRE partsList
-  const [totalPriceDetails, setTotalPriceDetails] = useState<TotalPriceDetails | null>(null);
-  const [totalTurnaround, setTotalTurnaround] = useState<number | null>(null); // Represents max turnaround
+  const [totalPriceDetails, setTotalPriceDetails] = useState<TotalPriceDetails | null>(initialData?.totalPriceDetails || null);
+  const [totalTurnaround, setTotalTurnaround] = useState<number | null>(initialData?.totalTurnaround || null); // Represents max turnaround
   
   // State for part ID engraving option
-  const [isEngravingEnabled, setIsEngravingEnabled] = useState<boolean>(true); // Default to enabled
+  const [isEngravingEnabled, setIsEngravingEnabled] = useState<boolean>(initialData?.isEngravingEnabled ?? true); // Default to enabled
 
   // State for derived measurements of the CURRENTLY configured part - now computed in displayDerivedMeasurements
   // State for split information of the CURRENTLY configured part
@@ -203,16 +193,6 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = ({
   const [isSharing, setIsSharing] = useState<boolean>(false);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [showShareModal, setShowShareModal] = useState<boolean>(false);
-
-  // Add effect to log product context information
-  useEffect(() => {
-    if (productContext) {
-      console.log(`Calculator opened from product: ${productContext.productTitle || 'Unknown Product'}`);
-      if (productContext.config) {
-        console.log('Product-specific configuration:', productContext.config);
-      }
-    }
-  }, [productContext]);
 
   // Data Fetching
   useEffect(() => {
