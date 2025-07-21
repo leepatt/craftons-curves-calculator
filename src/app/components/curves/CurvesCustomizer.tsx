@@ -172,7 +172,7 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = ({
   // State for split line hover (remains the same)
   const [splitLinesHovered, setSplitLinesHovered] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null); // New state for focused field
-  const [selectedPartId, setSelectedPartId] = useState<string | null>(null); // State for selected part to view in visualizer
+  const [selectedPartId, setSelectedPartId] = useState<string | null>(null);
   
   // Add loading state for add to cart
   const [isAddingToCart, setIsAddingToCart] = useState<boolean>(false);
@@ -199,22 +199,56 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = ({
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [showShareModal, setShowShareModal] = useState<boolean>(false);
 
-  // Read product context from parent window (Shopify)
+  // Request product context from parent window using postMessage (fixes cross-origin issue)
   useEffect(() => {
     if (typeof window !== 'undefined' && window.parent && window.parent !== window) {
-      const productContext = (window.parent as any).productContext;
-      if (productContext && productContext.material) {
-        console.log('📦 Found product context in parent window:', productContext);
-        // Set the material in the configuration
-        setCurrentConfig(prevConfig => ({
-          ...prevConfig,
-          material: productContext.material,
-        }));
-      } else {
-        console.log('ℹ️ No product context found in parent window.');
+      console.log('🔍 Requesting product context from parent window...');
+      
+      // Set up message listener for product context response
+      const handleProductContextMessage = (event: MessageEvent) => {
+        if (event.data && event.data.type === 'PRODUCT_CONTEXT_RESPONSE' && event.data.source === 'shopify-parent') {
+          const productContext = event.data.productContext;
+          if (productContext && productContext.material) {
+            console.log('📦 Received product context from parent window:', productContext);
+            // Set the material in the configuration
+            setCurrentConfig(prevConfig => ({
+              ...prevConfig,
+              material: productContext.material,
+            }));
+          } else {
+            console.log('ℹ️ No product context or material found in parent response.');
+          }
+          // Remove the listener after receiving the response
+          window.removeEventListener('message', handleProductContextMessage);
+        }
+      };
+      
+      // Add message listener
+      window.addEventListener('message', handleProductContextMessage);
+      
+      // Request product context from parent
+      try {
+        window.parent.postMessage({
+          type: 'PRODUCT_CONTEXT_REQUEST',
+          source: 'craftons-curves-calculator'
+        }, '*');
+        console.log('📤 Product context request sent to parent window');
+      } catch (error) {
+        console.warn('❌ Could not request product context from parent window:', error);
       }
+      
+      // Cleanup timeout - remove listener if no response after 3 seconds
+      const cleanupTimeout = setTimeout(() => {
+        window.removeEventListener('message', handleProductContextMessage);
+        console.log('⏰ Product context request timed out - using default material');
+      }, 3000);
+      
+      return () => {
+        clearTimeout(cleanupTimeout);
+        window.removeEventListener('message', handleProductContextMessage);
+      };
     }
-  }, []); // Run only once on component mount
+  }, []);
 
   // Data Fetching
   useEffect(() => {

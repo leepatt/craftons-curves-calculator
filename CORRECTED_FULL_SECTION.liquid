@@ -56,39 +56,76 @@
     }
   }
   
-  // Handle height change messages from the iframe
-  function handleHeightMessage(event) {
-    // Security check: verify message is from our calculator
-    if (!event.data || 
-        event.data.type !== 'IFRAME_HEIGHT_CHANGE' || 
-        event.data.source !== 'craftons-curves-calculator') {
-      return;
+  // Set up product context for automatic material selection
+  window.productContext = {
+    productId: {{ product.id | json }},
+    productTitle: {{ product.title | json }},
+    material: {% case product.handle %}
+      {% when 'craftons-radius-pro-formply' %}
+        "form-17"
+      {% when 'craftons-radius-pro-mdf' %}
+        "mdf-18"
+      {% when 'craftons-radius-pro-plywood' %}
+        "CD-19"
+      {% else %}
+        "form-17"
+    {% endcase %}
+  };
+  
+  // Handle messages from the calculator iframe
+  function handleCalculatorMessages(event) {
+    // Handle height change messages
+    if (event.data && 
+        event.data.type === 'IFRAME_HEIGHT_CHANGE' && 
+        event.data.source === 'craftons-curves-calculator') {
+      
+      if (!calculatorIframe) {
+        findCalculatorIframe();
+      }
+      
+      if (calculatorIframe && !isResizing) {
+        isResizing = true;
+        const newHeight = event.data.height;
+        
+        console.log('📏 Adjusting iframe height to:', newHeight + 'px');
+        
+        // Smooth height transition
+        calculatorIframe.style.transition = 'height 0.3s ease-out';
+        calculatorIframe.style.height = newHeight + 'px';
+        
+        // Reset transition after animation
+        setTimeout(() => {
+          calculatorIframe.style.transition = '';
+          isResizing = false;
+        }, 300);
+      }
     }
     
-    if (!calculatorIframe) {
-      findCalculatorIframe();
-    }
-    
-    if (calculatorIframe && !isResizing) {
-      isResizing = true;
-      const newHeight = event.data.height;
+    // Handle product context requests from calculator iframe (fixes cross-origin issue)
+    if (event.data && 
+        event.data.type === 'PRODUCT_CONTEXT_REQUEST' && 
+        event.data.source === 'craftons-curves-calculator') {
       
-      console.log('📏 Adjusting iframe height to:', newHeight + 'px');
+      console.log('📥 Received product context request from calculator iframe');
       
-      // Smooth height transition
-      calculatorIframe.style.transition = 'height 0.3s ease-out';
-      calculatorIframe.style.height = newHeight + 'px';
-      
-      // Reset transition after animation
-      setTimeout(() => {
-        calculatorIframe.style.transition = '';
-        isResizing = false;
-      }, 300);
+      // Send product context back to the iframe
+      if (calculatorIframe && calculatorIframe.contentWindow) {
+        try {
+          calculatorIframe.contentWindow.postMessage({
+            type: 'PRODUCT_CONTEXT_RESPONSE',
+            source: 'shopify-parent',
+            productContext: window.productContext
+          }, '*');
+          console.log('📤 Sent product context to calculator iframe:', window.productContext);
+        } catch (error) {
+          console.warn('❌ Could not send product context to iframe:', error);
+        }
+      }
     }
   }
   
-  // Set up message listener
-  window.addEventListener('message', handleHeightMessage, false);
+  // Set up message listener for all calculator communication
+  window.addEventListener('message', handleCalculatorMessages, false);
   
   // Initialize when DOM is ready
   if (document.readyState === 'loading') {

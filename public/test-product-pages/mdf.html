@@ -33,6 +33,41 @@
             productTitle: "MDF Radius Curves",
             material: "mdf-18"
         };
+
+        // Handle product context requests from calculator iframe (same as Shopify implementation)
+        window.addEventListener('message', function(event) {
+            if (event.data && 
+                event.data.type === 'PRODUCT_CONTEXT_REQUEST' && 
+                event.data.source === 'craftons-curves-calculator') {
+                
+                console.log('📥 Received product context request from calculator iframe');
+                
+                // Send product context back to the iframe
+                const iframe = document.getElementById('curves-calculator');
+                if (iframe && iframe.contentWindow) {
+                    try {
+                        iframe.contentWindow.postMessage({
+                            type: 'PRODUCT_CONTEXT_RESPONSE',
+                            source: 'shopify-parent',
+                            productContext: window.productContext
+                        }, '*');
+                        console.log('📤 Sent product context to calculator iframe:', window.productContext);
+                    } catch (error) {
+                        console.warn('❌ Could not send product context to iframe:', error);
+                    }
+                }
+            }
+        }, false);
+
+        // Handle iframe height adjustments
+        window.addEventListener('message', function(event) {
+            if (event.data && event.data.type === 'IFRAME_HEIGHT_CHANGE') {
+                const iframe = document.getElementById('curves-calculator');
+                if (iframe) {
+                    iframe.style.height = `${event.data.height}px`;
+                }
+            }
+        }, false);
     </script>
 </body>
 </html> 
