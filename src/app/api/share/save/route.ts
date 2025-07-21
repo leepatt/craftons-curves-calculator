@@ -39,6 +39,9 @@ export async function POST(request: NextRequest) {
       ? `https://${process.env.VERCEL_URL}` 
       : 'http://localhost:3000';
     
+    console.log('VERCEL_URL:', process.env.VERCEL_URL);
+    console.log('Base URL for sharing:', baseUrl);
+    
     const shareUrl = `${baseUrl}/share/${shareId}`;
     
     console.log('Generated share URL:', shareUrl);
