@@ -6,7 +6,8 @@ import { CurvesBuilderForm } from './CurvesBuilderForm';
 import CurvesVisualizer from './CurvesVisualizer';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ProductDefinition, ProductConfiguration, Material, PartListItem, TotalPriceDetails } from '@/types'; // Added PartListItem
+import { ProductDefinition, ProductConfiguration, Material, PartListItem } from '@/types'; // Added PartListItem
+import type { TotalPriceDetails } from '@/types';
 import { AlertTriangle, Trash2, Sheet, RotateCcw, X, Pencil, Check, X as XIcon, Share2, Copy, ExternalLink } from 'lucide-react'; // Added icons for edit functionality
 import { Separator } from "@/components/ui/separator"; // Added Separator
 import { ScrollArea } from "@/components/ui/scroll-area"; // Added ScrollArea
