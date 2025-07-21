@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { createSession, getProducts } from '@/lib/shopify';
 
-export async function GET(_request: NextRequest) {
+export async function GET() {
   try {
     console.log('=== SHOPIFY API TEST ENDPOINT ===');
     
@@ -38,7 +38,7 @@ export async function GET(_request: NextRequest) {
           api_version: '2024-01',
           test_timestamp: new Date().toISOString()
         },
-        sample_products: productsResult.products.slice(0, 3).map((p: any) => ({
+        sample_products: productsResult.products.slice(0, 3).map((p: { id: number; title: string; status: string; }) => ({
           id: p.id,
           title: p.title,
           status: p.status
@@ -48,7 +48,7 @@ export async function GET(_request: NextRequest) {
       throw new Error('Unexpected API response format');
     }
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('Shopify API test failed:', error);
     
     // Analyze the error to provide helpful feedback
@@ -56,22 +56,24 @@ export async function GET(_request: NextRequest) {
     let errorCode = 500;
     const suggestions: string[] = [];
 
-    if (error.message?.includes('401') || error.message?.includes('Unauthorized')) {
+    const errorMessageString = error instanceof Error ? error.message : String(error);
+
+    if (errorMessageString.includes('401') || errorMessageString.includes('Unauthorized')) {
       errorMessage = 'Invalid access token - 401 Unauthorized';
       errorCode = 401;
       suggestions.push('Check that your access token is correct');
       suggestions.push('Ensure the token has the required permissions (read_products, write_products, etc.)');
-    } else if (error.message?.includes('403') || error.message?.includes('Forbidden')) {
+    } else if (errorMessageString.includes('403') || errorMessageString.includes('Forbidden')) {
       errorMessage = 'Access forbidden - insufficient permissions';
       errorCode = 403;
       suggestions.push('Check that your app has the required scopes');
       suggestions.push('Ensure the token is associated with the correct Shopify store');
-    } else if (error.message?.includes('404')) {
+    } else if (errorMessageString.includes('404')) {
       errorMessage = 'Store not found or API endpoint not accessible';
       errorCode = 404;
       suggestions.push('Verify the shop domain is correct');
       suggestions.push('Check that the Shopify store exists and is accessible');
-    } else if (error.message?.includes('network') || error.message?.includes('fetch')) {
+    } else if (errorMessageString.includes('network') || errorMessageString.includes('fetch')) {
       errorMessage = 'Network error connecting to Shopify';
       errorCode = 502;
       suggestions.push('Check your internet connection');
@@ -81,7 +83,7 @@ export async function GET(_request: NextRequest) {
     return NextResponse.json({
       success: false,
       error: errorMessage,
-      error_details: error.message || error.toString(),
+      error_details: errorMessageString || String(error),
       suggestions,
       test_timestamp: new Date().toISOString()
     }, { status: errorCode });

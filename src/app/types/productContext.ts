@@ -3,7 +3,7 @@ export interface ProductContext {
   productTitle?: string;
   material: string;
   config?: {
-    [key: string]: any;
+    [key: string]: string | number | boolean | undefined;
   };
 }
 

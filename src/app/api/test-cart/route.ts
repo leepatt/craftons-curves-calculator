@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   const shopDomain = 'craftons-au.myshopify.com';
   const variantId = 45300623343794;
   
@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
         let result;
         try {
           result = JSON.parse(responseText);
-        } catch (e) {
+        } catch {
           result = { rawResponse: responseText };
         }
         
@@ -102,7 +102,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
+export async function POST() {
   return NextResponse.json({
     message: 'Use GET method to test cart functionality',
     instructions: 'Visit /api/test-cart to run cart tests'

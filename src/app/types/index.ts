@@ -73,7 +73,7 @@ export interface ProductConfiguration {
   specifiedRadius: string | number;
   width: string | number;
   angle: string | number;
-  [key: string]: any; // Allow additional dynamic parameters
+  [key: string]: string | number | undefined; // Allow additional dynamic parameters
 }
 
 // Parts list item for the order
@@ -91,4 +91,14 @@ export interface PartListItem {
     totalIncGST: number; // Total price (all components already inc GST)
   };
   turnaround: number;
+} 
+
+// Pricing interface - all prices are GST-inclusive as per Shopify standard
+export interface TotalPriceDetails {
+    materialCost: number; // inc GST
+    manufactureCost: number; // inc GST
+    partIdEngravingCost: number; // inc GST - $1.50 per part (including splits)
+    totalIncGST: number; // Total price (all components already inc GST)
+    sheetsByMaterial: { [materialId: string]: number }; // Track sheets per material
+    totalPartCount: number; // Total number of parts for engraving (including splits)
 } 

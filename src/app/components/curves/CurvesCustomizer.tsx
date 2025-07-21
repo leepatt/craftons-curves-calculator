@@ -5,9 +5,8 @@ import { v4 as uuidv4 } from 'uuid'; // Import uuid for unique IDs
 import { CurvesBuilderForm } from './CurvesBuilderForm';
 import CurvesVisualizer from './CurvesVisualizer';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { ProductDefinition, ProductConfiguration, Material, PartListItem, TotalPriceDetails } from '../../types'; // Added PartListItem
-import { AlertTriangle, Trash2, Sheet, RotateCcw, X, Pencil, Check, X as XIcon, Share2, Copy, ExternalLink } from 'lucide-react'; // Added icons for edit functionality
+import { ProductDefinition, ProductConfiguration, Material, PartListItem, TotalPriceDetails } from '../../types';
+import { AlertTriangle, Trash2, X, Pencil, Share2, Copy, ExternalLink, X as XIcon } from 'lucide-react'; // Added icons for edit functionality
 import { Separator } from "@/components/ui/separator"; // Added Separator
 import { ScrollArea } from "@/components/ui/scroll-area"; // Added ScrollArea
 import {
@@ -66,7 +65,7 @@ const communicateHeightToParent = () => {
 };
 
 // Hook to communicate height changes when content actually changes
-const useIframeHeightCommunication = (dependencies: any[]) => {
+const useIframeHeightCommunication = (dependencies: React.DependencyList) => {
   useEffect(() => {
     // Debounce height communication to avoid excessive messages
     const timeoutId = setTimeout(() => {
@@ -74,18 +73,25 @@ const useIframeHeightCommunication = (dependencies: any[]) => {
     }, 100);
     
     return () => clearTimeout(timeoutId);
-  }, dependencies);
+  }, [dependencies]);
 };
 
 // Define Props Interface (Ensuring it exists)
 interface CurvesCustomizerProps {
-  onBack?: () => void;
   defaultMaterial?: string;
   initialData?: SharedConfiguration;
 }
 
 // Interface for derived measurements (remains the same)
-// Note: DerivedMeasurements interface removed as it's not currently used
+// Note: DerivedMeasurements interface was removed as it's not currently used, but keeping it here for reference
+// interface DerivedMeasurements {
+//   innerRadius: number;
+//   outerRadius: number;
+//   angle: number;
+//   thickness: number;
+//   area: number;
+//   displayString: string;
+// }
 
 // Interface for split information (remains the same)
 interface SplitInfo {
@@ -134,7 +140,6 @@ const getDefaultConfig = (defaultMaterial: string): ProductConfiguration => ({
 });
 
 const CurvesCustomizer: React.FC<CurvesCustomizerProps> = ({ 
-  onBack, 
   defaultMaterial = 'form-17',
   initialData
 }) => {
@@ -468,7 +473,7 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = ({
         const sheetsByMaterial: { [materialId: string]: number } = {};
 
         // Group parts by material
-        const groupedByMaterial: { [materialId: string]: PartListItem[] } = {};
+        const groupedByMaterial: { [key: string]: PartListItem[] } = {};
         partsList.forEach(part => {
             const matId = part.config.material as string;
             if (!groupedByMaterial[matId]) {
@@ -1133,19 +1138,19 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = ({
 
       return; // Skip legacy proxy logic
 
-    } catch (error) {
-      console.error('💥 Error adding to cart:', error);
+    } catch (cartError) {
+      console.error('💥 Error adding to cart:', cartError);
       
       let errorMessage = 'Failed to add to cart. ';
-      if (error instanceof Error) {
-        errorMessage += error.message;
+      if (cartError instanceof Error) {
+        errorMessage += cartError.message;
         
         // Enhanced error message based on common issues
-        if (error.message.includes('422') || error.message.includes('variant')) {
+        if (cartError.message.includes('422') || cartError.message.includes('variant')) {
           errorMessage += '\n\n🔧 Note: The 1-cent product may need to be set up in your Shopify store.';
-        } else if (error.message.includes('405')) {
+        } else if (cartError.message.includes('405')) {
           errorMessage += '\n\n🔧 Note: This app needs to be embedded in your Shopify store or accessed through a Shopify product page for cart functionality to work.';
-        } else if (error.message.includes('CORS') || error.message.includes('Failed to fetch')) {
+        } else if (cartError.message.includes('CORS') || cartError.message.includes('Failed to fetch')) {
           errorMessage += '\n\n🔧 Note: For full functionality, embed this app in your Shopify product page.';
         }
       } else {
@@ -1156,7 +1161,7 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = ({
     } finally {
       setIsAddingToCart(false);
     }
-  }, [partsList, totalPriceDetails, totalTurnaround, isEngravingEnabled, materials, getInternalRadiusDisplay]);
+  }, [partsList, totalPriceDetails, totalTurnaround, isEngravingEnabled, materials]);
 
   // --- Visualizer Props Extraction ---
   // Check if we should show a selected part or the current configuration

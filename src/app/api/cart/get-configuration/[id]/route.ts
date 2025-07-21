@@ -30,7 +30,7 @@ export async function GET(
       
       // Extract configuration data from the line item properties
       const configurationProperty = draftOrder.line_items?.[0]?.properties?.find(
-        (prop: any) => prop.name === '_configuration_data'
+        (prop: { name: string; value: string }) => prop.name === '_configuration_data'
       );
 
       if (configurationProperty && configurationProperty.value) {

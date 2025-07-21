@@ -36,8 +36,8 @@ export default function SharedConfigurationPage() {
           
           const data = await response.json();
           setSharedConfig(data.sharedConfig);
-        } catch (err: any) {
-          setError(err.message);
+        } catch (err) {
+          setError(err instanceof Error ? err.message : 'An unknown error occurred.');
         } finally {
           setIsLoading(false);
         }
@@ -76,7 +76,6 @@ export default function SharedConfigurationPage() {
 
   return (
     <CurvesCustomizer
-      onBack={() => { window.location.href = '/'; }}
       initialData={sharedConfig} 
     />
   );

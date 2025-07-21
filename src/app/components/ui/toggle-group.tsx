@@ -21,7 +21,7 @@ const ToggleGroupContext = React.createContext<{
 }>({});
 
 const ToggleGroup = React.forwardRef<HTMLDivElement, ToggleGroupProps>(
-  ({ className, value, onValueChange, children, type = "single", ...props }, ref) => {
+  ({ className, value, onValueChange, children, ...props }, ref) => {
     return (
       <ToggleGroupContext.Provider value={{ value, onValueChange }}>
         <div

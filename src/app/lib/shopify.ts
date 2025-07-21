@@ -1,7 +1,6 @@
 import { shopifyApi, ApiVersion, Session } from '@shopify/shopify-api';
 import { restResources } from '@shopify/shopify-api/rest/admin/2024-01';
 import '@shopify/shopify-api/adapters/node';
-import { APP_CONFIG } from './config';
 
 // Initialize Shopify API
 const shopify = shopifyApi({
@@ -28,7 +27,7 @@ export function createSession(accessToken: string): Session {
 }
 
 // Product management functions
-export async function createProduct(session: Session, productData: any) {
+export async function createProduct(session: Session, productData: Record<string, unknown>) {
   const client = new shopify.clients.Rest({ session });
   
   try {
@@ -59,7 +58,7 @@ export async function getProduct(session: Session, productId: string) {
   }
 }
 
-export async function updateProduct(session: Session, productId: string, productData: any) {
+export async function updateProduct(session: Session, productId: string, productData: Record<string, unknown>) {
   const client = new shopify.clients.Rest({ session });
   
   try {
@@ -173,16 +172,20 @@ export async function getMetaobject(session: Session, metaobjectId: string) {
 }
 
 // Webhook verification
-export function verifyWebhook(data: string, hmacHeader: string): boolean {
-  const crypto = require('crypto');
-  const hmac = crypto.createHmac('sha256', process.env.SHOPIFY_WEBHOOK_SECRET);
+export async function verifyWebhook(data: string, hmacHeader: string): Promise<boolean> {
+  const crypto = await import('crypto');
+  const hmac = crypto.createHmac('sha256', process.env.SHOPIFY_WEBHOOK_SECRET as string);
   hmac.update(data, 'utf8');
   const generatedHash = hmac.digest('base64');
   
-  return crypto.timingSafeEqual(
-    Buffer.from(generatedHash, 'base64'),
-    Buffer.from(hmacHeader, 'base64')
-  );
+  try {
+    return crypto.timingSafeEqual(
+      Buffer.from(generatedHash, 'base64'),
+      Buffer.from(hmacHeader, 'base64')
+    );
+  } catch {
+    return false;
+  }
 }
 
 export { shopify }; 

@@ -1,9 +1,10 @@
 import { kv } from '@vercel/kv';
+import { PartListItem, TotalPriceDetails } from '@/types';
 
 export interface SharedConfiguration {
   id: string;
-  partsList: any[];
-  totalPriceDetails: any;
+  partsList: PartListItem[];
+  totalPriceDetails: TotalPriceDetails | null;
   totalTurnaround: number | null;
   isEngravingEnabled: boolean;
   createdAt: string;
@@ -59,11 +60,11 @@ export const shareStorage = {
 
     return {
       totalConfigurations: configs.length,
-      configurations: configs.filter(Boolean).map(config => ({
-        id: config!.id,
-        createdAt: config!.createdAt,
-        expiresAt: config!.expiresAt,
-        partsCount: config!.partsList.length
+      configurations: configs.filter(Boolean).map((config: SharedConfiguration) => ({
+        id: config.id,
+        createdAt: config.createdAt,
+        expiresAt: config.expiresAt,
+        partsCount: config.partsList.length
       }))
     };
   },
