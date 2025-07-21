@@ -6,7 +6,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     
-    console.log('=== SHARE SAVE REQUEST ===');
+    console.log('=== SHARE SAVE REQUEST (URL-based) ===');
     console.log('Request body:', JSON.stringify(body, null, 2));
     
     // Validate request body
@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
     // Generate unique ID for the shared configuration
     const shareId = uuidv4();
     
-    // Store the configuration with timestamp
+    // Create the configuration object
     const sharedConfig: SharedConfiguration = {
       id: shareId,
       partsList: body.partsList,
@@ -28,30 +28,28 @@ export async function POST(request: NextRequest) {
       totalTurnaround: body.totalTurnaround,
       isEngravingEnabled: body.isEngravingEnabled,
       createdAt: new Date().toISOString(),
-      // Optional: Add expiration date (e.g., 30 days)
       expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
     };
     
-    await shareStorage.save(sharedConfig);
+    // No database save needed - we'll encode everything in the URL!
     
-    // Generate the share URL
+    // Generate the base URL
     const baseUrl = process.env.VERCEL_URL 
       ? `https://${process.env.VERCEL_URL}` 
-      : 'http://localhost:3000';
+      : request.headers.get('origin') || 'http://localhost:3000';
     
-    console.log('VERCEL_URL:', process.env.VERCEL_URL);
-    console.log('Base URL for sharing:', baseUrl);
+    // Generate the share URL with encoded data
+    const shareUrl = shareStorage.encodeConfigToUrl(sharedConfig, baseUrl);
     
-    const shareUrl = `${baseUrl}/share/${shareId}`;
-    
-    console.log('Generated share URL:', shareUrl);
-    console.log('=== SHARE SAVE SUCCESS ===');
+    console.log('Generated URL-based share URL:', shareUrl);
+    console.log('=== SHARE SAVE SUCCESS (No database required!) ===');
     
     return NextResponse.json({
       success: true,
       shareId,
       shareUrl,
-      expiresAt: sharedConfig.expiresAt
+      expiresAt: sharedConfig.expiresAt,
+      message: 'Share URL generated successfully - no login required!'
     });
     
   } catch (error) {
@@ -69,10 +67,9 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET() {
-  // Return stats about shared configurations
-  const stats = await shareStorage.getStats();
   return NextResponse.json({
-    ...stats,
-    message: 'Share save endpoint is working'
+    message: 'URL-based share save endpoint is working - no authentication required!',
+    type: 'url-based-sharing',
+    database: 'none'
   });
 } 

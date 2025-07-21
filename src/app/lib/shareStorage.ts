@@ -1,4 +1,3 @@
-import { kv } from '@vercel/kv';
 import { PartListItem, TotalPriceDetails } from '@/types';
 
 export interface SharedConfiguration {
@@ -11,66 +10,80 @@ export interface SharedConfiguration {
   expiresAt: string;
 }
 
+// Simple URL-based sharing - no database required!
 export const shareStorage = {
   save: async (config: SharedConfiguration): Promise<void> => {
-    const expiresInSeconds = Math.floor((new Date(config.expiresAt).getTime() - Date.now()) / 1000);
-    // Ensure we don't try to set a negative expiration
-    if (expiresInSeconds <= 0) {
-        console.warn(`Attempted to save an already expired configuration: ${config.id}`);
-        return;
-    }
-    await kv.set(`share:${config.id}`, config, { ex: expiresInSeconds });
-    console.log(`Saved shared configuration to Vercel KV: ${config.id}`);
+    // No-op - we'll generate URLs directly in the API route
+    console.log(`URL-based sharing: Config prepared for ${config.id}`);
   },
 
   get: async (id: string): Promise<SharedConfiguration | undefined> => {
-    const config = await kv.get<SharedConfiguration>(`share:${id}`);
-    
-    if (!config) {
-        console.log(`Shared configuration not found in Vercel KV: ${id}`);
-        return undefined;
-    }
-
-    // KV should handle expiration, but as a safeguard:
-    if (new Date() > new Date(config.expiresAt)) {
-        console.log(`Expired config retrieved from KV, deleting: ${id}`);
-        await kv.del(`share:${id}`);
-        return undefined;
-    }
-
-    return config;
+    // No-op - URL decoding happens client-side
+    console.log(`URL-based sharing: Would decode ${id}`);
+    return undefined;
   },
 
   delete: async (id: string): Promise<boolean> => {
-    const result = await kv.del(`share:${id}`);
-    const deleted = result > 0;
-    if (deleted) {
-      console.log(`Deleted shared configuration from Vercel KV: ${id}`);
-    }
-    return deleted;
+    // No-op - URLs don't need deletion
+    console.log(`URL-based sharing: No deletion needed for ${id}`);
+    return true;
   },
 
   getStats: async () => {
-    console.warn("getStats is a potentially slow and expensive operation with Vercel KV. It scans all keys.");
-    const keys = [];
-    for await (const key of kv.scanIterator({ match: 'share:*' })) {
-        keys.push(key);
-    }
-    const configs = keys.length ? await kv.mget<SharedConfiguration[]>(...keys) : [];
-
     return {
-      totalConfigurations: configs.length,
-      configurations: configs.filter(Boolean).map((config: SharedConfiguration) => ({
-        id: config.id,
-        createdAt: config.createdAt,
-        expiresAt: config.expiresAt,
-        partsCount: config.partsList.length
-      }))
+      totalConfigurations: 0,
+      configurations: []
     };
   },
 
   cleanup: (): number => {
-    console.log("Cleanup is handled automatically by Vercel KV's `ex` option. This function is a no-op.");
+    console.log("URL-based sharing: No cleanup needed");
     return 0;
+  },
+
+  // New utility functions for URL-based sharing
+  encodeConfigToUrl: (config: SharedConfiguration, baseUrl: string): string => {
+    try {
+      // Create a minimal data structure for sharing
+      const shareData = {
+        p: config.partsList,
+        t: config.totalPriceDetails,
+        d: config.totalTurnaround,
+        e: config.isEngravingEnabled,
+        c: config.createdAt
+      };
+
+      // Compress and encode the data
+      const jsonString = JSON.stringify(shareData);
+      const base64Data = btoa(encodeURIComponent(jsonString));
+      
+      // Create the share URL
+      return `${baseUrl}/share/${config.id}?data=${base64Data}`;
+    } catch (error) {
+      console.error('Error encoding config to URL:', error);
+      throw new Error('Failed to create share URL');
+    }
+  },
+
+  decodeConfigFromUrl: (data: string): SharedConfiguration | null => {
+    try {
+      // Decode the Base64 data
+      const jsonString = decodeURIComponent(atob(data));
+      const shareData = JSON.parse(jsonString);
+
+      // Reconstruct the configuration
+      return {
+        id: 'shared-config',
+        partsList: shareData.p || [],
+        totalPriceDetails: shareData.t || null,
+        totalTurnaround: shareData.d || null,
+        isEngravingEnabled: shareData.e ?? true,
+        createdAt: shareData.c || new Date().toISOString(),
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // 30 days
+      };
+    } catch (error) {
+      console.error('Error decoding config from URL:', error);
+      return null;
+    }
   }
 }; 

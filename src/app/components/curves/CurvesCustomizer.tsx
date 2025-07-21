@@ -143,7 +143,7 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = ({
   defaultMaterial = 'form-17',
   initialData
 }) => {
-  // Initialize state with defaultMaterial
+  // Initialize state with defaultMaterial, which will be updated by the effect below
   const [product, setProduct] = useState<ProductDefinition | null>(null);
   const [currentConfig, setCurrentConfig] = useState<ProductConfiguration>(getDefaultConfig(defaultMaterial));
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -198,6 +198,23 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = ({
   const [isSharing, setIsSharing] = useState<boolean>(false);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [showShareModal, setShowShareModal] = useState<boolean>(false);
+
+  // Read product context from parent window (Shopify)
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.parent && window.parent !== window) {
+      const productContext = (window.parent as any).productContext;
+      if (productContext && productContext.material) {
+        console.log('📦 Found product context in parent window:', productContext);
+        // Set the material in the configuration
+        setCurrentConfig(prevConfig => ({
+          ...prevConfig,
+          material: productContext.material,
+        }));
+      } else {
+        console.log('ℹ️ No product context found in parent window.');
+      }
+    }
+  }, []); // Run only once on component mount
 
   // Data Fetching
   useEffect(() => {
