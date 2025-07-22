@@ -191,7 +191,12 @@ export const CalculationUtils = {
 
 // Helper function to get the correct base path for API calls
 export const getApiBasePath = () => {
-  // Use environment variable for the app URL.
+  // During development, always use empty string to fetch from local server
+  if (process.env.NODE_ENV === 'development') {
+    return '';
+  }
+  
+  // Use environment variable for the app URL in production.
   // This is crucial for apps embedded in Shopify or other platforms.
   return process.env.NEXT_PUBLIC_APP_URL || '';
 };

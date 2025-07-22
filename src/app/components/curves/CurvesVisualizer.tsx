@@ -1,10 +1,11 @@
-import React, { useMemo, useRef, useCallback, useState, useEffect } from 'react';
-import { Canvas } from '@react-three/fiber';
+import React, { useMemo, useRef, useCallback, useState, useEffect, Suspense } from 'react';
+import { Canvas, useLoader } from '@react-three/fiber';
 import { OrbitControls, Html, Line } from '@react-three/drei';
 import * as THREE from 'three';
 import { Button } from '@/components/ui/button';
 import { Square, Box } from 'lucide-react';
 import { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
+import { Material } from '../../types';
 
 interface CurvesVisualizerProps {
   radius?: number;
@@ -19,7 +20,9 @@ interface CurvesVisualizerProps {
   isTooLarge?: boolean;
   numSplits?: number;
   splitLinesHovered?: boolean;
-  radiusType?: 'internal' | 'external'; // Add radiusType prop
+  radiusType?: 'internal' | 'external';
+  materialId?: string; // Add material ID prop
+  materials?: Material[]; // Add materials array prop
 }
 
 // View Controls Component
@@ -180,6 +183,8 @@ const InteractiveLine: React.FC<InteractiveLineProps> = ({
   );
 };
 
+
+
 // Custom curved panel component - flat on ground plane
 const CurvedPanel: React.FC<{ 
   radius: number, 
@@ -195,7 +200,9 @@ const CurvedPanel: React.FC<{
   isTooLarge?: boolean,
   numSplits?: number,
   splitLinesHovered?: boolean,
-  radiusType?: 'internal' | 'external' // Add radiusType prop
+  radiusType?: 'internal' | 'external',
+  materialId?: string,
+  materials?: Material[]
 }> = ({ 
   radius, 
   width, 
@@ -210,7 +217,9 @@ const CurvedPanel: React.FC<{
   isTooLarge, 
   numSplits, 
   splitLinesHovered,
-  radiusType = 'internal' // Add radiusType with default
+  radiusType = 'internal',
+  materialId,
+  materials
 }) => {
   // States for hover effects
   const [radiusHovered, setRadiusHovered] = useState(false);
@@ -394,38 +403,149 @@ const CurvedPanel: React.FC<{
     return points;
   }, [angleInRad, angle, centerOffset, DIMENSION_LINE_Z, guideRadius]); // Update dependencies
 
-  // Create material with hover effect and increased roughness
+  // Create material with hover effect and texture support
   const [hovered, setHovered] = useState(false);
-  const material = useMemo(() => (
-    <meshStandardMaterial 
-      color={
-        isPlaceholderMode 
-          ? "#F9F9F9" // New, even lighter grey for placeholder, no hover change
-          : (hovered ? "#E8D0AA" : "#D2B48C") // Original hover/default for active mode
+  const isActive = activeFieldHighlight !== null;
+  
+  // Texture loading directly in CurvedPanel
+  const [diffuseTexture, setDiffuseTexture] = useState<THREE.Texture | null>(null);
+  
+  // Find the material definition
+  const material = materials?.find(m => m.id === materialId);
+  
+  // Load texture directly
+  useEffect(() => {
+    if (isPlaceholderMode || !materials || materials.length === 0) {
+      setDiffuseTexture(null);
+      return;
+    }
+    
+    const texturePath = material?.texture_diffuse || '/textures/default.png';
+    console.log(`CurvedPanel: Loading texture ${texturePath} for material ${materialId}`);
+    
+    // Special debugging for plywood
+    if (materialId === 'CD-19') {
+      console.log('🪵 PLYWOOD DEBUG:', {
+        materialId,
+        materialName: material?.name,
+        texturePath,
+        textureScale: material?.texture_scale
+      });
+    }
+    
+    const loader = new THREE.TextureLoader();
+    loader.load(
+      texturePath,
+      (texture) => {
+        texture.wrapS = THREE.RepeatWrapping;
+        texture.wrapT = THREE.RepeatWrapping;
+        const scale = material?.texture_scale || [1, 1];
+        texture.repeat.set(scale[0], scale[1]);
+        
+        // Ensure proper color space for realistic textures
+        texture.colorSpace = THREE.SRGBColorSpace;
+        
+        // Special logging for plywood
+        if (materialId === 'CD-19') {
+          console.log('🪵 PLYWOOD TEXTURE LOADED:', {
+            texture,
+            scale: scale,
+            colorSpace: texture.colorSpace,
+            format: texture.format
+          });
+        }
+        
+        setDiffuseTexture(texture);
+        console.log(`✅ CurvedPanel: Successfully loaded texture: ${texturePath}`);
+      },
+      undefined,
+      (error) => {
+        console.error(`❌ CurvedPanel: Failed to load texture: ${texturePath}`, error);
+        setDiffuseTexture(null);
       }
-      side={THREE.DoubleSide} 
-      flatShading={false}
-      roughness={0.75} // Increase roughness slightly (default is 1, 0 is smooth)
-      metalness={0.1} // Keep it mostly non-metallic
-    />
-  ), [hovered, isPlaceholderMode]);
+    );
+  }, [material?.texture_diffuse, material?.texture_scale, isPlaceholderMode, materials, materialId]);
+  
+  // Create material using Three.js material directly
+  const meshMaterial = useMemo(() => {
+    console.log('CurvedPanel: Creating material - texture:', !!diffuseTexture, 'placeholder:', isPlaceholderMode);
+    
+    if (isPlaceholderMode) {
+      const material = new THREE.MeshStandardMaterial({
+        color: "#F5F5F5",
+        roughness: 0.7,
+        metalness: 0.1,
+        side: THREE.DoubleSide
+      });
+      return material;
+    }
+
+    if (!diffuseTexture) {
+      console.log('CurvedPanel: No texture, using fallback color');
+      const material = new THREE.MeshStandardMaterial({
+        color: "#D2B48C",
+        roughness: 0.8,
+        metalness: 0.1,
+        side: THREE.DoubleSide
+      });
+      return material;
+    }
+
+    console.log('✅ CurvedPanel: Creating textured material');
+    
+    let color = new THREE.Color(1, 1, 1);
+    let emissive = new THREE.Color(0, 0, 0);
+    let roughness = 0.8;
+    let metalness = 0.1;
+
+    if (isActive) {
+      color = new THREE.Color(1.05, 1.05, 1.02);
+      emissive = new THREE.Color(0.02, 0.015, 0.01);
+      roughness = 0.7;
+    } else if (hovered) {
+      color = new THREE.Color(1.02, 1.02, 1.01);
+      roughness = 0.75;
+    }
+
+    const material = new THREE.MeshStandardMaterial({
+      map: diffuseTexture,
+      color: color,
+      emissive: emissive,
+      roughness: roughness,
+      metalness: metalness,
+      side: THREE.DoubleSide
+    });
+    
+    console.log('✅ Created Three.js material:', material, 'with map:', material.map);
+    return material;
+  }, [diffuseTexture, isPlaceholderMode, isActive, hovered]);
 
   return (
     <group rotation={[-Math.PI/2, 0, 0]}> {/* Rotate to lay flat with radius pointing right */}
-      {/* Curved Panel */}
+      {/* Curved Panel with Texture */}
       <mesh 
         geometry={geometry} 
+        material={meshMaterial}
         castShadow 
         receiveShadow 
         position={[0, 0, 0]}
         onPointerOver={() => setHovered(true)}
         onPointerOut={() => setHovered(false)}
-      >
-        {material}
-      </mesh>
-      <lineSegments geometry={edges} renderOrder={1}>
-        <lineBasicMaterial color={isPlaceholderMode ? "#A0A0A0" : "#654321"} linewidth={2.0} />
-      </lineSegments>
+        key={`mesh-${materialId}-${!!diffuseTexture}`} // Force re-render when texture changes
+      />
+              {/* Edge lines with dynamic color based on active state */}
+        <lineSegments geometry={edges} renderOrder={1}>
+          <lineBasicMaterial 
+            color={
+              isPlaceholderMode 
+                ? "#A0A0A0" 
+                : isActive 
+                  ? "#4A4A4A" 
+                  : "#654321"
+            } 
+            linewidth={isActive ? 3.0 : 2.0} 
+          />
+        </lineSegments>
 
       {/* Dimension Lines and Labels */}
       {showDimensions && (
@@ -609,7 +729,9 @@ const CurvesVisualizer: React.FC<CurvesVisualizerProps> = ({
   isTooLarge = false,
   numSplits = 1,
   splitLinesHovered = false,
-  radiusType = 'internal' // Add radiusType with default
+  radiusType = 'internal',
+  materialId,
+  materials
 }) => {
   const controlsRef = useRef<OrbitControlsImpl>(null);
   const [is3DView, setIs3DView] = useState(false); // false = top view (default)
@@ -747,46 +869,48 @@ const CurvesVisualizer: React.FC<CurvesVisualizerProps> = ({
           height: '100%'
         }}
       >
-        {/* Lights - ADJUSTED */}
-        <ambientLight intensity={0.7} /> {/* Increased ambient intensity */}
-        <directionalLight // Main light
-          position={[8, 12, 8]} // Adjusted position slightly
-          intensity={0.9} // Slightly decreased intensity
+        {/* Enhanced lighting for better texture visibility */}
+        <ambientLight intensity={0.6} />
+        <directionalLight
+          position={[8, 12, 8]}
+          intensity={1.2}
           castShadow
-          shadow-mapSize-width={1024} // Kept resolution for reasonable detail
-          shadow-mapSize-height={1024}
+          shadow-mapSize-width={2048}
+          shadow-mapSize-height={2048}
           shadow-camera-near={0.1}
           shadow-camera-far={50}
           shadow-camera-left={-10}
           shadow-camera-right={10}
           shadow-camera-top={10}
           shadow-camera-bottom={-10}
-          shadow-bias={-0.001} // Fine-tune bias if needed
+          shadow-bias={-0.001}
         />
-        {/* Add a Fill Light */}
         <directionalLight 
-            position={[-5, 5, -5]} 
-            intensity={0.3} // Weaker fill light
-            // No shadow casting needed for fill light usually
+          position={[-5, 5, -5]} 
+          intensity={0.4}
         />
         
-        {/* Curved Panel */}
-        <CurvedPanel 
-          radius={scaledRadius} 
-          width={scaledWidth} 
-          angle={angle} 
-          thickness={scaledThickness}
-          arcLength={arcLength}
-          chordLength={chordLength}
-          showDimensions={showDimensions}
-          isPlaceholderMode={isPlaceholderMode}
-          activeFieldHighlight={activeFieldHighlight}
-          scaleFactor={scaleFactor}
-          isTooLarge={isTooLarge}
-          numSplits={numSplits}
-          splitLinesHovered={splitLinesHovered}
-          radiusType={radiusType}
-        />
+        {/* Curved Panel with texture support */}
+        <Suspense fallback={null}>
+          <CurvedPanel 
+            radius={scaledRadius} 
+            width={scaledWidth} 
+            angle={angle} 
+            thickness={scaledThickness}
+            arcLength={arcLength}
+            chordLength={chordLength}
+            showDimensions={showDimensions}
+            isPlaceholderMode={isPlaceholderMode}
+            activeFieldHighlight={activeFieldHighlight}
+            scaleFactor={scaleFactor}
+            isTooLarge={isTooLarge}
+            numSplits={numSplits}
+            splitLinesHovered={splitLinesHovered}
+            radiusType={radiusType}
+            materialId={materialId}
+            materials={materials}
+          />
+        </Suspense>
         
         {/* Controls */}
         <OrbitControls 

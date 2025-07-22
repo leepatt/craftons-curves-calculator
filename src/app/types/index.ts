@@ -9,6 +9,9 @@ export interface Material {
   sheet_width_mm: number;
   usable_sheet_length_mm: number;
   usable_sheet_width_mm: number;
+  texture_diffuse?: string; // Path to diffuse texture image
+  texture_normal?: string; // Path to normal map texture
+  texture_scale?: [number, number]; // UV scale for texture tiling
 }
 
 // Parameter types for form configuration

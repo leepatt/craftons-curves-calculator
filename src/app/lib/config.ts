@@ -12,48 +12,8 @@ export const APP_CONFIG = {
     shopifyVariantId: 45300623343794,
   },
 
-  // Materials Configuration (All prices inc GST as per Shopify standard)
-  materials: [
-    {
-      id: "form-17",
-      name: "Formply",
-      type: "Structural Plywood",
-      thickness_mm: 17,
-      sheet_price: 82.50, // inc GST - was 75.00, now 75.00 * 1.10 = 82.50
-      rate_per_m2: 55, // Legacy compatibility (inc GST) - was 50, now 50 * 1.10 = 55
-      sheet_length_mm: 2400,
-      sheet_width_mm: 1200,
-      usable_sheet_length_mm: 2390,
-      usable_sheet_width_mm: 1190,
-      sheet_area_m2: 2.88
-    },
-    {
-      id: "mdf-18",
-      name: "MDF Standard",
-      type: "Wood Composite",
-      thickness_mm: 18,
-      sheet_price: 57.02, // inc GST - was 51.84, now 51.84 * 1.10 = 57.02
-      rate_per_m2: 71.50, // Legacy compatibility (inc GST) - was 65, now 65 * 1.10 = 71.50
-      sheet_length_mm: 2400,
-      sheet_width_mm: 1200,
-      usable_sheet_length_mm: 2390,
-      usable_sheet_width_mm: 1190,
-      sheet_area_m2: 2.88
-    },
-    {
-      id: "CD-19",
-      name: "CD Structural Plywood",
-      type: "Structural Plywood",
-      thickness_mm: 19,
-      sheet_price: 102.96, // inc GST - was 93.60, now 93.60 * 1.10 = 102.96
-      rate_per_m2: 93.50, // Legacy compatibility (inc GST) - was 85, now 85 * 1.10 = 93.50
-      sheet_length_mm: 2400,
-      sheet_width_mm: 1200,
-      usable_sheet_length_mm: 2390,
-      usable_sheet_width_mm: 1190,
-      sheet_area_m2: 2.88
-    }
-  ],
+  // Materials are now loaded dynamically from /api/materials.json
+  // This supports texture properties and maintains a single source of truth
 
   // Product Configuration
   product: {
@@ -197,10 +157,7 @@ export const APP_CONFIG = {
 };
 
 // Legacy compatibility exports
-export const MATERIAL_RATES = APP_CONFIG.materials.reduce((acc, material) => {
-  acc[material.thickness_mm.toString()] = material.rate_per_m2;
-  return acc;
-}, {} as { [key: string]: number });
+// MATERIAL_RATES now loaded dynamically from materials.json instead of static config
 
 export const GST_RATE = APP_CONFIG.business.gstRate;
 export const SHOPIFY_VARIANT_ID = APP_CONFIG.business.shopifyVariantId;
