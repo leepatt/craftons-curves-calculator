@@ -1113,7 +1113,8 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = ({
               const internalRadiusCalc = rType === 'internal' ? specifiedRadius : specifiedRadius - width;
               const internalRadius = internalRadiusCalc < 0 ? 0 : internalRadiusCalc;
               const splitStr = part.numSplits > 1 ? ` Split:${part.numSplits}` : '';
-              return `${index + 1}. R:${internalRadius} W:${width} A:${angle} Qty:${part.quantity}${splitStr}`;
+              const materialStr = ` Mat:${part.config.material}`;
+              return `${index + 1}. R:${internalRadius} W:${width} A:${angle} Qty:${part.quantity}${splitStr}${materialStr}`;
             }).join('; '),
             // Add engraving info if applicable
             ...(partsList.length > 1 && isEngravingEnabled ? {
@@ -1121,7 +1122,7 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = ({
               '_engraving_cost': totalPriceDetails.partIdEngravingCost.toFixed(2)
             } : {}),
             // Add detailed material breakdown
-            '_material': currentConfig.material, // Simple material ID (e.g., "form-17")
+            '_materials': partsList.map(part => part.config.material).join(', '), // List of all material IDs used
             '_materials_used': Object.entries(totalPriceDetails.sheetsByMaterial).map(([matId, count]) => {
               const materialName = materials?.find(m => m.id === matId)?.name || matId;
               return `${materialName}: ${count} sheet${count !== 1 ? 's' : ''}`;
