@@ -1121,6 +1121,7 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = ({
               '_engraving_cost': totalPriceDetails.partIdEngravingCost.toFixed(2)
             } : {}),
             // Add detailed material breakdown
+            '_material': currentConfig.material, // Simple material ID (e.g., "form-17")
             '_materials_used': Object.entries(totalPriceDetails.sheetsByMaterial).map(([matId, count]) => {
               const materialName = materials?.find(m => m.id === matId)?.name || matId;
               return `${materialName}: ${count} sheet${count !== 1 ? 's' : ''}`;
@@ -1221,6 +1222,21 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = ({
   // Use selected part config if available, otherwise use current config
   const displayConfig = selectedPart ? selectedPart.config : currentConfig;
   const isDisplayingSelectedPart = !!selectedPart;
+  
+  // Debug logging for material and texture system
+  useEffect(() => {
+    console.log('CurvesCustomizer Debug:', {
+      displayConfigMaterial: displayConfig.material,
+      materialsLoaded: !!materials,
+      materialsCount: materials?.length || 0,
+      materialsList: materials?.map(m => ({ id: m.id, name: m.name, texture: m.texture_diffuse })),
+      isPlaceholderMode: !isDisplayingSelectedPart && (
+        Number(displayConfig.specifiedRadius) <= 0 || 
+        Number(displayConfig.width) <= 0 || 
+        Number(displayConfig.angle) <= 0
+      )
+    });
+  }, [displayConfig.material, materials, isDisplayingSelectedPart, displayConfig]);
   
   // Calculate radii for the display config
   const getDisplayRadii = () => {
@@ -1351,7 +1367,7 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = ({
               arcLength={displayDerivedMeasurements.arcLength} 
               chordLength={displayDerivedMeasurements.chordLength} 
               showDimensions={!showShareModal} 
-                              isPlaceholderMode={!isDisplayingSelectedPart && (
+              isPlaceholderMode={!isDisplayingSelectedPart && (
                   Number(displayConfig.specifiedRadius) <= 0 || 
                   Number(displayConfig.width) <= 0 || 
                   Number(displayConfig.angle) <= 0
@@ -1361,6 +1377,8 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = ({
               numSplits={displaySplitInfo.numSplits} 
               splitLinesHovered={splitLinesHovered}
               radiusType={displayConfig.radiusType as 'internal' | 'external' || 'internal'}
+              materialId={displayConfig.material as string}
+              materials={materials || undefined}
             />
           </div>
           
