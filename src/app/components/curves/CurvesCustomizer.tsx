@@ -1113,7 +1113,8 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = ({
               const internalRadiusCalc = rType === 'internal' ? specifiedRadius : specifiedRadius - width;
               const internalRadius = internalRadiusCalc < 0 ? 0 : internalRadiusCalc;
               const splitStr = part.numSplits > 1 ? ` Split:${part.numSplits}` : '';
-              const materialStr = ` Mat:${part.config.material}`;
+              const material = materials?.find(m => m.id === part.config.material);
+              const materialStr = ` ${material?.name || part.config.material}`;
               return `${index + 1}. R:${internalRadius} W:${width} A:${angle} Qty:${part.quantity}${splitStr}${materialStr}`;
             }).join('; '),
             // Add engraving info if applicable
@@ -1156,7 +1157,9 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = ({
         const internalRadiusCalc = rType === 'internal' ? specifiedRadius : specifiedRadius - width;
         const internalRadius = internalRadiusCalc < 0 ? 0 : internalRadiusCalc;
         const splitStr = part.numSplits > 1 ? ` Split:${part.numSplits}` : '';
-        visiblePartProps[`${idx + 1}.`] = `R:${internalRadius} W:${width} A:${angle} Qty:${part.quantity}${splitStr}`;
+        const material = materials?.find(m => m.id === part.config.material);
+        const materialStr = ` ${material?.name || part.config.material}`;
+        visiblePartProps[`${idx + 1}.`] = `R:${internalRadius} W:${width} A:${angle} Qty:${part.quantity}${splitStr}${materialStr}`;
       });
 
       // Merge visible props into the main properties object
