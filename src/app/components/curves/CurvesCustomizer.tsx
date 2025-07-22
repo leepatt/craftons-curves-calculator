@@ -1114,7 +1114,7 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = ({
               const internalRadius = internalRadiusCalc < 0 ? 0 : internalRadiusCalc;
               const splitStr = part.numSplits > 1 ? ` Split:${part.numSplits}` : '';
               const material = materials?.find(m => m.id === part.config.material);
-              const materialStr = ` ${material?.name || part.config.material}`;
+              const materialStr = ` ${material?.name || part.config.material} ${material?.thickness_mm}mm`;
               return `${index + 1}. R:${internalRadius} W:${width} A:${angle} Qty:${part.quantity}${splitStr}${materialStr}`;
             }).join('; '),
             // Add engraving info if applicable
@@ -1158,7 +1158,7 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = ({
         const internalRadius = internalRadiusCalc < 0 ? 0 : internalRadiusCalc;
         const splitStr = part.numSplits > 1 ? ` Split:${part.numSplits}` : '';
         const material = materials?.find(m => m.id === part.config.material);
-        const materialStr = ` ${material?.name || part.config.material}`;
+        const materialStr = ` ${material?.name || part.config.material} ${material?.thickness_mm}mm`;
         visiblePartProps[`${idx + 1}.`] = `R:${internalRadius} W:${width} A:${angle} Qty:${part.quantity}${splitStr}${materialStr}`;
       });
 
