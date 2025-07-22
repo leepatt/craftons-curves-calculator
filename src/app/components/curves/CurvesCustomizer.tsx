@@ -1324,10 +1324,10 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = ({
 
   // --- JSX Structure Update ---
   return (
-    <div className="flex flex-col text-foreground overflow-x-hidden bg-gradient-to-br from-gray-50 to-gray-100"> 
-      <div className="flex flex-1 gap-4 md:flex-row flex-col px-2 md:px-6 pb-2.5"> 
+    <div className="flex flex-col text-foreground overflow-x-hidden"> 
+      <div className="flex flex-1 gap-4 md:flex-row flex-col px-2 md:px-6"> 
         {/* Visualizer - now comes first for mobile-first approach */}
-        <main className="w-full md:flex-1 relative rounded-xl border border-gray-200/60 bg-white shadow-lg shadow-gray-200/50 flex flex-col items-center justify-center h-[340px] md:h-[576px] overflow-hidden order-1 md:order-1" style={{flexShrink: 0}}>
+        <main className="w-full md:flex-1 relative rounded-xl border border-gray-200/60 bg-white shadow-lg shadow-gray-200/70 flex flex-col items-center justify-center h-[400px] md:h-[650px] overflow-hidden order-1 md:order-1" style={{flexShrink: 0}}>
           {/* Selected Part Indicator */}
           {isDisplayingSelectedPart && (
             <div className="absolute top-2 left-2 z-10 bg-blue-100 border border-blue-300 text-blue-700 px-3 py-1 rounded-md text-sm shadow-sm">
@@ -1383,10 +1383,10 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = ({
         </main>
 
         {/* Customizer - now comes second */}
-        <aside className="w-full md:w-[31rem] lg:w-[37rem] flex-shrink-0 min-h-0 order-2 md:order-2"> 
+        <aside className="w-full md:w-[28rem] lg:w-[33rem] flex-shrink-0 min-h-0 order-2 md:order-2"> 
           <ScrollArea className="h-full">
-            <div className="space-y-5 pb-4">
-              <div className={`rounded-xl border shadow-lg ${editingPartId ? 'border-blue-200/60 bg-gradient-to-br from-blue-50/80 to-blue-100/40 shadow-blue-200/30' : 'border-gray-200/60 bg-white shadow-gray-200/40'} p-3 md:p-5 space-y-4`}> 
+            <div className="space-y-5">
+              <div className={`rounded-xl border shadow-lg ${editingPartId ? 'border-blue-200/60 bg-gradient-to-br from-blue-50/80 to-blue-100/40 shadow-blue-200/50' : 'border-gray-200/60 bg-white shadow-gray-200/60'} p-3 md:p-5 space-y-4`}> 
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center space-x-3">
                     {editingPartId && <div className="w-3 h-3 bg-blue-500 rounded-full animate-pulse"></div>}
@@ -1399,7 +1399,7 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = ({
                     </h2>
                   </div>
                   {editingPartId && (
-                    <div className="text-xs text-gray-600 bg-white/60 px-3 py-1 rounded-full border border-gray-200/60">
+                    <div className="hidden md:block text-xs text-gray-600 bg-white/60 px-3 py-1 rounded-full border border-gray-200/60">
                       <kbd className="text-xs">Esc</kbd> to cancel • <kbd className="text-xs">Ctrl+Enter</kbd> to save
                     </div>
                   )}
@@ -1430,7 +1430,7 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = ({
               </div>
 
               {partsList.length > 0 && (
-                <div className="rounded-xl border border-gray-200/60 bg-white shadow-lg shadow-gray-200/40 p-3 md:p-4 space-y-4"> 
+                <div className="rounded-xl border border-gray-200/60 bg-white shadow-lg shadow-gray-200/60 p-3 md:p-4 space-y-4"> 
                     {/* Parts List */} 
                     <div>
                         <div className="flex items-center space-x-3 mb-4">
@@ -1507,7 +1507,7 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = ({
                                                 const materialName = materials?.find(m=>m.id===matId)?.name || matId;
                                                 return (
                                                     <span key={matId}>
-                                                        {index === 0 ? ' ' : ''}({materialName} x {count} Sheet{count !== 1 ? 's' : ''}) 
+                                                        : ({materialName} x {count} Sheet{count !== 1 ? 's' : ''}) 
                                                     </span>
                                                 );
                                             })}

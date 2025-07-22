@@ -979,21 +979,21 @@ export function CurvesBuilderForm({
           
           {/* Add Part Button or Edit Mode Buttons */}
           {isEditMode ? (
-            <div className="flex gap-2 flex-1">
+            <div className="flex flex-col md:flex-row gap-2 flex-1">
               <Button 
                 onClick={onSaveEdit}
                 disabled={isLoading || !!error || isAddPartDisabled} 
                 className="flex-1 bg-green-700 hover:bg-green-800 text-white font-semibold transition-all duration-200 border border-green-700 hover:border-green-800 rounded-lg shadow-md hover:shadow-lg"
-                size="default"
+                size="lg"
               >
                 <Check className="mr-2 h-4 w-4"/>
-                Save Changes
+                Save
               </Button>
               <Button 
                 onClick={onCancelEdit}
                 variant="outline"
                 className="flex-1 font-semibold border border-gray-300 hover:bg-gray-50 hover:border-gray-400 text-gray-700 hover:text-gray-800 transition-all duration-200 rounded-lg"
-                size="default"
+                size="lg"
               >
                 <XIcon className="mr-2 h-4 w-4"/>
                 Cancel

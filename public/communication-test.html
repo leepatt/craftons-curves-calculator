@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Communication Test - Craftons Curves Calculator</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
+        .log { background: #f5f5f5; padding: 10px; border-radius: 3px; max-height: 300px; overflow-y: scroll; font-family: monospace; font-size: 12px; }
+        button { padding: 8px 16px; margin: 5px; }
+        iframe { width: 100%; height: 600px; border: 1px solid #ddd; }
+    </style>
+</head>
+<body>
+    <h1>Craftons Curves Calculator - Communication Test</h1>
+    
+    <div class="test-section">
+        <h3>Product Context Test</h3>
+        <p>This page simulates the Shopify environment to test automatic material selection.</p>
+        
+        <label for="material-select">Test Material:</label>
+        <select id="material-select">
+            <option value="form-17">Formply (form-17)</option>
+            <option value="mdf-18">MDF Standard (mdf-18)</option>
+            <option value="CD-19">CD Structural Plywood (CD-19)</option>
+        </select>
+        
+        <button onclick="updateProductContext()">Update Product Context</button>
+        <button onclick="clearLog()">Clear Log</button>
+    </div>
+
+    <div class="test-section">
+        <h3>Communication Log</h3>
+        <div id="log" class="log">Initializing communication test...\n</div>
+    </div>
+
+    <div class="test-section">
+        <h3>Calculator Iframe</h3>
+        <iframe 
+            id="curves-calculator"
+            src="http://localhost:3000"
+            title="Craftons Curves Calculator">
+        </iframe>
+    </div>
+
+    <script>
+        // Initial product context
+        window.productContext = {
+            productId: "test-communication",
+            productTitle: "Communication Test - Formply",
+            material: "form-17"
+        };
+
+        function log(message) {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.textContent += `[${timestamp}] ${message}\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function clearLog() {
+            document.getElementById('log').textContent = '';
+        }
+
+        function updateProductContext() {
+            const select = document.getElementById('material-select');
+            const selectedMaterial = select.value;
+            
+            window.productContext = {
+                productId: "test-communication",
+                productTitle: `Communication Test - ${select.options[select.selectedIndex].text}`,
+                material: selectedMaterial
+            };
+            
+            log(`Updated product context: ${JSON.stringify(window.productContext)}`);
+            
+            // Send updated context to iframe if it's already loaded
+            const iframe = document.getElementById('curves-calculator');
+            if (iframe && iframe.contentWindow) {
+                try {
+                    iframe.contentWindow.postMessage({
+                        type: 'PRODUCT_CONTEXT_RESPONSE',
+                        source: 'shopify-parent',
+                        productContext: window.productContext
+                    }, '*');
+                    log('Sent updated product context to iframe');
+                } catch (error) {
+                    log(`Error sending updated context: ${error.message}`);
+                }
+            }
+        }
+
+        // Set up message listener for calculator communication
+        window.addEventListener('message', function(event) {
+            log(`Received message: ${JSON.stringify(event.data)}`);
+            
+            // Handle product context requests
+            if (event.data && 
+                event.data.type === 'PRODUCT_CONTEXT_REQUEST' && 
+                event.data.source === 'craftons-curves-calculator') {
+                
+                log('📥 Received product context request from calculator');
+                
+                const iframe = document.getElementById('curves-calculator');
+                if (iframe && iframe.contentWindow) {
+                    try {
+                        iframe.contentWindow.postMessage({
+                            type: 'PRODUCT_CONTEXT_RESPONSE',
+                            source: 'shopify-parent',
+                            productContext: window.productContext
+                        }, '*');
+                        log('📤 Sent product context to calculator: ' + JSON.stringify(window.productContext));
+                    } catch (error) {
+                        log(`❌ Error sending product context: ${error.message}`);
+                        
+                        // Fallback method
+                        try {
+                            event.source.postMessage({
+                                type: 'PRODUCT_CONTEXT_RESPONSE',
+                                source: 'shopify-parent',
+                                productContext: window.productContext
+                            }, event.origin);
+                            log('✅ Sent product context via fallback method');
+                        } catch (fallbackError) {
+                            log(`❌ Fallback method also failed: ${fallbackError.message}`);
+                        }
+                    }
+                } else {
+                    log('❌ Iframe not found or contentWindow not available');
+                }
+            }
+            
+            // Handle height change messages
+            if (event.data && event.data.type === 'IFRAME_HEIGHT_CHANGE') {
+                const iframe = document.getElementById('curves-calculator');
+                if (iframe) {
+                    iframe.style.height = `${event.data.height}px`;
+                    log(`📏 Adjusted iframe height to ${event.data.height}px`);
+                }
+            }
+        }, false);
+
+        // Initialize
+        log('Communication test initialized');
+        log('Product context: ' + JSON.stringify(window.productContext));
+        log('Waiting for calculator to load and request product context...');
+    </script>
+</body>
+</html> 

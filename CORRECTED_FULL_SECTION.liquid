@@ -43,27 +43,22 @@
 
 <script>
 (function() {
-  // Dynamic iframe height adjustment for Craftons Curves Calculator
+  // Dynamic iframe height adjustment and product context for Craftons Curves Calculator
   let calculatorIframe = null;
   let isResizing = false;
-  
-  // Find the calculator iframe
-  function findCalculatorIframe() {
-    const iframes = document.querySelectorAll('iframe[title="Craftons Curves Calculator"]');
-    if (iframes.length > 0) {
-      calculatorIframe = iframes[0];
-      console.log('📱 Found Craftons Curves Calculator iframe');
-    }
-  }
+  let messageListenerSetup = false;
   
   // Set up product context for automatic material selection
   window.productContext = {
     productId: {{ product.id | json }},
     productTitle: {{ product.title | json }},
+    productHandle: {{ product.handle | json }},
     material: {% case product.handle %}
       {% when 'craftons-radius-pro-formply' %}
         "form-17"
       {% when 'craftons-radius-pro-mdf' %}
+        "mdf-18"
+      {% when 'craftons-radius-pro-mdf-standard' %}
         "mdf-18"
       {% when 'craftons-radius-pro-plywood' %}
         "CD-19"
@@ -71,6 +66,49 @@
         "form-17"
     {% endcase %}
   };
+  
+  console.log('🏪 Shopify product context set up:', window.productContext);
+  console.log('🔍 Product handle debug:', {{ product.handle | json }});
+  console.log('🔍 Material mapping result:', window.productContext.material);
+  
+  // Debug: Log exact handle comparison for MDF
+  {% if product.handle == 'craftons-radius-pro-mdf' %}
+    console.log('✅ MDF product handle matched exactly');
+  {% else %}
+    console.log('❌ MDF product handle did NOT match. Expected: craftons-radius-pro-mdf, Got:', {{ product.handle | json }});
+  {% endif %}
+  
+  // Find the calculator iframe with multiple strategies
+  function findCalculatorIframe() {
+    // Strategy 1: Find by title attribute
+    let iframes = document.querySelectorAll('iframe[title="Craftons Curves Calculator"]');
+    if (iframes.length > 0) {
+      calculatorIframe = iframes[0];
+      console.log('📱 Found Craftons Curves Calculator iframe (by title)');
+      return true;
+    }
+    
+    // Strategy 2: Find by src containing calculator domain
+    iframes = document.querySelectorAll('iframe');
+    for (let iframe of iframes) {
+      if (iframe.src && iframe.src.includes('craftons-curves-calculator')) {
+        calculatorIframe = iframe;
+        console.log('📱 Found Craftons Curves Calculator iframe (by src)');
+        return true;
+      }
+    }
+    
+    // Strategy 3: Find by ID if set
+    const iframeById = document.getElementById('curves-calculator-iframe');
+    if (iframeById) {
+      calculatorIframe = iframeById;
+      console.log('📱 Found Craftons Curves Calculator iframe (by ID)');
+      return true;
+    }
+    
+    console.log('⚠️ Craftons Curves Calculator iframe not found yet');
+    return false;
+  }
   
   // Handle messages from the calculator iframe
   function handleCalculatorMessages(event) {
@@ -101,12 +139,17 @@
       }
     }
     
-    // Handle product context requests from calculator iframe (fixes cross-origin issue)
+    // Handle product context requests from calculator iframe
     if (event.data && 
         event.data.type === 'PRODUCT_CONTEXT_REQUEST' && 
         event.data.source === 'craftons-curves-calculator') {
       
       console.log('📥 Received product context request from calculator iframe');
+      
+      // Ensure we have the iframe reference
+      if (!calculatorIframe) {
+        findCalculatorIframe();
+      }
       
       // Send product context back to the iframe
       if (calculatorIframe && calculatorIframe.contentWindow) {
@@ -119,23 +162,71 @@
           console.log('📤 Sent product context to calculator iframe:', window.productContext);
         } catch (error) {
           console.warn('❌ Could not send product context to iframe:', error);
+          // Try alternative method - respond to any origin
+          try {
+            event.source.postMessage({
+              type: 'PRODUCT_CONTEXT_RESPONSE',
+              source: 'shopify-parent',
+              productContext: window.productContext
+            }, event.origin);
+            console.log('✅ Sent product context via event.source fallback');
+          } catch (fallbackError) {
+            console.error('❌ Both postMessage methods failed:', fallbackError);
+          }
+        }
+      } else {
+        // Fallback: respond directly to the event source
+        try {
+          event.source.postMessage({
+            type: 'PRODUCT_CONTEXT_RESPONSE',
+            source: 'shopify-parent',
+            productContext: window.productContext
+          }, event.origin);
+          console.log('✅ Sent product context via direct event response');
+        } catch (error) {
+          console.error('❌ Direct event response failed:', error);
         }
       }
     }
   }
   
   // Set up message listener for all calculator communication
-  window.addEventListener('message', handleCalculatorMessages, false);
+  function setupMessageListener() {
+    if (!messageListenerSetup) {
+      window.addEventListener('message', handleCalculatorMessages, false);
+      messageListenerSetup = true;
+      console.log('👂 Message listener set up for calculator communication');
+    }
+  }
+  
+  // Initialize iframe detection and message handling
+  function initialize() {
+    console.log('🚀 Initializing Craftons Curves Calculator integration');
+    
+    // Set up message listener first (before iframe loads)
+    setupMessageListener();
+    
+    // Try to find iframe immediately
+    findCalculatorIframe();
+    
+    // Set up multiple retry attempts for iframe detection
+    const retryAttempts = [100, 500, 1000, 2000, 3000];
+    retryAttempts.forEach((delay, index) => {
+      setTimeout(() => {
+        if (!calculatorIframe) {
+          console.log(`🔄 Retry attempt ${index + 1} for iframe detection`);
+          findCalculatorIframe();
+        }
+      }, delay);
+    });
+  }
   
   // Initialize when DOM is ready
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', findCalculatorIframe);
+    document.addEventListener('DOMContentLoaded', initialize);
   } else {
-    findCalculatorIframe();
+    initialize();
   }
-  
-  // Fallback: find iframe after a delay in case it loads later
-  setTimeout(findCalculatorIframe, 1000);
 })();
 </script>
 
