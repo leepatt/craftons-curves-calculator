@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useCallback, useState, useEffect, Suspense } from 'react';
-import { Canvas, useLoader } from '@react-three/fiber';
+import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Html, Line } from '@react-three/drei';
 import * as THREE from 'three';
 import { Button } from '@/components/ui/button';
@@ -464,7 +464,7 @@ const CurvedPanel: React.FC<{
         setDiffuseTexture(null);
       }
     );
-  }, [material?.texture_diffuse, material?.texture_scale, isPlaceholderMode, materials, materialId]);
+  }, [material, isPlaceholderMode, materials, materialId]);
   
   // Create material using Three.js material directly
   const meshMaterial = useMemo(() => {
@@ -496,7 +496,7 @@ const CurvedPanel: React.FC<{
     let color = new THREE.Color(1, 1, 1);
     let emissive = new THREE.Color(0, 0, 0);
     let roughness = 0.8;
-    let metalness = 0.1;
+    const metalness = 0.1;
 
     if (isActive) {
       color = new THREE.Color(1.05, 1.05, 1.02);

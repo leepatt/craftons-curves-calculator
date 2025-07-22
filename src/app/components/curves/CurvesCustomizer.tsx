@@ -1213,7 +1213,7 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = ({
     } finally {
       setIsAddingToCart(false);
     }
-  }, [partsList, totalPriceDetails, totalTurnaround, isEngravingEnabled, materials]);
+  }, [partsList, totalPriceDetails, totalTurnaround, isEngravingEnabled, materials, currentConfig.material]);
 
   // --- Visualizer Props Extraction ---
   // Check if we should show a selected part or the current configuration
@@ -1521,7 +1521,7 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = ({
                                     <div className="flex items-center text-gray-600">
                                         <span className="text-gray-600">Material Cost </span>
                                         <span className="text-gray-500">
-                                            {Object.entries(totalPriceDetails.sheetsByMaterial).map(([matId, count], index) => {
+                                            {Object.entries(totalPriceDetails.sheetsByMaterial).map(([matId, count]) => {
                                                 const materialName = materials?.find(m=>m.id===matId)?.name || matId;
                                                 return (
                                                     <span key={matId}>
