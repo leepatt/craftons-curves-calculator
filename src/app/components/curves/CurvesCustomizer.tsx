@@ -21,7 +21,7 @@ import { getApiBasePath } from '@/lib/utils';
 import { SharedConfiguration } from '@/lib/shareStorage';
 
 // Add iframe height communication utilities
-const communicateHeightToParent = () => {
+const communicateHeightToParent = (hasSummarySection: boolean = false) => {
   if (window.parent && window.parent !== window) {
     // Measure visualizer height dynamically
     const visualizerEl = document.querySelector('main[class*="order-1"]') as HTMLElement;
@@ -43,15 +43,13 @@ const communicateHeightToParent = () => {
       console.log('⚠️ Could not find customizer panel, using fallback height');
     }
     
-    // Check if the summary section (which includes the parts list) is visible
-    const summarySectionVisible = !!document.getElementById('parts-and-summary-section');
-
-    // Use the larger of the two heights + padding for overall layout
-    // Adjust padding based on whether the summary section is visible
-    const paddingHeight = summarySectionVisible ? 40 : 10; // Reduced padding when no parts/summary
+    // Adjust padding based on whether summary section is visible
+    // When summary section is not visible (entry state), use reduced padding
+    // When summary section is visible (parts added), use standard padding  
+    const paddingHeight = hasSummarySection ? 40 : 20;
     const totalHeight = Math.max(visualizerHeight, customizerHeight) + paddingHeight;
     
-    console.log('📏 Iframe Height: Visualizer=' + visualizerHeight + 'px, Customizer=' + customizerHeight + 'px, Using=' + Math.max(visualizerHeight, customizerHeight) + 'px, Total=' + totalHeight + 'px');
+    console.log('📏 Iframe Height: Visualizer=' + visualizerHeight + 'px, Customizer=' + customizerHeight + 'px, Using=' + Math.max(visualizerHeight, customizerHeight) + 'px, Summary=' + hasSummarySection + ', Padding=' + paddingHeight + 'px, Total=' + totalHeight + 'px');
     
     // Send height to parent window
     try {
@@ -70,15 +68,15 @@ const communicateHeightToParent = () => {
 };
 
 // Hook to communicate height changes when content actually changes
-const useIframeHeightCommunication = (dependencies: React.DependencyList) => {
+const useIframeHeightCommunication = (dependencies: React.DependencyList, hasSummarySection: boolean = false) => {
   useEffect(() => {
     // Debounce height communication to avoid excessive messages
     const timeoutId = setTimeout(() => {
-      communicateHeightToParent();
+      communicateHeightToParent(hasSummarySection);
     }, 100);
     
     return () => clearTimeout(timeoutId);
-  }, [dependencies]);
+  }, [dependencies, hasSummarySection]);
 };
 
 // Define Props Interface (Ensuring it exists)
@@ -186,14 +184,16 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = ({
   const [editingPartId, setEditingPartId] = useState<string | null>(null);
   
   // Set up iframe height communication to resize iframe when content changes
-  useIframeHeightCommunication([partsList, totalPriceDetails, editingPartId, selectedPartId]);
+  const hasSummarySection = partsList.length > 0;
+  useIframeHeightCommunication([partsList, totalPriceDetails, editingPartId, selectedPartId], hasSummarySection);
   
   // Communicate initial height when app loads (one-time only)
   useEffect(() => {
     // Delay initial height communication to ensure DOM is fully rendered
     const initialHeightTimeout = setTimeout(() => {
       console.log('🎯 Iframe Height: Initial height communication on app load');
-      communicateHeightToParent();
+      // On initial load, partsList is empty so no summary section
+      communicateHeightToParent(false);
     }, 1000);
     
     return () => clearTimeout(initialHeightTimeout);
@@ -1476,7 +1476,7 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = ({
               </div>
 
               {partsList.length > 0 && (
-                <div id="parts-and-summary-section" className="rounded-xl border border-gray-200/60 bg-white shadow-lg shadow-gray-200/60 p-3 md:p-4 space-y-4"> 
+                <div className="rounded-xl border border-gray-200/60 bg-white shadow-lg shadow-gray-200/60 p-3 md:p-4 space-y-4"> 
                     {/* Parts List */} 
                     <div>
                         <div className="flex items-center space-x-3 mb-4">
