@@ -102,25 +102,33 @@ export default function SharedConfigurationPage() {
   return (
     <div>
       {/* Header showing this is a shared configuration */}
-      <div className="bg-blue-50 border-b border-blue-200 px-4 py-3">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="flex items-center justify-center w-8 h-8 bg-blue-100 rounded-lg">
-              <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z" />
-              </svg>
-            </div>
-            <div>
-              <h1 className="text-lg font-semibold text-blue-900">Shared Configuration</h1>
-              <p className="text-sm text-blue-700">This configuration was shared with you</p>
+      <div className="bg-[#194431] px-4 py-2">
+        <div className="max-w-7xl mx-auto flex items-center">
+          {/* Logo */}
+          <a 
+            href="https://craftons.com.au/" 
+            target="_blank" 
+            rel="noopener noreferrer" 
+            className="h-[200px] w-[200px] -my-16"
+          >
+            <img 
+              src="/images/CRAFTONS LOGO.png" 
+              alt="Crafton's Logo" 
+              className="w-full h-full object-contain"
+            />
+          </a>
+
+          {/* Right side with share icon and text */}
+          <div className="flex-1 flex justify-end pr-6">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center justify-center w-7 h-7">
+                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z" />
+                </svg>
+              </div>
+              <span className="text-white text-lg font-medium">Shared Configuration</span>
             </div>
           </div>
-          <Link 
-            href="/" 
-            className="text-blue-600 hover:text-blue-800 text-sm font-medium transition-colors"
-          >
-            Create New Configuration →
-          </Link>
         </div>
       </div>
       

@@ -683,15 +683,17 @@ const CurvedPanel: React.FC<{
                 const splitAngle = (i + 1) * (angle / numSplits);
                 const splitAngleRad = splitAngle * Math.PI / 180;
                 // Split lines always go from inner radius to outer radius
+                // Raise split lines slightly above material surface for visibility
+                const SPLIT_LINE_Z_OFFSET = thickness + 0.001; // Just above material surface
                 const innerPoint = new THREE.Vector3(
                   radius * Math.cos(splitAngleRad) + centerOffset.x,
                   radius * Math.sin(splitAngleRad) + centerOffset.y,
-                  DIMENSION_LINE_Z // Raise to fixed Z height
+                  SPLIT_LINE_Z_OFFSET // Raise above material surface
                 );
                 const outerPoint = new THREE.Vector3(
                   outerR * Math.cos(splitAngleRad) + centerOffset.x,
                   outerR * Math.sin(splitAngleRad) + centerOffset.y,
-                  DIMENSION_LINE_Z // Raise to fixed Z height
+                  SPLIT_LINE_Z_OFFSET // Raise above material surface
                 );
                 // Define hover styles
                 const hoverLineWidth = 5;

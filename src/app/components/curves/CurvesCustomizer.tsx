@@ -23,9 +23,10 @@ import { SharedConfiguration } from '@/lib/shareStorage';
 // Add iframe height communication utilities
 const communicateHeightToParent = () => {
   if (window.parent && window.parent !== window) {
-    // Visualizer has fixed height of 576px (as set in CSS)
-    const visualizerHeight = 576; // Fixed height - matches CSS h-[576px]
-    console.log('📐 Visualizer height: FIXED at', visualizerHeight + 'px');
+    // Measure visualizer height dynamically
+    const visualizerEl = document.querySelector('main[class*="order-1"]') as HTMLElement;
+    const visualizerHeight = visualizerEl ? visualizerEl.offsetHeight : 576; // Fallback to a reasonable default
+    console.log('📐 Visualizer height: Measured at', visualizerHeight + 'px');
     
     // Find the customizer sidebar (aside element with order-2)
     const customizerAside = document.querySelector('aside[class*="order-2"]') as HTMLElement;
@@ -43,7 +44,7 @@ const communicateHeightToParent = () => {
     }
     
     // Use the larger of the two heights + padding for overall layout
-    const paddingHeight = 100; // Space for margins and container padding
+    const paddingHeight = 40; // Reduced extra padding from 100 to 40
     const totalHeight = Math.max(visualizerHeight, customizerHeight) + paddingHeight;
     
     console.log('📏 Iframe Height: Visualizer=' + visualizerHeight + 'px, Customizer=' + customizerHeight + 'px, Using=' + Math.max(visualizerHeight, customizerHeight) + 'px, Total=' + totalHeight + 'px');
@@ -201,15 +202,21 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = ({
 
   // Request product context from parent window using postMessage (fixes cross-origin issue)
   useEffect(() => {
+    // Ensure this only runs in a browser context and when embedded in an iframe
     if (typeof window !== 'undefined' && window.parent && window.parent !== window) {
       console.log('🔍 Requesting product context from parent window...');
       
-      // Set up message listener for product context response
+      let attempts = 0;
+      const maxAttempts = 10; // Try for 5 seconds (10 attempts * 500ms)
+      let requestInterval: NodeJS.Timeout | null = null;
+
+      // Set up the listener for the response from the parent
       const handleProductContextMessage = (event: MessageEvent) => {
         if (event.data && event.data.type === 'PRODUCT_CONTEXT_RESPONSE' && event.data.source === 'shopify-parent') {
+          console.log('📦 Received product context from parent window:', event.data.productContext);
+          
           const productContext = event.data.productContext;
           if (productContext && productContext.material) {
-            console.log('📦 Received product context from parent window:', productContext);
             // Set the material in the configuration
             setCurrentConfig(prevConfig => ({
               ...prevConfig,
@@ -218,33 +225,48 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = ({
           } else {
             console.log('ℹ️ No product context or material found in parent response.');
           }
-          // Remove the listener after receiving the response
+
+          // Stop trying once we get a response
+          if (requestInterval) {
+            clearInterval(requestInterval);
+          }
           window.removeEventListener('message', handleProductContextMessage);
         }
       };
-      
-      // Add message listener
+
+      // Add the message listener
       window.addEventListener('message', handleProductContextMessage);
+
+      // Function to send the request
+      const sendRequestContext = () => {
+        attempts++;
+        console.log(`📤 Sending product context request (Attempt: ${attempts})`);
+        try {
+          window.parent.postMessage({
+            type: 'PRODUCT_CONTEXT_REQUEST',
+            source: 'craftons-curves-calculator'
+          }, '*');
+        } catch (error) {
+          console.warn('❌ Could not request product context from parent window:', error);
+          // Stop if postMessage fails catastrophically
+          if (requestInterval) clearInterval(requestInterval);
+        }
+
+        if (attempts >= maxAttempts) {
+          console.log('⏰ Product context request timed out after 5 seconds. Using default material.');
+          if (requestInterval) clearInterval(requestInterval);
+        }
+      };
       
-      // Request product context from parent
-      try {
-        window.parent.postMessage({
-          type: 'PRODUCT_CONTEXT_REQUEST',
-          source: 'craftons-curves-calculator'
-        }, '*');
-        console.log('📤 Product context request sent to parent window');
-      } catch (error) {
-        console.warn('❌ Could not request product context from parent window:', error);
-      }
-      
-      // Cleanup timeout - remove listener if no response after 3 seconds
-      const cleanupTimeout = setTimeout(() => {
-        window.removeEventListener('message', handleProductContextMessage);
-        console.log('⏰ Product context request timed out - using default material');
-      }, 3000);
-      
+      // Start sending the request immediately and then on an interval
+      sendRequestContext();
+      requestInterval = setInterval(sendRequestContext, 500);
+
+      // Cleanup function to remove listener and interval when the component unmounts
       return () => {
-        clearTimeout(cleanupTimeout);
+        if (requestInterval) {
+          clearInterval(requestInterval);
+        }
         window.removeEventListener('message', handleProductContextMessage);
       };
     }
@@ -1345,7 +1367,7 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = ({
     <div className="flex flex-col text-foreground overflow-x-hidden"> 
       <div className="flex flex-1 gap-4 md:flex-row flex-col px-2 md:px-6"> 
         {/* Visualizer - now comes first for mobile-first approach */}
-        <main className="w-full md:flex-1 relative rounded-xl border border-gray-200/60 bg-white shadow-lg shadow-gray-200/70 flex flex-col items-center justify-center h-[400px] md:h-[650px] overflow-hidden order-1 md:order-1" style={{flexShrink: 0}}>
+        <main className="w-full md:flex-1 relative rounded-xl border border-gray-200/60 bg-white shadow-lg shadow-gray-200/70 flex flex-col items-center justify-center h-[400px] md:h-[576px] overflow-hidden order-1 md:order-1" style={{flexShrink: 0}}>
           {/* Selected Part Indicator */}
           {isDisplayingSelectedPart && (
             <div className="absolute top-2 left-2 z-10 bg-blue-100 border border-blue-300 text-blue-700 px-3 py-1 rounded-md text-sm shadow-sm">
