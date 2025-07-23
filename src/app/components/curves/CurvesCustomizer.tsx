@@ -43,8 +43,12 @@ const communicateHeightToParent = () => {
       console.log('⚠️ Could not find customizer panel, using fallback height');
     }
     
+    // Check if the summary section (which includes the parts list) is visible
+    const summarySectionVisible = !!document.getElementById('parts-and-summary-section');
+
     // Use the larger of the two heights + padding for overall layout
-    const paddingHeight = 40; // Reduced extra padding from 100 to 40
+    // Adjust padding based on whether the summary section is visible
+    const paddingHeight = summarySectionVisible ? 40 : 10; // Reduced padding when no parts/summary
     const totalHeight = Math.max(visualizerHeight, customizerHeight) + paddingHeight;
     
     console.log('📏 Iframe Height: Visualizer=' + visualizerHeight + 'px, Customizer=' + customizerHeight + 'px, Using=' + Math.max(visualizerHeight, customizerHeight) + 'px, Total=' + totalHeight + 'px');
@@ -1472,7 +1476,7 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = ({
               </div>
 
               {partsList.length > 0 && (
-                <div className="rounded-xl border border-gray-200/60 bg-white shadow-lg shadow-gray-200/60 p-3 md:p-4 space-y-4"> 
+                <div id="parts-and-summary-section" className="rounded-xl border border-gray-200/60 bg-white shadow-lg shadow-gray-200/60 p-3 md:p-4 space-y-4"> 
                     {/* Parts List */} 
                     <div>
                         <div className="flex items-center space-x-3 mb-4">
