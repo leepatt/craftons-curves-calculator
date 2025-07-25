@@ -101,7 +101,9 @@ export interface TotalPriceDetails {
     materialCost: number; // inc GST
     manufactureCost: number; // inc GST
     partIdEngravingCost: number; // inc GST - $1.50 per part (including splits)
+    joinerBlocksCost: number; // inc GST - $1.50 per joiner block (numSplits-1 per part)
     totalIncGST: number; // Total price (all components already inc GST)
     sheetsByMaterial: { [materialId: string]: number }; // Track sheets per material
     totalPartCount: number; // Total number of parts for engraving (including splits)
+    totalJoinerBlocks: number; // Total number of joiner blocks needed
 } 

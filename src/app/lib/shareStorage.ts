@@ -6,6 +6,7 @@ export interface SharedConfiguration {
   totalPriceDetails: TotalPriceDetails | null;
   totalTurnaround: number | null;
   isEngravingEnabled: boolean;
+  isJoinerBlocksEnabled: boolean;
   createdAt: string;
   expiresAt: string;
 }
@@ -50,6 +51,7 @@ export const shareStorage = {
         t: config.totalPriceDetails,
         d: config.totalTurnaround,
         e: config.isEngravingEnabled,
+        j: config.isJoinerBlocksEnabled,
         c: config.createdAt
       };
 
@@ -78,6 +80,7 @@ export const shareStorage = {
         totalPriceDetails: shareData.t || null,
         totalTurnaround: shareData.d || null,
         isEngravingEnabled: shareData.e ?? true,
+        isJoinerBlocksEnabled: shareData.j ?? true,
         createdAt: shareData.c || new Date().toISOString(),
         expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // 30 days
       };

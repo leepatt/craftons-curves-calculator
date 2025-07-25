@@ -933,7 +933,7 @@ export function CurvesBuilderForm({
               <div className="border border-amber-300/40 text-amber-700 bg-amber-50/95 px-4 py-3 rounded-lg flex items-center text-sm shadow-lg hover:shadow-xl transition-all duration-200 group-hover:border-amber-400/60">
                   <AlertTriangle className="h-5 w-5 mr-3 flex-shrink-0 text-amber-600" />
                   <div className="flex flex-col">
-                      <span className="font-medium">Part will be split into 3 sections due to size constraints.</span>
+                      <span className="font-medium">Part will be split into {splitInfo.numSplits} sections due to size constraints.</span>
                   </div>
               </div>
           </div>

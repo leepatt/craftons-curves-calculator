@@ -27,6 +27,7 @@ export async function POST(request: NextRequest) {
       totalPriceDetails: body.totalPriceDetails,
       totalTurnaround: body.totalTurnaround,
       isEngravingEnabled: body.isEngravingEnabled,
+      isJoinerBlocksEnabled: body.isJoinerBlocksEnabled,
       createdAt: new Date().toISOString(),
       expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
     };

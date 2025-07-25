@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid'; // Import uuid for unique IDs
 import { CurvesBuilderForm } from './CurvesBuilderForm';
 import CurvesVisualizer from './CurvesVisualizer';
@@ -21,62 +21,29 @@ import { getApiBasePath } from '@/lib/utils';
 import { SharedConfiguration } from '@/lib/shareStorage';
 
 // Add iframe height communication utilities
-const communicateHeightToParent = (hasSummarySection: boolean = false) => {
-  if (window.parent && window.parent !== window) {
-    // Measure visualizer height dynamically
-    const visualizerEl = document.querySelector('main[class*="order-1"]') as HTMLElement;
-    const visualizerHeight = visualizerEl ? visualizerEl.offsetHeight : 576; // Fallback to a reasonable default
-    console.log('📐 Visualizer height: Measured at', visualizerHeight + 'px');
+const communicateHeightToParent = () => {
+  if (typeof window !== 'undefined' && window.parent && window.parent !== window) {
+    // Use document.body.scrollHeight for a more reliable measurement of the entire content
+    const newHeight = Math.ceil(document.body.scrollHeight);
     
-    // Find the customizer sidebar (aside element with order-2)
-    const customizerAside = document.querySelector('aside[class*="order-2"]') as HTMLElement;
-    let customizerHeight = 600; // Default fallback
-    
-    if (customizerAside) {
-      // Measure the actual customizer content height
-      customizerHeight = Math.max(
-        customizerAside.scrollHeight,
-        customizerAside.offsetHeight
-      );
-      console.log('📐 Customizer panel height:', customizerHeight + 'px');
-    } else {
-      console.log('⚠️ Could not find customizer panel, using fallback height');
+    // Prevent excessively small height values
+    if (newHeight < 200) {
+      console.warn(`📏 Iframe Height: Calculated height (${newHeight}px) is too small. Not sending update.`);
+      return;
     }
     
-    // Adjust padding based on whether summary section is visible
-    // When summary section is not visible (entry state), use reduced padding
-    // When summary section is visible (parts added), use standard padding  
-    const paddingHeight = hasSummarySection ? 40 : 20;
-    const totalHeight = Math.max(visualizerHeight, customizerHeight) + paddingHeight;
+    // console.log(`📏 Iframe Height: Communicating new height to parent: ${newHeight}px`);
     
-    console.log('📏 Iframe Height: Visualizer=' + visualizerHeight + 'px, Customizer=' + customizerHeight + 'px, Using=' + Math.max(visualizerHeight, customizerHeight) + 'px, Summary=' + hasSummarySection + ', Padding=' + paddingHeight + 'px, Total=' + totalHeight + 'px');
-    
-    // Send height to parent window
     try {
       window.parent.postMessage({
         type: 'IFRAME_HEIGHT_CHANGE',
-        height: totalHeight,
+        height: newHeight,
         source: 'craftons-curves-calculator'
       }, '*');
-      console.log('📤 Iframe Height: Message sent successfully');
     } catch (error) {
       console.warn('❌ Iframe Height: Could not communicate with parent window:', error);
     }
-  } else {
-    console.log('📌 Iframe Height: Not in iframe context (window.parent === window)');
   }
-};
-
-// Hook to communicate height changes when content actually changes
-const useIframeHeightCommunication = (dependencies: React.DependencyList, hasSummarySection: boolean = false) => {
-  useEffect(() => {
-    // Debounce height communication to avoid excessive messages
-    const timeoutId = setTimeout(() => {
-      communicateHeightToParent(hasSummarySection);
-    }, 100);
-    
-    return () => clearTimeout(timeoutId);
-  }, [dependencies, hasSummarySection]);
 };
 
 // Define Props Interface (Ensuring it exists)
@@ -146,6 +113,7 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = ({
   defaultMaterial = 'form-17',
   initialData
 }) => {
+  const customizerContainerRef = useRef<HTMLDivElement>(null);
   // Initialize state with defaultMaterial, which will be updated by the effect below
   const [product, setProduct] = useState<ProductDefinition | null>(null);
   const [currentConfig, setCurrentConfig] = useState<ProductConfiguration>(getDefaultConfig(defaultMaterial));
@@ -164,6 +132,9 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = ({
   
   // State for part ID engraving option
   const [isEngravingEnabled, setIsEngravingEnabled] = useState<boolean>(initialData?.isEngravingEnabled ?? true); // Default to enabled
+  
+  // State for joiner blocks option (enabled when there are split parts)
+  const [isJoinerBlocksEnabled, setIsJoinerBlocksEnabled] = useState<boolean>(initialData?.isJoinerBlocksEnabled ?? true); // Default to enabled
 
   // State for derived measurements of the CURRENTLY configured part - now computed in displayDerivedMeasurements
   // State for split information of the CURRENTLY configured part
@@ -183,21 +154,34 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = ({
   // Edit state management
   const [editingPartId, setEditingPartId] = useState<string | null>(null);
   
-  // Set up iframe height communication to resize iframe when content changes
-  const hasSummarySection = partsList.length > 0;
-  useIframeHeightCommunication([partsList, totalPriceDetails, editingPartId, selectedPartId], hasSummarySection);
-  
-  // Communicate initial height when app loads (one-time only)
+  // Set up iframe height communication using ResizeObserver and an interval for reliability
   useEffect(() => {
-    // Delay initial height communication to ensure DOM is fully rendered
-    const initialHeightTimeout = setTimeout(() => {
-      console.log('🎯 Iframe Height: Initial height communication on app load');
-      // On initial load, partsList is empty so no summary section
-      communicateHeightToParent(false);
-    }, 1000);
-    
-    return () => clearTimeout(initialHeightTimeout);
-  }, []); // Empty dependency array - runs only once
+    const container = customizerContainerRef.current;
+    if (!container) return;
+
+    let debounceTimeout: NodeJS.Timeout;
+
+    // Use ResizeObserver to catch structural changes
+    const observer = new ResizeObserver(() => {
+      // Debounce to avoid rapid-fire messages during animations
+      clearTimeout(debounceTimeout);
+      debounceTimeout = setTimeout(communicateHeightToParent, 100);
+    });
+    observer.observe(container);
+
+    // Also use an interval as a fallback for dynamic content that might not trigger ResizeObserver
+    const intervalId = setInterval(communicateHeightToParent, 500);
+
+    // Initial communication after a short delay to ensure rendering is complete
+    const initialTimeout = setTimeout(communicateHeightToParent, 300);
+
+    return () => {
+      clearTimeout(debounceTimeout);
+      clearTimeout(initialTimeout);
+      clearInterval(intervalId);
+      observer.disconnect();
+    };
+  }, [partsList, totalPriceDetails, editingPartId, selectedPartId]); // Re-run if major state affecting layout changes
   
   // Share state management
   const [isSharing, setIsSharing] = useState<boolean>(false);
@@ -704,16 +688,29 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = ({
         const totalPartCount = partsList.reduce((sum, part) => sum + (part.numSplits * part.quantity), 0);
         const partIdEngravingCost = (partsList.length > 1 && isEngravingEnabled) ? totalPartCount * 1.50 : 0;
 
+        // Calculate joiner blocks cost
+        // Only applies when there are split parts AND user has joiner blocks enabled
+        // Each part needs (numSplits - 1) joiner blocks to connect the split sections
+        const totalJoinerBlocks = partsList.reduce((sum, part) => {
+            if (part.numSplits > 1) {
+                return sum + ((part.numSplits - 1) * part.quantity);
+            }
+            return sum;
+        }, 0);
+        const joinerBlocksCost = (totalJoinerBlocks > 0 && isJoinerBlocksEnabled) ? totalJoinerBlocks * 1.50 : 0;
+
         // Calculate final totals
-        const totalIncGST = totalMaterialCost + totalManufactureCost + partIdEngravingCost;
+        const totalIncGST = totalMaterialCost + totalManufactureCost + partIdEngravingCost + joinerBlocksCost;
 
         setTotalPriceDetails({
             materialCost: totalMaterialCost,
             manufactureCost: totalManufactureCost,
             partIdEngravingCost: partIdEngravingCost,
+            joinerBlocksCost: joinerBlocksCost,
             totalIncGST: totalIncGST,
             sheetsByMaterial: sheetsByMaterial,
             totalPartCount: totalPartCount,
+            totalJoinerBlocks: totalJoinerBlocks,
         });
         
         setTotalTurnaround(overallMaxTurnaround);
@@ -724,7 +721,7 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = ({
         setTotalTurnaround(null);
     }
 
-  }, [partsList, materials, isEngravingEnabled]);
+  }, [partsList, materials, isEngravingEnabled, isJoinerBlocksEnabled]);
 
 
   const handleConfigChange = useCallback((changedValues: Partial<ProductConfiguration>) => {
@@ -1046,6 +1043,7 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = ({
         totalPriceDetails: totalPriceDetails,
         totalTurnaround: totalTurnaround,
         isEngravingEnabled: isEngravingEnabled,
+        isJoinerBlocksEnabled: isJoinerBlocksEnabled,
         timestamp: new Date().toISOString()
       };
 
@@ -1071,7 +1069,7 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = ({
     } finally {
       setIsSharing(false);
     }
-  }, [partsList, totalPriceDetails, totalTurnaround, isEngravingEnabled]);
+  }, [partsList, totalPriceDetails, totalTurnaround, isEngravingEnabled, isJoinerBlocksEnabled]);
 
   const handleCloseShareModal = useCallback(() => {
     setShowShareModal(false);
@@ -1131,21 +1129,28 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = ({
             '_parts_count': partsList.length.toString(),
             '_total_turnaround': totalTurnaround ? `${totalTurnaround} days` : 'TBD',
             '_configuration_summary': partsList.map((part, index) => {
-              // Build compact summary: "1. R:3200 W:90 A:90 Qty:3 Split:3"
+              // Build compact summary: "1. R(int):3200 W:90 A:90 Qty:3 Split:3" (shows R(int) when external radius was used)
               const rType = part.config.radiusType as 'internal' | 'external';
               const specifiedRadius = Number(part.config.specifiedRadius);
               const width = Number(part.config.width);
               const angle = Number(part.config.angle);
               const internalRadiusCalc = rType === 'internal' ? specifiedRadius : specifiedRadius - width;
               const internalRadius = internalRadiusCalc < 0 ? 0 : internalRadiusCalc;
+              const radiusMarker = rType === 'internal' ? 'R' : 'R(int)'; // Show R(int) when calculated from external
               const splitStr = part.numSplits > 1 ? ` Split:${part.numSplits}` : '';
               const materialStr = ` ${part.config.material}`;
-              return `${index + 1}. R:${internalRadius} W:${width} A:${angle} Qty:${part.quantity}${splitStr}${materialStr}`;
+              return `${index + 1}. ${radiusMarker}:${internalRadius} W:${width} A:${angle} Qty:${part.quantity}${splitStr}${materialStr}`;
             }).join('; '),
             // Add engraving info if applicable
             ...(partsList.length > 1 && isEngravingEnabled ? {
               '_part_id_engraving': 'Included',
               '_engraving_cost': totalPriceDetails.partIdEngravingCost.toFixed(2)
+            } : {}),
+            // Add joiner blocks info if applicable
+            ...(totalPriceDetails.totalJoinerBlocks > 0 && isJoinerBlocksEnabled ? {
+              '_joiner_blocks': 'Included',
+              '_joiner_blocks_quantity': totalPriceDetails.totalJoinerBlocks.toString(),
+              '_joiner_blocks_cost': totalPriceDetails.joinerBlocksCost.toFixed(2)
             } : {}),
             // Add detailed material breakdown
             '_materials': partsList.map(part => part.config.material).join(', '), // List of all material IDs used
@@ -1181,9 +1186,10 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = ({
         const angle = Number(part.config.angle);
         const internalRadiusCalc = rType === 'internal' ? specifiedRadius : specifiedRadius - width;
         const internalRadius = internalRadiusCalc < 0 ? 0 : internalRadiusCalc;
+        const radiusMarker = rType === 'internal' ? 'R' : 'R(int)'; // Show R(int) when calculated from external
         const splitStr = part.numSplits > 1 ? ` Split:${part.numSplits}` : '';
         const materialStr = ` ${part.config.material}`;
-        visiblePartProps[`${idx + 1}.`] = `R:${internalRadius} W:${width} A:${angle} Qty:${part.quantity}${splitStr}${materialStr}`;
+        visiblePartProps[`${idx + 1}.`] = `${radiusMarker}:${internalRadius} W:${width} A:${angle} Qty:${part.quantity}${splitStr}${materialStr}`;
       });
 
       // Merge visible props into the main properties object
@@ -1241,7 +1247,7 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = ({
     } finally {
       setIsAddingToCart(false);
     }
-  }, [partsList, totalPriceDetails, totalTurnaround, isEngravingEnabled, materials, currentConfig.material]);
+  }, [partsList, totalPriceDetails, totalTurnaround, isEngravingEnabled, isJoinerBlocksEnabled, materials, currentConfig.material]);
 
   // --- Visualizer Props Extraction ---
   // Check if we should show a selected part or the current configuration
@@ -1368,7 +1374,7 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = ({
 
   // --- JSX Structure Update ---
   return (
-    <div className="flex flex-col text-foreground overflow-x-hidden"> 
+    <div ref={customizerContainerRef} className="flex flex-col text-foreground overflow-x-hidden"> 
       <div className="flex flex-1 gap-4 md:flex-row flex-col px-2 md:px-6"> 
         {/* Visualizer - now comes first for mobile-first approach */}
         <main className="w-full md:flex-1 relative rounded-xl border border-gray-200/60 bg-white shadow-lg shadow-gray-200/70 flex flex-col items-center justify-center h-[400px] md:h-[576px] overflow-hidden order-1 md:order-1" style={{flexShrink: 0}}>
@@ -1583,6 +1589,27 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = ({
                                         </div>
                                         <span className={`font-semibold ${isEngravingEnabled ? 'text-gray-900' : 'text-gray-400 line-through'}`}>
                                             ${isEngravingEnabled ? totalPriceDetails.partIdEngravingCost.toFixed(2) : (totalPriceDetails.totalPartCount * 1.50).toFixed(2)}
+                                        </span>
+                                    </div>
+                                )}
+                                {totalPriceDetails.totalJoinerBlocks > 0 && (
+                                    <div className="flex justify-between items-center">
+                                        <div className="flex items-center gap-2">
+                                            <span className={`${isJoinerBlocksEnabled ? 'text-gray-600' : 'text-gray-400 line-through'}`}>
+                                                Joiner Blocks ({totalPriceDetails.totalJoinerBlocks}x)
+                                            </span>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-4 w-4 p-0 hover:bg-red-100"
+                                                onClick={() => setIsJoinerBlocksEnabled(!isJoinerBlocksEnabled)}
+                                                title="Remove Joiner Blocks"
+                                            >
+                                                <X className="h-3 w-3 text-red-500 hover:text-red-700" />
+                                            </Button>
+                                        </div>
+                                        <span className={`font-semibold ${isJoinerBlocksEnabled ? 'text-gray-900' : 'text-gray-400 line-through'}`}>
+                                            ${isJoinerBlocksEnabled ? totalPriceDetails.joinerBlocksCost.toFixed(2) : (totalPriceDetails.totalJoinerBlocks * 1.50).toFixed(2)}
                                         </span>
                                     </div>
                                 )}
