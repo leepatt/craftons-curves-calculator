@@ -207,10 +207,10 @@ export function CurvesBuilderForm({
         
         // Only update derived values if user is not currently editing them
         if (activeField !== 'arcLength') {
-          setDisplayArcLength(calculatedArc > 0 ? calculatedArc.toFixed(2) : '');
+          setDisplayArcLength(calculatedArc > 0 ? Math.round(calculatedArc).toString() : '');
         }
         if (activeField !== 'chordLength') {
-          setDisplayChordLength(calculatedChord > 0 ? calculatedChord.toFixed(2) : '');
+          setDisplayChordLength(calculatedChord > 0 ? Math.round(calculatedChord).toString() : '');
         }
     } else {
         if (activeField !== 'arcLength') {
@@ -319,8 +319,8 @@ export function CurvesBuilderForm({
           }
         }
         
-        if (calcArc > 0) setDisplayArcLength(calcArc.toFixed(2));
-        if (calcChord > 0) setDisplayChordLength(calcChord.toFixed(2));
+        if (calcArc > 0) setDisplayArcLength(Math.round(calcArc).toString());
+        if (calcChord > 0) setDisplayChordLength(Math.round(calcChord).toString());
       } else {
         setDisplayAngle('');
         setDisplayArcLength('');
@@ -350,8 +350,8 @@ export function CurvesBuilderForm({
         // Validate calculated values before setting
         if (!isNaN(calculatedArc) && !isNaN(calculatedChord) && calculatedArc > 0 && calculatedChord > 0) {
           setDisplayAngle(calculatedAngle.toFixed(2));
-          setDisplayArcLength(calculatedArc.toFixed(2));
-          setDisplayChordLength(calculatedChord.toFixed(2));
+          setDisplayArcLength(Math.round(calculatedArc).toString());
+          setDisplayChordLength(Math.round(calculatedChord).toString());
           changedConfig = { angle: Number(calculatedAngle.toFixed(2)) };
         } else {
           isValidInput = false;
@@ -374,7 +374,7 @@ export function CurvesBuilderForm({
             if (!isNaN(calculatedAngle) && !isNaN(calculatedChord) && calculatedChord >= 0) {
               setDisplayAngle(calculatedAngle.toFixed(2));
               setDisplayArcLength(String(numValue));
-              setDisplayChordLength(calculatedChord.toFixed(2));
+              setDisplayChordLength(Math.round(calculatedChord).toString());
               changedConfig = { angle: Number(calculatedAngle.toFixed(2)) };
             } else {
               isValidInput = false;
@@ -403,7 +403,7 @@ export function CurvesBuilderForm({
               // Validate calculated values
               if (!isNaN(calculatedAngle) && !isNaN(calculatedArc) && calculatedArc > 0) {
                 setDisplayAngle(calculatedAngle.toFixed(2));
-                setDisplayArcLength(calculatedArc.toFixed(2));
+                setDisplayArcLength(Math.round(calculatedArc).toString());
                 setDisplayChordLength(String(numValue));
                 changedConfig = { angle: Number(calculatedAngle.toFixed(2)) };
               } else {
@@ -436,8 +436,8 @@ export function CurvesBuilderForm({
             }
           }
           
-          if (calcArc > 0) setDisplayArcLength(calcArc.toFixed(2));
-          if (calcChord > 0) setDisplayChordLength(calcChord.toFixed(2));
+          if (calcArc > 0) setDisplayArcLength(Math.round(calcArc).toString());
+          if (calcChord > 0) setDisplayChordLength(Math.round(calcChord).toString());
         } else {
           setDisplayAngle('');
           setDisplayArcLength('');
@@ -469,8 +469,8 @@ export function CurvesBuilderForm({
           }
         }
         
-        if (calcArc > 0) setDisplayArcLength(calcArc.toFixed(2));
-        if (calcChord > 0) setDisplayChordLength(calcChord.toFixed(2));
+        if (calcArc > 0) setDisplayArcLength(Math.round(calcArc).toString());
+        if (calcChord > 0) setDisplayChordLength(Math.round(calcChord).toString());
       } else {
         setDisplayAngle(''); 
         setDisplayArcLength(''); 

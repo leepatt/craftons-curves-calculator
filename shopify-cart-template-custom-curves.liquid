@@ -1,0 +1,378 @@
+{% comment %}
+  DEVELOPER NOTE: Custom Curves Cart Template Integration
+  
+  This template shows how to properly handle custom curve items in your cart.
+  The custom curves calculator sends items with quantity=1 and uses 
+  the `_display_price` property to show the actual calculated price.
+  
+  Key Properties:
+  - _order_type: 'custom_curves' (identifies custom items)
+  - _display_price: '$173.44' (formatted price to display)
+  - _total_price: '173.44' (numeric price value)
+  - Numbered properties (1., 2., etc.) contain part specifications
+  - Hidden properties (prefixed with _) contain metadata
+{% endcomment %}
+
+<div class="cart">
+  <h2>Shopping Cart</h2>
+  
+  {% if cart.item_count > 0 %}
+    <div class="cart-items">
+      {% for item in cart.items %}
+        
+        {% comment %} Check if this is a custom curves item {% endcomment %}
+        {% if item.properties._order_type == 'custom_curves' %}
+          
+          {% comment %} CUSTOM CURVES ITEM RENDERING {% endcomment %}
+          <div class="cart-item cart-item--custom-curves">
+            <div class="cart-item__image">
+              {% if item.image %}
+                <img src="{{ item.image | img_url: '100x100' }}" alt="{{ item.product.title }}">
+              {% else %}
+                <div class="cart-item__no-image">📐</div>
+              {% endif %}
+            </div>
+            
+            <div class="cart-item__details">
+              <div class="cart-item__title">{{ item.product.title }}</div>
+              <div class="cart-item__subtitle">Custom Curves Configuration</div>
+              
+              {% comment %} Display visible part specifications {% endcomment %}
+              <div class="cart-item__properties">
+                {% for property in item.properties %}
+                  {% unless property.first contains '_' %}
+                    <div class="cart-item__property">
+                      <strong>{{ property.first }}</strong> {{ property.last }}
+                    </div>
+                  {% endunless %}
+                {% endfor %}
+              </div>
+              
+              {% comment %} Show summary information {% endcomment %}
+              {% if item.properties._summary %}
+                <div class="cart-item__summary">{{ item.properties._summary }}</div>
+              {% endif %}
+              
+              {% comment %} Show materials used {% endcomment %}
+              {% if item.properties._materials_used %}
+                <div class="cart-item__materials">
+                  <small>Materials: {{ item.properties._materials_used }}</small>
+                </div>
+              {% endif %}
+              
+              {% comment %} Configuration link if available {% endcomment %}
+              {% if item.properties._config_url %}
+                <div class="cart-item__config-link">
+                  <a href="{{ item.properties._config_url }}" target="_blank" rel="noopener">
+                    View Configuration →
+                  </a>
+                </div>
+              {% endif %}
+            </div>
+            
+            <div class="cart-item__quantity">
+              {% comment %} Always show quantity as 1 for custom curves {% endcomment %}
+              <div class="cart-item__qty">1</div>
+            </div>
+            
+            <div class="cart-item__price">
+              {% comment %} Use the _display_price for proper currency formatting {% endcomment %}
+              <div class="cart-item__total">{{ item.properties._display_price }}</div>
+              {% if item.properties._material_cost and item.properties._manufacture_cost %}
+                <div class="cart-item__breakdown">
+                  <small>
+                    Materials: ${{ item.properties._material_cost }}<br>
+                    Manufacturing: ${{ item.properties._manufacture_cost }}
+                  </small>
+                </div>
+              {% endif %}
+            </div>
+            
+            <div class="cart-item__remove">
+              <a href="{{ routes.cart_change_url }}?line={{ forloop.index }}&amp;quantity=0" 
+                 class="cart-item__remove-btn"
+                 title="Remove item">
+                ×
+              </a>
+            </div>
+          </div>
+          
+        {% else %}
+          
+          {% comment %} STANDARD PRODUCT ITEM RENDERING {% endcomment %}
+          <div class="cart-item cart-item--standard">
+            <div class="cart-item__image">
+              {% if item.image %}
+                <img src="{{ item.image | img_url: '100x100' }}" alt="{{ item.product.title }}">
+              {% endif %}
+            </div>
+            
+            <div class="cart-item__details">
+              <div class="cart-item__title">{{ item.product.title }}</div>
+              {% if item.variant.title != 'Default Title' %}
+                <div class="cart-item__variant">{{ item.variant.title }}</div>
+              {% endif %}
+              
+              {% comment %} Standard product properties {% endcomment %}
+              {% unless item.properties == empty %}
+                <div class="cart-item__properties">
+                  {% for property in item.properties %}
+                    {% unless property.first contains '_' %}
+                      <div class="cart-item__property">
+                        {{ property.first }}: {{ property.last }}
+                      </div>
+                    {% endunless %}
+                  {% endfor %}
+                </div>
+              {% endunless %}
+            </div>
+            
+            <div class="cart-item__quantity">
+              <input type="number" 
+                     name="updates[]" 
+                     id="updates_{{ item.key }}" 
+                     value="{{ item.quantity }}" 
+                     min="0" 
+                     aria-label="Quantity for {{ item.product.title }}"
+                     data-quantity-input>
+            </div>
+            
+            <div class="cart-item__price">
+              <div class="cart-item__total">{{ item.final_line_price | money }}</div>
+              {% if item.quantity > 1 %}
+                <div class="cart-item__unit-price">
+                  <small>{{ item.final_price | money }} each</small>
+                </div>
+              {% endif %}
+            </div>
+            
+            <div class="cart-item__remove">
+              <a href="{{ routes.cart_change_url }}?line={{ forloop.index }}&amp;quantity=0" 
+                 class="cart-item__remove-btn"
+                 title="Remove item">
+                ×
+              </a>
+            </div>
+          </div>
+          
+        {% endif %}
+        
+      {% endfor %}
+    </div>
+    
+    <div class="cart-footer">
+      <div class="cart-subtotal">
+        <strong>Subtotal: {{ cart.total_price | money }}</strong>
+      </div>
+      
+      <div class="cart-actions">
+        <button type="submit" name="update" class="btn btn--secondary">Update Cart</button>
+        <button type="submit" name="add" class="btn btn--primary" formaction="{{ routes.cart_url }}">
+          Checkout
+        </button>
+      </div>
+    </div>
+    
+  {% else %}
+    <div class="cart-empty">
+      <p>Your cart is currently empty.</p>
+      <a href="{{ routes.all_products_collection_url }}" class="btn btn--primary">
+        Continue Shopping
+      </a>
+    </div>
+  {% endif %}
+</div>
+
+<style>
+  .cart-item {
+    display: flex;
+    align-items: flex-start;
+    padding: 20px 0;
+    border-bottom: 1px solid #eee;
+  }
+  
+  .cart-item__image {
+    width: 100px;
+    height: 100px;
+    margin-right: 15px;
+  }
+  
+  .cart-item__image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  
+  .cart-item__no-image {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f5f5f5;
+    font-size: 2em;
+  }
+  
+  .cart-item__details {
+    flex: 1;
+    margin-right: 15px;
+  }
+  
+  .cart-item__title {
+    font-weight: bold;
+    margin-bottom: 5px;
+  }
+  
+  .cart-item__subtitle {
+    color: #666;
+    font-size: 0.9em;
+    margin-bottom: 10px;
+  }
+  
+  .cart-item__properties {
+    margin-bottom: 10px;
+  }
+  
+  .cart-item__property {
+    font-size: 0.85em;
+    color: #666;
+    margin-bottom: 2px;
+  }
+  
+  .cart-item__summary {
+    font-size: 0.9em;
+    color: #333;
+    margin-bottom: 5px;
+  }
+  
+  .cart-item__materials {
+    margin-bottom: 5px;
+  }
+  
+  .cart-item__config-link a {
+    color: #007acc;
+    text-decoration: none;
+    font-size: 0.85em;
+  }
+  
+  .cart-item__quantity {
+    width: 80px;
+    text-align: center;
+    margin-right: 15px;
+  }
+  
+  .cart-item__quantity input {
+    width: 100%;
+    text-align: center;
+    padding: 5px;
+    border: 1px solid #ddd;
+  }
+  
+  .cart-item__qty {
+    padding: 5px;
+    text-align: center;
+    font-weight: bold;
+  }
+  
+  .cart-item__price {
+    width: 120px;
+    text-align: right;
+    margin-right: 15px;
+  }
+  
+  .cart-item__total {
+    font-weight: bold;
+    margin-bottom: 3px;
+  }
+  
+  .cart-item__breakdown,
+  .cart-item__unit-price {
+    font-size: 0.8em;
+    color: #666;
+  }
+  
+  .cart-item__remove {
+    width: 30px;
+  }
+  
+  .cart-item__remove-btn {
+    font-size: 1.5em;
+    color: #999;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  
+  .cart-item__remove-btn:hover {
+    color: #ff4444;
+  }
+  
+  .cart-footer {
+    margin-top: 30px;
+    text-align: right;
+  }
+  
+  .cart-subtotal {
+    margin-bottom: 20px;
+    font-size: 1.2em;
+  }
+  
+  .cart-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+  }
+  
+  .btn {
+    padding: 12px 24px;
+    border: none;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 1em;
+  }
+  
+  .btn--primary {
+    background: #007acc;
+    color: white;
+  }
+  
+  .btn--secondary {
+    background: #f5f5f5;
+    color: #333;
+  }
+  
+  .cart-empty {
+    text-align: center;
+    padding: 60px 20px;
+  }
+  
+  /* Custom curves specific styling */
+  .cart-item--custom-curves {
+    background: rgba(0, 122, 204, 0.02);
+    border-left: 3px solid #007acc;
+    padding-left: 17px;
+  }
+  
+  @media (max-width: 768px) {
+    .cart-item {
+      flex-direction: column;
+    }
+    
+    .cart-item__image {
+      margin-right: 0;
+      margin-bottom: 10px;
+    }
+    
+    .cart-item__quantity,
+    .cart-item__price {
+      width: auto;
+      text-align: left;
+      margin-right: 0;
+      margin-top: 10px;
+    }
+    
+    .cart-actions {
+      flex-direction: column;
+    }
+  }
+</style>

@@ -74,7 +74,7 @@ export default function SharedConfigurationPage() {
           <p className="text-gray-600 mb-4">{error}</p>
           <Link 
             href="/" 
-            className="inline-block bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
+            className="inline-block bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors cursor-pointer"
           >
             Go to Calculator
           </Link>
@@ -90,7 +90,7 @@ export default function SharedConfigurationPage() {
           <p className="text-lg text-gray-600">Configuration not found.</p>
           <Link 
             href="/" 
-            className="inline-block mt-4 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
+            className="inline-block mt-4 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors cursor-pointer"
           >
             Go to Calculator
           </Link>
