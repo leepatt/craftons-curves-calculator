@@ -31,8 +31,9 @@ export const RippingVisualizer: React.FC<RippingVisualizerProps> = ({
   const sheetWidth = material?.sheet_width || 2400; // mm
   const sheetHeight = material?.sheet_height || 1200; // mm
   
-  // Consistent padding to prevent label cutoff
-  const containerPadding = 120; // pixels for dimensions and labels
+  // Different padding for top/bottom vs left/right to reduce top padding while keeping side space for labels
+  const horizontalPadding = 120; // pixels for left/right dimensions and labels
+  const verticalPadding = 60; // reduced top/bottom padding
   
   // Update container size on mount and resize
   useEffect(() => {
@@ -53,8 +54,8 @@ export const RippingVisualizer: React.FC<RippingVisualizerProps> = ({
 
   // Calculate sheet dimensions maintaining 1:2 ratio (2400:1200)
   // Make fully responsive to actual container size
-  const availableWidth = Math.max(0, containerSize.width - (containerPadding * 2));
-  const availableHeight = Math.max(0, containerSize.height - (containerPadding * 2));
+  const availableWidth = Math.max(0, containerSize.width - (horizontalPadding * 2));
+  const availableHeight = Math.max(0, containerSize.height - (verticalPadding * 2));
   
   // Maintain 2:1 ratio (width:height) for the sheet
   const sheetRatio = sheetWidth / sheetHeight; // 2400/1200 = 2
@@ -71,11 +72,11 @@ export const RippingVisualizer: React.FC<RippingVisualizerProps> = ({
   }
   
   // Center the sheet
-  const sheetLeft = containerPadding + (availableWidth - displayWidth) / 2;
-  const sheetTop = containerPadding + (availableHeight - displayHeight) / 2;
+  const sheetLeft = horizontalPadding + (availableWidth - displayWidth) / 2;
+  const sheetTop = verticalPadding + (availableHeight - displayHeight) / 2;
 
   return (
-    <div ref={containerRef} className="relative w-full h-full bg-gray-50 overflow-hidden" style={{minHeight: '600px'}}>
+    <div ref={containerRef} className="relative w-full h-full bg-gray-50 overflow-hidden" style={{minHeight: '500px'}}>
       {/* Sheet representation - maintaining 1:2 ratio */}
       <div 
         className="absolute border-2 border-gray-800 shadow-lg"
@@ -186,7 +187,7 @@ export const RippingVisualizer: React.FC<RippingVisualizerProps> = ({
             style={{
               left: `${sheetLeft}px`,
               width: `${displayWidth}px`,
-              top: `${sheetTop + displayHeight + 30}px`,
+              top: `${sheetTop + displayHeight + 20}px`,
             }}
           >
             {/* Tick marks */}

@@ -2,6 +2,21 @@
 
 ## 🧪 Local Development Testing
 
+### Environment Setup (Optional)
+
+For testing with a specific Shopify store, create a `.env.local` file:
+```env
+# Shop domain for cart functionality (choose one)
+NEXT_PUBLIC_SHOP_DOMAIN=your-store.myshopify.com
+# OR
+SHOPIFY_STORE_DOMAIN=your-store.myshopify.com
+
+# Admin API access (if using product management features)  
+SHOPIFY_ADMIN_ACCESS_TOKEN=shpat_your_admin_access_token
+```
+
+**Note**: If no environment variables are set, the app defaults to `craftons-au.myshopify.com` for testing.
+
 ### Expected Behavior in Local Dev
 - ✅ **Function Execution**: Add to cart function runs without CORS errors
 - ✅ **Data Preparation**: All cart data is properly formatted and logged
