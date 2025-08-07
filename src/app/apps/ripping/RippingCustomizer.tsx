@@ -302,7 +302,22 @@ export function RippingCustomizer() {
       });
 
       if (response.ok) {
+        // Success! Show brief confirmation and redirect to cart
         alert('Successfully added to cart!');
+        
+        // Use the default shop domain for cart redirect
+        const cartUrl = 'https://craftons-au.myshopify.com/cart';
+        
+        // If embedded inside an iframe (Shopify app embed), redirect the parent;
+        // otherwise redirect the current window.
+        setTimeout(() => {
+          if (window.top && window.top !== window) {
+            window.top.location.href = cartUrl;
+          } else {
+            window.location.href = cartUrl;
+          }
+        }, 1000); // Brief delay to let user see the success message
+        
       } else {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to add to cart');
@@ -343,7 +358,7 @@ export function RippingCustomizer() {
     <div ref={customizerContainerRef} className="flex flex-col text-foreground overflow-x-hidden"> 
       <div className="flex flex-1 gap-4 md:flex-row flex-col px-2 md:px-6"> 
         {/* Visualizer - comes first for mobile-first approach */}
-        <main className="w-full md:flex-1 relative rounded-xl border border-gray-200/60 bg-white shadow-lg shadow-gray-200/70 flex flex-col items-center justify-center h-[700px] md:h-[800px] overflow-hidden order-1 md:order-1" style={{flexShrink: 0}}>
+        <main className="w-full md:flex-1 relative rounded-xl border border-gray-200/60 bg-white shadow-lg shadow-gray-200/70 flex flex-col items-center justify-center h-[600px] md:h-[650px] overflow-hidden order-1 md:order-1" style={{flexShrink: 0}}>
           <div className="w-full h-full">
             <RippingVisualizer 
               height={height} 

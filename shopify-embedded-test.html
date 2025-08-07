@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Shopify Embedded Test - Ripping Calculator</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 20px; 
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .iframe-container {
+            border: 2px solid #e5e5e5;
+            border-radius: 8px;
+            overflow: hidden;
+            background: #f9f9f9;
+        }
+        iframe { 
+            width: 100%; 
+            height: 800px; 
+            border: none;
+            display: block;
+        }
+        .instructions {
+            background: #e8f4fd;
+            border: 1px solid #bee5eb;
+            border-radius: 4px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .status {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            border-radius: 4px;
+            padding: 10px;
+            margin: 10px 0;
+        }
+        .error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Shopify-Embedded Ripping Calculator Test</h1>
+        
+        <div class="instructions">
+            <h3>📋 Test Instructions:</h3>
+            <ol>
+                <li><strong>Simulate Shopify Environment:</strong> This page simulates how the calculator appears when embedded in a Shopify product page</li>
+                <li><strong>Fill the Form:</strong> In the iframe below, enter:
+                    <ul>
+                        <li>Rip Height: <code>100mm</code></li>
+                        <li>Total Length: <code>1000mm</code></li>
+                    </ul>
+                </li>
+                <li><strong>Test Add to Cart:</strong> Click "Add to Cart" - this will test the actual functionality</li>
+                <li><strong>Check Results:</strong> Monitor the status messages below</li>
+            </ol>
+        </div>
+
+        <div id="status" class="status">
+            🟡 Status: Ready to test
+        </div>
+
+        <div class="iframe-container">
+            <iframe 
+                id="ripping-calculator"
+                src="http://localhost:3000/apps/ripping"
+                title="Craftons Ripping Calculator">
+            </iframe>
+        </div>
+
+        <div style="margin-top: 20px;">
+            <button onclick="checkCart()">🛒 Check Cart Contents</button>
+            <button onclick="clearLog()">🧹 Clear Log</button>
+            <button onclick="testDirectAPI()">⚡ Test API Directly</button>
+        </div>
+
+        <div id="log" style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; padding: 15px; margin-top: 20px; font-family: monospace; font-size: 12px; max-height: 300px; overflow-y: auto;">
+            <strong>🔍 Test Log:</strong><br>
+            Waiting for test actions...<br>
+        </div>
+    </div>
+
+    <script>
+        // Simulate Shopify product context (this would normally be set by Shopify)
+        window.productContext = {
+            productId: "test-ripping-embedded",
+            productTitle: "Test Ripping Calculator - Embedded Mode",
+            material: "4mm-bendy-ply"
+        };
+
+        function log(message) {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.innerHTML += `[${timestamp}] ${message}<br>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function setStatus(message, type = 'status') {
+            const statusDiv = document.getElementById('status');
+            statusDiv.className = type;
+            statusDiv.innerHTML = message;
+        }
+
+        function clearLog() {
+            document.getElementById('log').innerHTML = '<strong>🔍 Test Log:</strong><br>';
+            setStatus('🟡 Status: Log cleared');
+        }
+
+        // Listen for messages from the iframe
+        window.addEventListener('message', function(event) {
+            // Only accept messages from our local development server
+            if (event.origin !== 'http://localhost:3000') {
+                return;
+            }
+
+            const data = event.data;
+            
+            if (data.type === 'IFRAME_HEIGHT_CHANGE') {
+                // Handle iframe height changes
+                const iframe = document.getElementById('ripping-calculator');
+                if (iframe && data.height) {
+                    iframe.style.height = Math.min(Math.max(data.height, 600), 1200) + 'px';
+                    log(`📏 Iframe height adjusted to: ${iframe.style.height}`);
+                }
+            } else if (data.type === 'CART_ADD_SUCCESS') {
+                // Handle cart success messages
+                setStatus('✅ Status: Item successfully added to cart!', 'status');
+                log('🛒 Cart add success message received from iframe');
+            } else if (data.type === 'CART_ADD_ERROR') {
+                // Handle cart error messages
+                setStatus('❌ Status: Cart add failed - ' + (data.error || 'Unknown error'), 'error');
+                log('💥 Cart add error: ' + (data.error || 'Unknown error'));
+            }
+            
+            // Log all messages for debugging
+            log(`📨 Message from iframe: ${JSON.stringify(data)}`);
+        });
+
+        async function checkCart() {
+            setStatus('🔍 Status: Checking cart contents...', 'status');
+            log('🛒 Checking cart via API...');
+            
+            try {
+                const response = await fetch('/api/cart/get-configuration/test', {
+                    method: 'GET'
+                });
+                
+                if (response.ok) {
+                    const data = await response.text();
+                    log('📋 Cart check response: ' + data);
+                    setStatus('✅ Status: Cart check completed', 'status');
+                } else {
+                    log('❌ Cart check failed: ' + response.status);
+                    setStatus('❌ Status: Cart check failed', 'error');
+                }
+            } catch (error) {
+                log('💥 Cart check error: ' + error.message);
+                setStatus('❌ Status: Cart check error', 'error');
+            }
+        }
+
+        async function testDirectAPI() {
+            setStatus('⚡ Status: Testing API directly...', 'status');
+            log('⚡ Testing cart API directly...');
+            
+            const testData = {
+                items: [{
+                    id: 45721553469618,
+                    quantity: 500, // $5.00
+                    properties: {
+                        '_order_type': 'embedded_test',
+                        '_total_price': '5.00',
+                        '_material': 'Test Material',
+                        '_rip_height': '100mm',
+                        '_total_length': '1000mm',
+                        '_test_mode': 'embedded_simulation'
+                    }
+                }]
+            };
+            
+            try {
+                const response = await fetch('/api/cart/add', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(testData),
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    log('✅ Direct API test successful!');
+                    log('📦 Response data: ' + JSON.stringify(data, null, 2));
+                    setStatus('✅ Status: Direct API test passed', 'status');
+                } else {
+                    const errorData = await response.json();
+                    log('❌ Direct API test failed: ' + JSON.stringify(errorData));
+                    setStatus('❌ Status: Direct API test failed', 'error');
+                }
+            } catch (error) {
+                log('💥 Direct API test error: ' + error.message);
+                setStatus('❌ Status: Direct API test error', 'error');
+            }
+        }
+
+        // Initialize
+        log('🚀 Shopify-embedded test environment initialized');
+        log('🔗 Calculator loaded from: http://localhost:3000/apps/ripping');
+        setStatus('🟢 Status: Test environment ready', 'status');
+    </script>
+</body>
+</html>

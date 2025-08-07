@@ -9,7 +9,12 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     console.log('[Proxy] 2. Request body parsed successfully.');
 
-    const shopDomain = process.env.NEXT_PUBLIC_SHOP_DOMAIN;
+    // Try multiple possible environment variable names for shop domain
+    const shopDomain = process.env.NEXT_PUBLIC_SHOP_DOMAIN || 
+                      process.env.SHOPIFY_STORE_DOMAIN || 
+                      process.env.SHOPIFY_SHOP_DOMAIN ||
+                      'craftons-au.myshopify.com'; // Fallback to the dev store from shopify.app.toml
+    
     console.log(`[Proxy] 3. Read shop domain from env: ${shopDomain}`);
     if (!shopDomain) {
       throw new Error('Shopify domain is not configured in environment variables.');

@@ -1,6 +1,6 @@
-# Ripping Calculator Deployment Guide
+# Ripping App Deployment Guide
 
-This guide explains how to deploy the Craftons Ripping Calculator to Shopify product pages.
+This guide explains how to deploy the Craftons Ripping App to Shopify product pages.
 
 ## 📋 Prerequisites
 
@@ -14,17 +14,17 @@ This guide explains how to deploy the Craftons Ripping Calculator to Shopify pro
 1. Go to **Online Store** → **Themes**
 2. Click **Actions** → **Edit code** on your current theme
 3. In the **Sections** folder, click **Add a new section**
-4. Name it: `ripping-calculator.liquid`
+4. Name it: `section-ripping.liquid`
 
 ### 1.2 Add Section Code
-Copy the entire contents of `ripping-calculator.liquid` from the project root into your new Shopify section.
+Copy the entire contents of `section-ripping.liquid` from the project root into your new Shopify section.
 
 ## 🎨 Step 2: Add to Product Template
 
 ### For JSON templates (Shopify 2.0):
 ```json
 {
-  "type": "ripping-calculator",
+  "type": "section-ripping",
   "settings": {
     "title": "Custom Sheet Ripping Calculator",
     "show_title": true,
@@ -36,7 +36,7 @@ Copy the entire contents of `ripping-calculator.liquid` from the project root in
 
 ### For Liquid templates:
 ```liquid
-{% section 'ripping-calculator' %}
+{% section 'section-ripping' %}
 ```
 
 ## 🛒 Step 3: Product Setup
@@ -53,7 +53,7 @@ Copy the entire contents of `ripping-calculator.liquid` from the project root in
 
 ## ⚙️ Step 4: App URLs
 
-The ripping calculator is accessible at:
+The ripping app is accessible at:
 - **Direct URL**: `https://craftons-curves-calculator.vercel.app/apps/ripping`
 - **Embedded URL**: Same as above (iframe will adjust automatically)
 
@@ -99,13 +99,13 @@ The app uses this pricing:
    - Rip specifications
    - Sheet requirements
 
-## 🎯 Key Differences from Curves Calculator
+## 🎯 Key Differences from Curves App
 
 1. **URL Path**: `/apps/ripping` instead of root
 2. **Materials**: Different set of materials with thickness values
 3. **Pricing**: Linear pricing model (not efficiency-based)
 4. **Visualization**: Sheet ripping visualization instead of 3D curves
-5. **Section Name**: `ripping-calculator.liquid` 
+5. **Section Name**: `section-ripping.liquid` 
 
 ## 🔧 Customization
 
@@ -122,4 +122,4 @@ For technical issues or customization requests, contact the development team.
 
 ---
 
-*This calculator is part of the Craftons modular app ecosystem.*
+*This app is part of the Craftons modular app ecosystem.*
