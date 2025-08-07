@@ -1,0 +1,18 @@
+[
+  {
+    "id": "mdf-15mm",
+    "name": "15mm MDF",
+    "price": 60.0,
+    "sheet_width": 2440,
+    "sheet_height": 1220,
+    "texture": "mdf"
+  },
+  {
+    "id": "mdf-18mm",
+    "name": "18mm MDF",
+    "price": 70.0,
+    "sheet_width": 2440,
+    "sheet_height": 1220,
+    "texture": "mdf"
+  }
+]
