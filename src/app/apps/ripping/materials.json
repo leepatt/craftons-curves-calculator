@@ -1,0 +1,47 @@
+[
+  {
+    "id": "bendy-ply-4-rip",
+    "name": "4mm Bendy Ply Film Faced",
+    "price": 60.00,
+    "thickness": 4,
+    "sheet_width": 2400,
+    "sheet_height": 1200,
+    "texture": "/textures/formply.png"
+  },
+  {
+    "id": "bendy-ply-9-rip",
+    "name": "9mm Bendy Ply Film Faced",
+    "price": 80.00,
+    "thickness": 9,
+    "sheet_width": 2400,
+    "sheet_height": 1200,
+    "texture": "/textures/formply.png"
+  },
+  {
+    "id": "formply-17-rip",
+    "name": "17mm Formply",
+    "price": 90.00,
+    "thickness": 17,
+    "sheet_width": 2400,
+    "sheet_height": 1200,
+    "texture": "/textures/formply.png"
+  },
+  {
+    "id": "BC-18-rip",
+    "name": "18mm BC Structural Plywood",
+    "price": 120.00,
+    "thickness": 18,
+    "sheet_width": 2400,
+    "sheet_height": 1200,
+    "texture": "/textures/plywood.png"
+  },
+  {
+    "id": "mdf-18-rip",
+    "name": "18mm MDF",
+    "price": 60.00,
+    "thickness": 18,
+    "sheet_width": 2400,
+    "sheet_height": 1200,
+    "texture": "/textures/mdf.jpg"
+  }
+]
