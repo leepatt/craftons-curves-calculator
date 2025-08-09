@@ -6,10 +6,22 @@ export const PELMET_PRO_CONFIG = {
   displayName: 'Pelmet Pro',
   version: '1.0.0',
   
-  // Shopify integration (TODO: Replace with actual product/variant IDs)
+  // Shopify integration - $1.00 variant for whole dollar pricing
   shopify: {
     productId: 'PELMET_PRO_PRODUCT_ID', // TODO: Set actual Shopify product ID
-    variantId: 'PELMET_PRO_VARIANT_ID', // TODO: Set actual Shopify variant ID
+    dollarVariantId: Number(
+      process.env.NEXT_PUBLIC_PELMET_PRO_DOLLAR_VARIANT_ID ||
+      process.env.NEXT_PUBLIC_DOLLAR_VARIANT_ID ||
+      process.env.PELMET_PRO_DOLLAR_VARIANT_ID ||
+      45721553469618  // Default fallback variant ID
+    ),
+    shopDomain: 
+      process.env.NEXT_PUBLIC_PELMET_PRO_SHOP_DOMAIN ||
+      process.env.NEXT_PUBLIC_SHOP_DOMAIN ||
+      process.env.NEXT_PUBLIC_SHOPIFY_STORE_DOMAIN ||
+      process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN ||
+      process.env.SHOPIFY_STORE_DOMAIN ||
+      'craftons-au.myshopify.com', // Default fallback
   },
   
   // Default values for form inputs

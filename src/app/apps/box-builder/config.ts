@@ -9,10 +9,22 @@ export const boxBuilderConfig = {
     icon: '📦',
   },
   
-  // TODO: Replace with actual Shopify product/variant IDs
+  // Shopify integration - $1.00 variant for whole dollar pricing
   shopify: {
     productId: 'BOX_BUILDER_PRODUCT_ID', // TODO: Set actual Shopify product ID
-    variantId: 'BOX_BUILDER_VARIANT_ID', // TODO: Set actual Shopify variant ID
+    dollarVariantId: Number(
+      process.env.NEXT_PUBLIC_BOX_BUILDER_DOLLAR_VARIANT_ID ||
+      process.env.NEXT_PUBLIC_DOLLAR_VARIANT_ID ||
+      process.env.BOX_BUILDER_DOLLAR_VARIANT_ID ||
+      45721553469618  // Default fallback variant ID
+    ),
+    shopDomain: 
+      process.env.NEXT_PUBLIC_BOX_BUILDER_SHOP_DOMAIN ||
+      process.env.NEXT_PUBLIC_SHOP_DOMAIN ||
+      process.env.NEXT_PUBLIC_SHOPIFY_STORE_DOMAIN ||
+      process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN ||
+      process.env.SHOPIFY_STORE_DOMAIN ||
+      'craftons-au.myshopify.com', // Default fallback
   },
   
   // TODO: Define actual constraints based on manufacturing capabilities

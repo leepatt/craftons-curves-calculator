@@ -5,7 +5,9 @@ import { StairVisualizer } from './StairVisualizer';
 import { StairBuilderForm } from './StairBuilderForm';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { Button } from "@/components/ui/button";
 import materials from './materials.json';
+import { stairBuilderConfig } from './config';
 
 // Define calculation interface
 interface StairCalculation {
@@ -90,6 +92,123 @@ export function StairCustomizer() {
     };
   }, [selectedMaterial, totalRise, stepCount, treadDepth, stringerWidth]);
 
+  // Add to Cart states
+  const [isAddingToCart, setIsAddingToCart] = useState(false);
+
+  // Add to Cart Handler - Using Shopify Cart Permalink Approach
+  const handleAddToCart = async () => {
+    if (!calculation || calculation.totalCost <= 0) {
+      alert("Please configure your stair dimensions to add to cart!");
+      return;
+    }
+
+    setIsAddingToCart(true);
+    
+    try {
+      // Calculate quantity for $1.00 variant (whole dollar pricing like ripping app)
+      const quantity = Math.round(calculation.totalCost);
+      const materialData = materials.find(m => m.id === selectedMaterial);
+      const riserHeight = Math.round(totalRise / stepCount);
+
+      if (!stairBuilderConfig.shopify.dollarVariantId) {
+        alert('Stair Builder $1 variant ID is not configured. Check stairBuilderConfig.shopify.dollarVariantId');
+        throw new Error('Missing stairBuilderConfig.shopify.dollarVariantId');
+      }
+
+      // Build comprehensive cart item data (matching ripping app approach)
+      const cartItemData = {
+        items: [{
+          id: stairBuilderConfig.shopify.dollarVariantId,
+          quantity: quantity, // $1.00 variant: quantity = dollars
+          properties: {
+            '_order_type': 'custom_stair_builder',
+            '_total_price': calculation.totalCost.toFixed(2),
+            '_display_price': `$${calculation.totalCost.toFixed(2)}`,
+            '_material': materialData?.name || selectedMaterial,
+            '_total_rise': `${totalRise}mm`,
+            '_step_count': String(stepCount),
+            '_tread_depth': `${treadDepth}mm`,
+            '_stringer_width': `${stringerWidth}mm`,
+            '_riser_height': `${riserHeight}mm`,
+            '_total_run': `${calculation.totalRun}mm`,
+            '_turnaround': '5-7 days',
+            '_configuration_summary': `${materialData?.name || selectedMaterial}: Custom stair with ${stepCount} steps, ${totalRise}mm total rise, ${treadDepth}mm tread depth`,
+            '_material_cost': calculation.materialCost.toFixed(2),
+            '_manufacture_cost': calculation.manufactureCost.toFixed(2),
+            '_material_area': `${calculation.materialArea.toFixed(2)}m²`,
+            '_timestamp': new Date().toISOString()
+          }
+        }]
+      };
+
+      console.log('🛒 Adding to cart with quantity:', quantity, 'for price:', calculation.totalCost.toFixed(2), '($1.00 variant: quantity = dollars)');
+      console.log('📦 Cart data:', JSON.stringify(cartItemData, null, 2));
+
+      // --- SHOPIFY CART PERMALINK APPROACH (like ripping app) ---
+      // Build visible part summaries as separate properties (for cart display)
+      const visibleProps: Record<string, string> = {
+        'Material': materialData?.name || selectedMaterial,
+        'Total Rise': `${totalRise}mm`,
+        'Number of Steps': String(stepCount),
+        'Tread Depth': `${treadDepth}mm`,
+        'Stringer Width': `${stringerWidth}mm`,
+        'Riser Height': `${riserHeight}mm`,
+        'Total Price': `$${calculation.totalCost.toFixed(2)}`
+      };
+
+      // Merge visible props into the main properties object
+      cartItemData.items[0].properties = {
+        ...cartItemData.items[0].properties,
+        ...visibleProps,
+      };
+
+      const propsJson = JSON.stringify(cartItemData.items[0].properties);
+      // Base64-URL encode the JSON string (Shopify requires URL-safe Base64)
+      const base64Props = btoa(unescape(encodeURIComponent(propsJson)))
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=+$/, '');
+
+      const shopDomain = stairBuilderConfig.shopify.shopDomain;
+      const variantId = stairBuilderConfig.shopify.dollarVariantId;
+      const permalink = `https://${shopDomain}/cart/${variantId}:${quantity}?properties=${encodeURIComponent(base64Props)}&storefront=true`;
+
+      console.log('🚀 Redirecting to cart permalink:', permalink);
+      console.log(`Added stair configuration to cart. Redirecting…`);
+
+      // If embedded inside an iframe (Shopify app embed), redirect the parent;
+      // otherwise redirect the current window.
+      if (window.top) {
+        window.top.location.href = permalink;
+      } else {
+        window.location.href = permalink;
+      }
+
+      return; // Skip any other logic
+
+    } catch (cartError) {
+      console.error('💥 Error adding to cart:', cartError);
+      
+      let errorMessage = 'Failed to add to cart. ';
+      if (cartError instanceof Error) {
+        errorMessage += cartError.message;
+        
+        // Enhanced error message based on common issues
+        if (cartError.message.includes('422') || cartError.message.includes('variant')) {
+          errorMessage += '\n\n🔧 Note: The 1-cent product may need to be set up in your Shopify store.';
+        } else if (cartError.message.includes('405')) {
+          errorMessage += '\n\n🔧 Note: This app needs to be embedded in your Shopify store or accessed through a Shopify product page for cart functionality to work.';
+        }
+      } else {
+        errorMessage += 'An unknown error occurred.';
+      }
+      
+      alert(`❌ ${errorMessage}`);
+    } finally {
+      setIsAddingToCart(false);
+    }
+  };
+
   return (
     <div ref={customizerContainerRef} className="flex flex-col text-foreground overflow-x-hidden">
       <div className="flex flex-1 gap-4 md:flex-row flex-col px-2 md:px-6">
@@ -173,6 +292,34 @@ export function StairCustomizer() {
                       <div className="flex justify-between items-center pt-1">
                         <span className="text-base font-semibold text-gray-900">Total Price (inc GST):</span>
                         <span className="text-xl font-bold text-gray-900">${calculation.totalCost.toFixed(2)}</span>
+                      </div>
+
+                      {/* Add to Cart Button */}
+                      <div className="mt-4">
+                        <Button 
+                          onClick={handleAddToCart}
+                          disabled={isAddingToCart}
+                          className="w-full text-white font-bold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg shadow-md hover:shadow-lg"
+                          style={{
+                            backgroundColor: '#194431',
+                            borderColor: '#194431'
+                          }}
+                          onMouseEnter={(e) => {
+                            if (!e.currentTarget.disabled) {
+                              e.currentTarget.style.backgroundColor = '#0f3320';
+                              e.currentTarget.style.borderColor = '#0f3320';
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (!e.currentTarget.disabled) {
+                              e.currentTarget.style.backgroundColor = '#194431';
+                              e.currentTarget.style.borderColor = '#194431';
+                            }
+                          }}
+                          size="lg"
+                        >
+                          {isAddingToCart ? 'Adding to Cart...' : `Add to Cart - $${calculation.totalCost.toFixed(2)}`}
+                        </Button>
                       </div>
                     </>
                   ) : (

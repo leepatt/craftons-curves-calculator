@@ -7,6 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import materials from './materials.json';
+import { PELMET_PRO_CONFIG } from './config';
 
 // Define calculation interface
 interface PelmetProCalculation {
@@ -118,10 +119,121 @@ export function PelmetProCustomizer() {
     };
   }, [selectedMaterial, length, height, depth, quantity, pelmetType, ceilingPlasterDeduction, addEndCaps]);
 
-  // TODO: Implement actual add to cart functionality
+  // Add to Cart states
+  const [isAddingToCart, setIsAddingToCart] = useState(false);
+
+  // Add to Cart Handler - Using Shopify Cart Permalink Approach
   const handleAddToCart = async () => {
-    console.log('Add to cart functionality - TODO: Implement');
-    // Configuration will be added when Shopify integration is implemented
+    if (!calculation || calculation.totalCost <= 0) {
+      alert("Please configure your pelmet to add to cart!");
+      return;
+    }
+
+    setIsAddingToCart(true);
+    
+    try {
+      // Calculate quantity for $1.00 variant (whole dollar pricing like ripping app)
+      const quantity = Math.round(calculation.totalCost);
+      const materialData = materials.find(m => m.id === selectedMaterial);
+
+      if (!PELMET_PRO_CONFIG.shopify.dollarVariantId) {
+        alert('Pelmet Pro $1 variant ID is not configured. Check PELMET_PRO_CONFIG.shopify.dollarVariantId');
+        throw new Error('Missing PELMET_PRO_CONFIG.shopify.dollarVariantId');
+      }
+
+      // Build comprehensive cart item data (matching ripping app approach)
+      const cartItemData = {
+        items: [{
+          id: PELMET_PRO_CONFIG.shopify.dollarVariantId,
+          quantity: quantity, // $1.00 variant: quantity = dollars
+          properties: {
+            '_order_type': 'custom_pelmet_pro',
+            '_total_price': calculation.totalCost.toFixed(2),
+            '_display_price': `$${calculation.totalCost.toFixed(2)}`,
+            '_material': materialData?.name || selectedMaterial,
+            '_pelmet_length': `${length}mm`,
+            '_pelmet_height': `${height}mm`,
+            '_pelmet_depth': `${depth}mm`,
+            '_pelmet_type': pelmetType === 'c-channel' ? 'C-Channel' : 'L-Shaped',
+            '_quantity': String(quantity),
+            '_turnaround': '3-5 days',
+            '_configuration_summary': `${materialData?.name || selectedMaterial}: ${pelmetType === 'c-channel' ? 'C-Channel' : 'L-Shaped'} pelmet, ${length}×${height}×${depth}mm, qty: ${quantity}`,
+            '_material_cost': calculation.materialCost.toFixed(2),
+            '_manufacture_cost': calculation.manufactureCost.toFixed(2),
+            '_add_end_caps': addEndCaps ? 'Yes' : 'No',
+            '_ceiling_plaster_deduction': ceilingPlasterDeduction ? 'Yes' : 'No',
+            '_timestamp': new Date().toISOString()
+          }
+        }]
+      };
+
+      console.log('🛒 Adding to cart with quantity:', quantity, 'for price:', calculation.totalCost.toFixed(2), '($1.00 variant: quantity = dollars)');
+      console.log('📦 Cart data:', JSON.stringify(cartItemData, null, 2));
+
+      // --- SHOPIFY CART PERMALINK APPROACH (like ripping app) ---
+      // Build visible part summaries as separate properties (for cart display)
+      const visibleProps: Record<string, string> = {
+        'Material': materialData?.name || selectedMaterial,
+        'Pelmet Type': pelmetType === 'c-channel' ? 'C-Channel' : 'L-Shaped',
+        'Length': `${length}mm`,
+        'Height': `${height}mm`,
+        'Depth': `${depth}mm`,
+        'Quantity': String(quantity),
+        'End Caps': addEndCaps ? 'Yes' : 'No',
+        'Total Price': `$${calculation.totalCost.toFixed(2)}`
+      };
+
+      // Merge visible props into the main properties object
+      cartItemData.items[0].properties = {
+        ...cartItemData.items[0].properties,
+        ...visibleProps,
+      };
+
+      const propsJson = JSON.stringify(cartItemData.items[0].properties);
+      // Base64-URL encode the JSON string (Shopify requires URL-safe Base64)
+      const base64Props = btoa(unescape(encodeURIComponent(propsJson)))
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=+$/, '');
+
+      const shopDomain = PELMET_PRO_CONFIG.shopify.shopDomain;
+      const variantId = PELMET_PRO_CONFIG.shopify.dollarVariantId;
+      const permalink = `https://${shopDomain}/cart/${variantId}:${quantity}?properties=${encodeURIComponent(base64Props)}&storefront=true`;
+
+      console.log('🚀 Redirecting to cart permalink:', permalink);
+      console.log(`Added pelmet configuration to cart. Redirecting…`);
+
+      // If embedded inside an iframe (Shopify app embed), redirect the parent;
+      // otherwise redirect the current window.
+      if (window.top) {
+        window.top.location.href = permalink;
+      } else {
+        window.location.href = permalink;
+      }
+
+      return; // Skip any other logic
+
+    } catch (cartError) {
+      console.error('💥 Error adding to cart:', cartError);
+      
+      let errorMessage = 'Failed to add to cart. ';
+      if (cartError instanceof Error) {
+        errorMessage += cartError.message;
+        
+        // Enhanced error message based on common issues
+        if (cartError.message.includes('422') || cartError.message.includes('variant')) {
+          errorMessage += '\n\n🔧 Note: The 1-cent product may need to be set up in your Shopify store.';
+        } else if (cartError.message.includes('405')) {
+          errorMessage += '\n\n🔧 Note: This app needs to be embedded in your Shopify store or accessed through a Shopify product page for cart functionality to work.';
+        }
+      } else {
+        errorMessage += 'An unknown error occurred.';
+      }
+      
+      alert(`❌ ${errorMessage}`);
+    } finally {
+      setIsAddingToCart(false);
+    }
   };
 
   return (
@@ -255,10 +367,27 @@ export function PelmetProCustomizer() {
                 {calculation.totalCost > 0 && (
                   <Button 
                     onClick={handleAddToCart}
-                    className="w-full mt-4"
+                    disabled={isAddingToCart}
+                    className="w-full mt-4 text-white font-bold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg shadow-md hover:shadow-lg"
+                    style={{
+                      backgroundColor: '#194431',
+                      borderColor: '#194431'
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!e.currentTarget.disabled) {
+                        e.currentTarget.style.backgroundColor = '#0f3320';
+                        e.currentTarget.style.borderColor = '#0f3320';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!e.currentTarget.disabled) {
+                        e.currentTarget.style.backgroundColor = '#194431';
+                        e.currentTarget.style.borderColor = '#194431';
+                      }
+                    }}
                     size="lg"
                   >
-                    Add to Cart - ${calculation.totalCost.toFixed(2)}
+                    {isAddingToCart ? 'Adding to Cart...' : `Add to Cart - $${calculation.totalCost.toFixed(2)}`}
                   </Button>
                 )}
               </div>

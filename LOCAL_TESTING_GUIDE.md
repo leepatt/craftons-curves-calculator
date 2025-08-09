@@ -30,7 +30,7 @@ SHOPIFY_ADMIN_ACCESS_TOKEN=shpat_your_admin_access_token
    npm run dev
    ```
 
-2. **Open Browser**: http://localhost:3000
+2. **Open Browser**: http://localhost:3001 (or check console for actual port)
 
 3. **Configure a Test Curve**:
    - Radius: 900mm

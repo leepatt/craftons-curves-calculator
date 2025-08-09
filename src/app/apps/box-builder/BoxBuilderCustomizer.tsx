@@ -7,6 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import materials from './materials.json';
+import { boxBuilderConfig } from './config';
 
 // Define calculation interface
 interface BoxBuilderCalculation {
@@ -115,26 +116,122 @@ export function BoxBuilderCustomizer() {
     };
   }, [selectedMaterial, width, depth, height, dimensionsType, boxType, joinType, quantity]);
 
-  // Add to cart handler - placeholder until Shopify integration
-  const handleAddToCart = async () => {
-    // TODO: Implement actual cart integration with proper product/variant IDs
-    const configuration = {
-      app: 'box-builder',
-      material: selectedMaterial,
-      dimensions: { width, depth, height },
-      dimensionsType,
-      boxType,
-      joinType,
-      quantity,
-      totalPrice: calculation.totalCost,
-      specifications: {
-        volume: calculation.volume,
-        surfaceArea: calculation.surfaceArea,
-      }
-    };
+  // Add to Cart states
+  const [isAddingToCart, setIsAddingToCart] = useState(false);
 
-    console.log('Box Builder configuration:', configuration);
-    alert('Box Builder - Add to cart functionality will be implemented after detailed requirements');
+  // Add to Cart Handler - Using Shopify Cart Permalink Approach
+  const handleAddToCart = async () => {
+    if (!calculation || calculation.totalCost <= 0) {
+      alert("Please configure your box dimensions to add to cart!");
+      return;
+    }
+
+    setIsAddingToCart(true);
+    
+    try {
+      // Calculate quantity for $1.00 variant (whole dollar pricing like ripping app)
+      const quantity = Math.round(calculation.totalCost);
+      const materialData = materials.find(m => m.id === selectedMaterial);
+
+      if (!boxBuilderConfig.shopify.dollarVariantId) {
+        alert('Box Builder $1 variant ID is not configured. Check boxBuilderConfig.shopify.dollarVariantId');
+        throw new Error('Missing boxBuilderConfig.shopify.dollarVariantId');
+      }
+
+      // Build comprehensive cart item data (matching ripping app approach)
+      const cartItemData = {
+        items: [{
+          id: boxBuilderConfig.shopify.dollarVariantId,
+          quantity: quantity, // $1.00 variant: quantity = dollars
+          properties: {
+            '_order_type': 'custom_box_builder',
+            '_total_price': calculation.totalCost.toFixed(2),
+            '_display_price': `$${calculation.totalCost.toFixed(2)}`,
+            '_material': materialData?.name || selectedMaterial,
+            '_box_width': `${width}mm`,
+            '_box_depth': `${depth}mm`,
+            '_box_height': `${height}mm`,
+            '_dimensions_type': dimensionsType,
+            '_box_type': boxType,
+            '_join_type': joinType,
+            '_quantity': String(quantity),
+            '_turnaround': '3-5 days',
+            '_configuration_summary': `${materialData?.name || selectedMaterial}: ${boxType === 'open-top' ? 'Open top' : 'Closed lid'} box, ${dimensionsType} dimensions ${width}×${depth}×${height}mm, ${joinType} joints`,
+            '_material_cost': calculation.materialCost.toFixed(2),
+            '_manufacture_cost': calculation.manufactureCost.toFixed(2),
+            '_volume': calculation.volume ? `${calculation.volume.toFixed(2)}L` : '0L',
+            '_surface_area': calculation.surfaceArea ? `${calculation.surfaceArea.toFixed(2)}m²` : '0m²',
+            '_timestamp': new Date().toISOString()
+          }
+        }]
+      };
+
+      console.log('🛒 Adding to cart with quantity:', quantity, 'for price:', calculation.totalCost.toFixed(2), '($1.00 variant: quantity = dollars)');
+      console.log('📦 Cart data:', JSON.stringify(cartItemData, null, 2));
+
+      // --- SHOPIFY CART PERMALINK APPROACH (like ripping app) ---
+      // Build visible part summaries as separate properties (for cart display)
+      const visibleProps: Record<string, string> = {
+        'Material': materialData?.name || selectedMaterial,
+        'Box Type': boxType === 'open-top' ? 'Open Top' : 'Closed Lid',
+        'Dimensions': `${width}×${depth}×${height}mm (${dimensionsType})`,
+        'Join Type': joinType === 'butt-join' ? 'Butt Join' : 'Finger Join',
+        'Quantity': String(quantity),
+        'Volume': calculation.volume ? `${calculation.volume.toFixed(2)}L` : '0L',
+        'Total Price': `$${calculation.totalCost.toFixed(2)}`
+      };
+
+      // Merge visible props into the main properties object
+      cartItemData.items[0].properties = {
+        ...cartItemData.items[0].properties,
+        ...visibleProps,
+      };
+
+      const propsJson = JSON.stringify(cartItemData.items[0].properties);
+      // Base64-URL encode the JSON string (Shopify requires URL-safe Base64)
+      const base64Props = btoa(unescape(encodeURIComponent(propsJson)))
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=+$/, '');
+
+      const shopDomain = boxBuilderConfig.shopify.shopDomain;
+      const variantId = boxBuilderConfig.shopify.dollarVariantId;
+      const permalink = `https://${shopDomain}/cart/${variantId}:${quantity}?properties=${encodeURIComponent(base64Props)}&storefront=true`;
+
+      console.log('🚀 Redirecting to cart permalink:', permalink);
+      console.log(`Added box configuration to cart. Redirecting…`);
+
+      // If embedded inside an iframe (Shopify app embed), redirect the parent;
+      // otherwise redirect the current window.
+      if (window.top) {
+        window.top.location.href = permalink;
+      } else {
+        window.location.href = permalink;
+      }
+
+      return; // Skip any other logic
+
+    } catch (cartError) {
+      console.error('💥 Error adding to cart:', cartError);
+      
+      let errorMessage = 'Failed to add to cart. ';
+      if (cartError instanceof Error) {
+        errorMessage += cartError.message;
+        
+        // Enhanced error message based on common issues
+        if (cartError.message.includes('422') || cartError.message.includes('variant')) {
+          errorMessage += '\n\n🔧 Note: The 1-cent product may need to be set up in your Shopify store.';
+        } else if (cartError.message.includes('405')) {
+          errorMessage += '\n\n🔧 Note: This app needs to be embedded in your Shopify store or accessed through a Shopify product page for cart functionality to work.';
+        }
+      } else {
+        errorMessage += 'An unknown error occurred.';
+      }
+      
+      alert(`❌ ${errorMessage}`);
+    } finally {
+      setIsAddingToCart(false);
+    }
   };
 
   return (
@@ -252,9 +349,27 @@ export function BoxBuilderCustomizer() {
                   <div className="pt-4">
                     <Button 
                       onClick={handleAddToCart}
-                      className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                      disabled={isAddingToCart}
+                      className="w-full text-white font-bold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg shadow-md hover:shadow-lg"
+                      style={{
+                        backgroundColor: '#194431',
+                        borderColor: '#194431'
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!e.currentTarget.disabled) {
+                          e.currentTarget.style.backgroundColor = '#0f3320';
+                          e.currentTarget.style.borderColor = '#0f3320';
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!e.currentTarget.disabled) {
+                          e.currentTarget.style.backgroundColor = '#194431';
+                          e.currentTarget.style.borderColor = '#194431';
+                        }
+                      }}
+                      size="lg"
                     >
-                      Add to Cart - ${calculation.totalCost.toFixed(2)}
+                      {isAddingToCart ? 'Adding to Cart...' : `Add to Cart - $${calculation.totalCost.toFixed(2)}`}
                     </Button>
                   </div>
                 )}

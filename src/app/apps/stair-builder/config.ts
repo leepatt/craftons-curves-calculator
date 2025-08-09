@@ -7,10 +7,22 @@ export const stairBuilderConfig = {
     version: '1.0.0'
   },
   
-  // Shopify integration - TODO: Replace with actual product/variant IDs
+  // Shopify integration - $1.00 variant for whole dollar pricing
   shopify: {
     productId: 'STAIR_BUILDER_PRODUCT_ID', // TODO: Set actual Shopify product ID
-    variantId: 'STAIR_BUILDER_VARIANT_ID', // TODO: Set actual Shopify variant ID
+    dollarVariantId: Number(
+      process.env.NEXT_PUBLIC_STAIR_BUILDER_DOLLAR_VARIANT_ID ||
+      process.env.NEXT_PUBLIC_DOLLAR_VARIANT_ID ||
+      process.env.STAIR_BUILDER_DOLLAR_VARIANT_ID ||
+      45721553469618  // Default fallback variant ID
+    ),
+    shopDomain: 
+      process.env.NEXT_PUBLIC_STAIR_BUILDER_SHOP_DOMAIN ||
+      process.env.NEXT_PUBLIC_SHOP_DOMAIN ||
+      process.env.NEXT_PUBLIC_SHOPIFY_STORE_DOMAIN ||
+      process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN ||
+      process.env.SHOPIFY_STORE_DOMAIN ||
+      'craftons-au.myshopify.com', // Default fallback
   },
   
   // Default values for form inputs
