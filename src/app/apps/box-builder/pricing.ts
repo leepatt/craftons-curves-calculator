@@ -7,12 +7,13 @@ interface Material {
   price: number;
   sheet_width: number;
   sheet_height: number;
+  thickness: number;
   texture: string;
 }
 
 export interface BoxDimensions {
-  length: number;
   width: number;
+  depth: number;
   height: number;
 }
 
@@ -27,27 +28,46 @@ export interface BoxPricingResult {
   wastePercentage?: number;
 }
 
-// TODO: Implement actual pricing calculation based on requirements
+// Box pricing calculation with support for box types and join types
 export function calculateBoxPricing(
   dimensions: BoxDimensions,
   material: Material,
+  boxType: 'open-top' | 'closed-lid' = 'open-top',
+  joinType: 'butt-join' | 'finger-join' = 'butt-join',
+  dimensionsType: 'inside' | 'outside' = 'inside',
   quantity: number = 1
 ): BoxPricingResult {
-  const { length, width, height } = dimensions;
+  const { width, depth, height } = dimensions;
+  
+  // Account for material thickness in calculations
+  const materialThickness = material.thickness || 18;
+  const actualWidth = dimensionsType === 'inside' ? width + (2 * materialThickness) : width;
+  const actualDepth = dimensionsType === 'inside' ? depth + (2 * materialThickness) : depth;
+  const actualHeight = dimensionsType === 'inside' ? height + materialThickness : height;
   
   // Basic calculations
-  const volume = (length * width * height) / 1000000; // Convert mm³ to cm³
-  const surfaceArea = 2 * ((length * width) + (length * height) + (width * height)) / 10000; // Convert mm² to cm²
+  const volume = (actualWidth * actualDepth * actualHeight) / 1000000; // Convert mm³ to cm³
   
-  // TODO: Implement actual material cost calculation
-  // This is a placeholder formula - replace with real pricing logic
-  const materialCost = surfaceArea * material.price * 0.01;
+  // Calculate surface area based on box type using actual dimensions
+  let surfaceArea;
+  if (boxType === 'open-top') {
+    // Bottom + 4 sides
+    surfaceArea = (actualWidth * actualDepth + 2 * (actualWidth * actualHeight) + 2 * (actualDepth * actualHeight)) / 10000;
+  } else {
+    // All 6 sides including lid
+    surfaceArea = 2 * ((actualWidth * actualDepth) + (actualWidth * actualHeight) + (actualDepth * actualHeight)) / 10000;
+  }
   
-  // TODO: Implement actual manufacturing cost calculation
-  // This is a placeholder formula - replace with real manufacturing logic
+  // Material cost calculation with join type adjustments
+  const joinMultiplier = joinType === 'finger-join' ? 1.3 : 1.0;
+  const materialCost = surfaceArea * material.price * 0.01 * joinMultiplier;
+  
+  // Manufacturing cost calculation with complexity factors
   const baseCost = 25; // Base setup cost
   const complexityCost = volume * 0.5; // Complexity based on volume
-  const manufactureCost = baseCost + complexityCost;
+  const joinComplexityCost = joinType === 'finger-join' ? 15 : 0;
+  const lidComplexityCost = boxType === 'closed-lid' ? 10 : 0;
+  const manufactureCost = baseCost + complexityCost + joinComplexityCost + lidComplexityCost;
   
   // TODO: Apply quantity discounts, bulk pricing, etc.
   const subtotal = (materialCost + manufactureCost) * quantity;

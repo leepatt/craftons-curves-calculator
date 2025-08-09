@@ -8,6 +8,7 @@ import { Separator } from "@/components/ui/separator";
 import { Button } from '@/components/ui/button';
 import { Share2, Copy, ExternalLink, X as XIcon } from 'lucide-react';
 import { APP_CONFIG } from '@/lib/config';
+import { rippingConfig } from './config';
 import materials from './materials.json'; // We'll use the app-specific materials
 
 // Interface for ripping calculation results
@@ -216,6 +217,11 @@ export function RippingCustomizer() {
     };
   }, [selectedMaterial, height, totalLength, lengthUnit]);
 
+  // Rounded-up total for $1.00 variant flow (GST-inclusive store)
+  const roundedTotalDollars = useMemo(() => {
+    return Math.ceil(calculation.totalCost || 0);
+  }, [calculation.totalCost]);
+
   // Handler functions for Save and Share
   const handleSaveAndShare = useCallback(async () => {
     if (calculation.sheetsNeeded === 0) {
@@ -269,66 +275,54 @@ export function RippingCustomizer() {
     setIsAddingToCart(true);
     
     try {
-      // Calculate quantity from price using the 1-cent hack
-      const quantity = Math.round(calculation.totalCost * 100);
+      const qty = Math.max(1, Math.ceil(roundedTotalDollars));
       const materialData = materials.find(m => m.id === selectedMaterial);
 
-      // Prepare cart item data for Shopify
-      const cartItemData = {
+      const payload = {
         items: [{
-          id: APP_CONFIG.business.shopifyVariantId,
-          quantity: quantity,
+          id: rippingConfig.shopifyDollarVariantId,
+          quantity: qty,
           properties: {
-            '_order_type': 'custom_ripping',
-            '_total_price': calculation.totalCost.toFixed(2),
-            '_material': materialData?.name || selectedMaterial,
-            '_rip_height': `${height}mm`,
-            '_total_length': `${totalLength}${lengthUnit}`,
-            '_sheets_needed': calculation.sheetsNeeded.toString(),
-            '_rips_per_sheet': calculation.ripsPerSheet.toString(),
-            '_turnaround': '1-2 days',
-            '_configuration_summary': `${materialData?.name || selectedMaterial}: ${height}mm high rips, ${totalLength}${lengthUnit} total length, ${calculation.sheetsNeeded} sheets needed`
+            _order_type: 'custom_ripping',
+            _display_price: `$${roundedTotalDollars.toFixed(2)}`,
+            _total_price: roundedTotalDollars.toFixed(2),
+            _material: materialData?.name || selectedMaterial,
+            _rip_height: `${height}mm`,
+            _total_length: `${totalLength}${lengthUnit}`,
+            _sheets_needed: String(calculation.sheetsNeeded),
+            _rips_per_sheet: String(calculation.ripsPerSheet),
+            _turnaround: '1-2 days',
+            _configuration_summary: `${materialData?.name || selectedMaterial}: ${height}mm high rips, ${totalLength}${lengthUnit} total length, ${calculation.sheetsNeeded} sheets needed`,
+            _price_component: 'dollars_only'
           }
         }]
       };
 
-      // Add to cart via Shopify API
-      const response = await fetch('/api/cart/add', {
+      const res = await fetch('/api/cart/add', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(cartItemData),
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify(payload)
       });
 
-      if (response.ok) {
-        // Success! Show brief confirmation and redirect to cart
-        alert('Successfully added to cart!');
-        
-        // Use the default shop domain for cart redirect
-        const cartUrl = 'https://craftons-au.myshopify.com/cart';
-        
-        // If embedded inside an iframe (Shopify app embed), redirect the parent;
-        // otherwise redirect the current window.
-        setTimeout(() => {
-          if (window.top && window.top !== window) {
-            window.top.location.href = cartUrl;
-          } else {
-            window.location.href = cartUrl;
-          }
-        }, 1000); // Brief delay to let user see the success message
-        
-      } else {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to add to cart');
+      if (!res.ok) {
+        let msg = 'Failed to add to cart';
+        try { msg = (await res.json())?.error || msg; } catch { msg = await res.text() || msg; }
+        throw new Error(msg);
       }
-    } catch (error) {
-      console.error('Error adding to cart:', error);
+
+      alert('Added to cart');
+      setTimeout(() => { window.location.href = '/cart'; }, 300);
+
+    } catch (err) {
+      console.error('Add to cart error:', err);
       alert('Failed to add to cart. Please try again.');
     } finally {
       setIsAddingToCart(false);
     }
-  }, [selectedMaterial, height, totalLength, lengthUnit, calculation]);
+  }, [
+    calculation, roundedTotalDollars, materials, selectedMaterial,
+    height, totalLength, lengthUnit, rippingConfig
+  ]);
 
   // Share modal handlers
   const handleCloseShareModal = useCallback(() => {
@@ -443,7 +437,7 @@ export function RippingCustomizer() {
                       
                       <div className="flex justify-between items-center pt-1">
                         <span className="text-base font-semibold text-gray-900">Total Price (inc GST):</span>
-                        <span className="text-xl font-bold text-gray-900">${calculation.totalCost.toFixed(2)}</span>
+                        <span className="text-xl font-bold text-gray-900">${roundedTotalDollars.toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between items-center text-sm">
                         <span className="text-gray-600">Estimated Turnaround:</span>

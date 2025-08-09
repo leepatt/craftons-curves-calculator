@@ -7,5 +7,6 @@ export const rippingConfig = {
     name: "Sheet Ripping Calculator",
     description: "Calculate costs for ripping down full sheets.",
   },
-  // Add any other ripping-specific configuration here
+  // Shopify $1.00 variant used for whole-dollar rounding (inc GST)
+  shopifyDollarVariantId: 45721553469618,
 };
