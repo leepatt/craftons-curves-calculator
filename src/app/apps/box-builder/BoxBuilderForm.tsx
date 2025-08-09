@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 
 // Material interface (MUST match materials.json structure)
 interface Material {
@@ -12,6 +13,7 @@ interface Material {
   price: number;
   sheet_width: number;
   sheet_height: number;
+  thickness: number;
   texture: string;
 }
 
@@ -20,13 +22,18 @@ type BoxBuilderFormProps = {
   materials: Material[];
   selectedMaterial: string;
   onMaterialChange: (value: string) => void;
-  // TODO: Replace with actual fields based on app requirements
-  length: number;
-  onLengthChange: (value: number) => void;
   width: number;
   onWidthChange: (value: number) => void;
+  depth: number;
+  onDepthChange: (value: number) => void;
   height: number;
   onHeightChange: (value: number) => void;
+  dimensionsType: 'inside' | 'outside';
+  onDimensionsTypeChange: (value: 'inside' | 'outside') => void;
+  boxType: 'open-top' | 'closed-lid';
+  onBoxTypeChange: (value: 'open-top' | 'closed-lid') => void;
+  joinType: 'butt-join' | 'finger-join';
+  onJoinTypeChange: (value: 'butt-join' | 'finger-join') => void;
   quantity: number;
   onQuantityChange: (value: number) => void;
 };
@@ -35,12 +42,18 @@ export const BoxBuilderForm: React.FC<BoxBuilderFormProps> = ({
   materials,
   selectedMaterial,
   onMaterialChange,
-  length,
-  onLengthChange,
   width,
   onWidthChange,
+  depth,
+  onDepthChange,
   height,
   onHeightChange,
+  dimensionsType,
+  onDimensionsTypeChange,
+  boxType,
+  onBoxTypeChange,
+  joinType,
+  onJoinTypeChange,
   quantity,
   onQuantityChange,
 }) => {
@@ -51,7 +64,7 @@ export const BoxBuilderForm: React.FC<BoxBuilderFormProps> = ({
     const errors = { ...validationErrors };
     const numValue = parseFloat(value);
     
-    if (field === 'length' || field === 'width' || field === 'height') {
+    if (field === 'width' || field === 'depth' || field === 'height') {
       if (isNaN(numValue) || numValue <= 0) {
         errors[field] = 'Must be a positive number';
       } else if (numValue < 10) {
@@ -84,47 +97,8 @@ export const BoxBuilderForm: React.FC<BoxBuilderFormProps> = ({
 
   return (
     <div className="space-y-4">
-      {/* Material Selection - ALWAYS FIRST */}
-      <div>
-        <Label htmlFor="material-select" className="block mb-1 font-medium text-foreground">Material</Label>
-        <Select value={selectedMaterial} onValueChange={onMaterialChange}>
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder="Select material" />
-          </SelectTrigger>
-          <SelectContent>
-            {materials.map((material) => (
-              <SelectItem key={material.id} value={material.id}>
-                <div className="flex flex-col">
-                  <span className="font-medium">{material.name}</span>
-                  <span className="text-sm text-gray-500">
-                    {material.sheet_width}×{material.sheet_height}mm - ${material.price}
-                  </span>
-                </div>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* TODO: Replace with actual input fields based on app requirements */}
-      
       {/* Box Dimensions */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div>
-          <Label htmlFor="length" className="block mb-1 font-medium text-foreground">Length (mm)</Label>
-          <Input
-            id="length"
-            type="number"
-            value={length}
-            onChange={(e) => handleInputChange('length', e.target.value, onLengthChange)}
-            placeholder="Enter length"
-            className={validationErrors.length ? 'border-red-500' : ''}
-          />
-          {validationErrors.length && (
-            <p className="text-red-500 text-xs mt-1">{validationErrors.length}</p>
-          )}
-        </div>
-
+      <div className="grid grid-cols-2 gap-4">
         <div>
           <Label htmlFor="width" className="block mb-1 font-medium text-foreground">Width (mm)</Label>
           <Input
@@ -132,7 +106,7 @@ export const BoxBuilderForm: React.FC<BoxBuilderFormProps> = ({
             type="number"
             value={width}
             onChange={(e) => handleInputChange('width', e.target.value, onWidthChange)}
-            placeholder="Enter width"
+            placeholder="420"
             className={validationErrors.width ? 'border-red-500' : ''}
           />
           {validationErrors.width && (
@@ -141,44 +115,112 @@ export const BoxBuilderForm: React.FC<BoxBuilderFormProps> = ({
         </div>
 
         <div>
+          <Label htmlFor="depth" className="block mb-1 font-medium text-foreground">Depth (mm)</Label>
+          <Input
+            id="depth"
+            type="number"
+            value={depth}
+            onChange={(e) => handleInputChange('depth', e.target.value, onDepthChange)}
+            placeholder="400"
+            className={validationErrors.depth ? 'border-red-500' : ''}
+          />
+          {validationErrors.depth && (
+            <p className="text-red-500 text-xs mt-1">{validationErrors.depth}</p>
+          )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
           <Label htmlFor="height" className="block mb-1 font-medium text-foreground">Height (mm)</Label>
           <Input
             id="height"
             type="number"
             value={height}
             onChange={(e) => handleInputChange('height', e.target.value, onHeightChange)}
-            placeholder="Enter height"
+            placeholder="400"
             className={validationErrors.height ? 'border-red-500' : ''}
           />
           {validationErrors.height && (
             <p className="text-red-500 text-xs mt-1">{validationErrors.height}</p>
           )}
         </div>
+
+        <div>
+          <Label className="block mb-1 font-medium text-foreground">Dimensions Are</Label>
+          <ToggleGroup 
+            type="single" 
+            value={dimensionsType} 
+            onValueChange={(value) => value && onDimensionsTypeChange(value as 'inside' | 'outside')}
+            className="justify-start"
+          >
+            <ToggleGroupItem value="inside" className="data-[state=on]:bg-blue-600 data-[state=on]:text-white">
+              Inside
+            </ToggleGroupItem>
+            <ToggleGroupItem value="outside" className="data-[state=on]:bg-blue-600 data-[state=on]:text-white">
+              Outside
+            </ToggleGroupItem>
+          </ToggleGroup>
+        </div>
       </div>
 
-      {/* Quantity */}
+      {/* Material Selection */}
       <div>
-        <Label htmlFor="quantity" className="block mb-1 font-medium text-foreground">Quantity</Label>
-        <Input
-          id="quantity"
-          type="number"
-          value={quantity}
-          onChange={(e) => handleInputChange('quantity', e.target.value, onQuantityChange)}
-          placeholder="Enter quantity"
-          min="1"
-          max="100"
-          className={validationErrors.quantity ? 'border-red-500' : ''}
-        />
-        {validationErrors.quantity && (
-          <p className="text-red-500 text-xs mt-1">{validationErrors.quantity}</p>
-        )}
+        <Label htmlFor="material-select" className="block mb-1 font-medium text-foreground">Material</Label>
+        <Select value={selectedMaterial} onValueChange={onMaterialChange}>
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Select Material..." />
+          </SelectTrigger>
+          <SelectContent>
+            {materials.map((material) => (
+              <SelectItem key={material.id} value={material.id}>
+                <div className="flex flex-col">
+                  <span className="font-medium">{material.name}</span>
+                  <span className="text-sm text-gray-500">
+                    {material.sheet_width}×{material.sheet_height}mm × {material.thickness}mm - ${material.price}
+                  </span>
+                </div>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
-      {/* Placeholder notice */}
-      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mt-4">
-        <p className="text-yellow-800 text-xs">
-          📝 <strong>Placeholder Form:</strong> These fields will be replaced with actual Box Builder requirements once detailed specifications are provided.
-        </p>
+      {/* Box Type and Join Type */}
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <Label className="block mb-1 font-medium text-foreground">Box Type</Label>
+          <ToggleGroup 
+            type="single" 
+            value={boxType} 
+            onValueChange={(value) => value && onBoxTypeChange(value as 'open-top' | 'closed-lid')}
+            className="justify-start grid grid-cols-1 gap-1"
+          >
+            <ToggleGroupItem value="open-top" className="data-[state=on]:bg-blue-600 data-[state=on]:text-white">
+              Open Top
+            </ToggleGroupItem>
+            <ToggleGroupItem value="closed-lid" className="data-[state=on]:bg-blue-600 data-[state=on]:text-white">
+              Closed Lid
+            </ToggleGroupItem>
+          </ToggleGroup>
+        </div>
+
+        <div>
+          <Label className="block mb-1 font-medium text-foreground">Join Type</Label>
+          <ToggleGroup 
+            type="single" 
+            value={joinType} 
+            onValueChange={(value) => value && onJoinTypeChange(value as 'butt-join' | 'finger-join')}
+            className="justify-start grid grid-cols-1 gap-1"
+          >
+            <ToggleGroupItem value="butt-join" className="data-[state=on]:bg-blue-600 data-[state=on]:text-white">
+              Butt Join
+            </ToggleGroupItem>
+            <ToggleGroupItem value="finger-join" className="data-[state=on]:bg-blue-600 data-[state=on]:text-white">
+              Finger Join
+            </ToggleGroupItem>
+          </ToggleGroup>
+        </div>
       </div>
     </div>
   );

@@ -27,11 +27,14 @@ export const boxBuilderConfig = {
     },
   },
   
-  // TODO: Define actual default values based on requirements
+  // Default values based on screenshot
   defaults: {
-    length: 300,
-    width: 200,
-    height: 100,
+    width: 420,
+    depth: 400,
+    height: 400,
+    dimensionsType: 'inside',
+    boxType: 'open-top',
+    joinType: 'butt-join',
     quantity: 1,
   },
   

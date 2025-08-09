@@ -26,18 +26,22 @@ interface Material {
   price: number;
   sheet_width: number;
   sheet_height: number;
+  thickness: number;
   texture: string;
 }
 
 export function BoxBuilderCustomizer() {
   const customizerContainerRef = useRef<HTMLDivElement>(null);
   
-  // State management - placeholders until detailed requirements
+  // State management
   const [selectedMaterial, setSelectedMaterial] = useState(materials[0]?.id || '');
-  const [length, setLength] = useState(300); // TODO: Replace with actual field
-  const [width, setWidth] = useState(200);   // TODO: Replace with actual field
-  const [height, setHeight] = useState(100); // TODO: Replace with actual field
-  const [quantity, setQuantity] = useState(1); // TODO: Replace with actual field
+  const [width, setWidth] = useState(420);
+  const [depth, setDepth] = useState(400);
+  const [height, setHeight] = useState(400);
+  const [dimensionsType, setDimensionsType] = useState<'inside' | 'outside'>('inside');
+  const [boxType, setBoxType] = useState<'open-top' | 'closed-lid'>('open-top');
+  const [joinType, setJoinType] = useState<'butt-join' | 'finger-join'>('butt-join');
+  const [quantity, setQuantity] = useState(1);
 
   // Iframe height communication (REQUIRED for Shopify embedding)
   const communicateHeightToParent = () => {
@@ -54,13 +58,13 @@ export function BoxBuilderCustomizer() {
 
   useEffect(() => {
     communicateHeightToParent();
-  }, [selectedMaterial, length, width, height, quantity]);
+  }, [selectedMaterial, width, depth, height, dimensionsType, boxType, joinType, quantity]);
 
-  // Real-time calculation logic - placeholder until detailed requirements
+  // Real-time calculation logic
   const calculation = useMemo((): BoxBuilderCalculation => {
     const materialData = materials.find(m => m.id === selectedMaterial) as Material | undefined;
     
-    if (!materialData || length <= 0 || width <= 0 || height <= 0) {
+    if (!materialData || width <= 0 || depth <= 0 || height <= 0) {
       return {
         materialCost: 0,
         manufactureCost: 0,
@@ -70,14 +74,36 @@ export function BoxBuilderCustomizer() {
       };
     }
 
-    // TODO: Implement actual calculation logic based on requirements
-    // Placeholder calculations
-    const volume = (length * width * height) / 1000000; // Convert mm³ to cm³
-    const surfaceArea = 2 * ((length * width) + (length * height) + (width * height)) / 10000; // Convert mm² to cm²
+    // Calculate dimensions based on inside/outside preference and material thickness
+    const materialThickness = materialData.thickness || 18;
+    const actualWidth = dimensionsType === 'inside' ? width + (2 * materialThickness) : width;
+    const actualDepth = dimensionsType === 'inside' ? depth + (2 * materialThickness) : depth;
+    const actualHeight = dimensionsType === 'inside' ? height + materialThickness : height;
     
-    // Simple placeholder pricing
-    const materialCost = surfaceArea * materialData.price * 0.01; // Placeholder formula
-    const manufactureCost = 25 + (volume * 0.5); // Placeholder value
+    // Calculate volume and surface area
+    const volume = (actualWidth * actualDepth * actualHeight) / 1000000; // Convert mm³ to cm³
+    
+    // Calculate surface area based on box type
+    let surfaceArea;
+    if (boxType === 'open-top') {
+      // Bottom + 4 sides
+      surfaceArea = (actualWidth * actualDepth + 2 * (actualWidth * actualHeight) + 2 * (actualDepth * actualHeight)) / 10000;
+    } else {
+      // All 6 sides including lid
+      surfaceArea = 2 * ((actualWidth * actualDepth) + (actualWidth * actualHeight) + (actualDepth * actualHeight)) / 10000;
+    }
+    
+    // Adjust material cost based on join type (finger joints require more precision/time)
+    const joinMultiplier = joinType === 'finger-join' ? 1.3 : 1.0;
+    const materialCost = surfaceArea * materialData.price * 0.01 * joinMultiplier;
+    
+    // Manufacturing cost varies by complexity
+    const baseCost = 25;
+    const complexityCost = volume * 0.5;
+    const joinComplexityCost = joinType === 'finger-join' ? 15 : 0;
+    const lidComplexityCost = boxType === 'closed-lid' ? 10 : 0;
+    const manufactureCost = baseCost + complexityCost + joinComplexityCost + lidComplexityCost;
+    
     const totalCost = (materialCost + manufactureCost) * quantity;
 
     return {
@@ -87,7 +113,7 @@ export function BoxBuilderCustomizer() {
       volume,
       surfaceArea,
     };
-  }, [selectedMaterial, length, width, height, quantity]);
+  }, [selectedMaterial, width, depth, height, dimensionsType, boxType, joinType, quantity]);
 
   // Add to cart handler - placeholder until Shopify integration
   const handleAddToCart = async () => {
@@ -95,7 +121,10 @@ export function BoxBuilderCustomizer() {
     const configuration = {
       app: 'box-builder',
       material: selectedMaterial,
-      dimensions: { length, width, height },
+      dimensions: { width, depth, height },
+      dimensionsType,
+      boxType,
+      joinType,
       quantity,
       totalPrice: calculation.totalCost,
       specifications: {
@@ -114,9 +143,12 @@ export function BoxBuilderCustomizer() {
         {/* Visualizer - LEFT SIDE */}
         <main className="w-full md:flex-1 relative rounded-xl border border-gray-200/60 bg-white shadow-lg shadow-gray-200/70 flex flex-col items-center justify-center h-[400px] md:h-[576px] overflow-hidden order-1 md:order-1">
           <BoxBuilderVisualizer
-            length={length}
             width={width}
+            depth={depth}
             height={height}
+            dimensionsType={dimensionsType}
+            boxType={boxType}
+            joinType={joinType}
             material={materials.find(m => m.id === selectedMaterial) as Material}
           />
         </main>
@@ -131,19 +163,25 @@ export function BoxBuilderCustomizer() {
                   <div className="flex items-center justify-center w-8 h-8 bg-slate-100 rounded-lg">
                     <span className="text-slate-700 font-bold text-sm">📦</span>
                   </div>
-                  <h2 className="text-lg md:text-xl font-bold text-gray-900">Box Configuration</h2>
+                  <h2 className="text-lg md:text-xl font-bold text-gray-900">Configure Your Box</h2>
                 </div>
                 
                 <BoxBuilderForm
                   materials={materials}
                   selectedMaterial={selectedMaterial}
                   onMaterialChange={setSelectedMaterial}
-                  length={length}
-                  onLengthChange={setLength}
                   width={width}
                   onWidthChange={setWidth}
+                  depth={depth}
+                  onDepthChange={setDepth}
                   height={height}
                   onHeightChange={setHeight}
+                  dimensionsType={dimensionsType}
+                  onDimensionsTypeChange={setDimensionsType}
+                  boxType={boxType}
+                  onBoxTypeChange={setBoxType}
+                  joinType={joinType}
+                  onJoinTypeChange={setJoinType}
                   quantity={quantity}
                   onQuantityChange={setQuantity}
                 />
@@ -164,7 +202,15 @@ export function BoxBuilderCustomizer() {
                       {/* Box-specific calculation details */}
                       <div className="flex justify-between items-center">
                         <span className="text-gray-600">Dimensions:</span>
-                        <span className="font-semibold text-gray-900">{length} × {width} × {height} mm</span>
+                        <span className="font-semibold text-gray-900">{width} × {depth} × {height} mm</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600">Type:</span>
+                        <span className="font-semibold text-gray-900">{boxType === 'open-top' ? 'Open Top' : 'Closed Lid'} ({joinType === 'butt-join' ? 'Butt Join' : 'Finger Join'})</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600">Material thickness:</span>
+                        <span className="font-semibold text-gray-900">{materials.find(m => m.id === selectedMaterial)?.thickness || 18}mm</span>
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-gray-600">Volume:</span>
