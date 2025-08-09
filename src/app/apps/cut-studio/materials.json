@@ -1,0 +1,34 @@
+[
+  {
+    "id": "mdf-18-cut",
+    "name": "18mm MDF",
+    "price": 60.0,
+    "sheet_price": 60.0,
+    "thickness": 18,
+    "sheet_width": 2400,
+    "sheet_height": 1200,
+    "texture": "/textures/mdf.jpg"
+  },
+  {
+    "id": "formply-17-cut",
+    "name": "17mm Formply",
+    "price": 90.0,
+    "sheet_price": 90.0,
+    "thickness": 17,
+    "sheet_width": 2400,
+    "sheet_height": 1200,
+    "texture": "/textures/formply.png"
+  },
+  {
+    "id": "ply-18-cut",
+    "name": "18mm BC Structural Plywood",
+    "price": 120.0,
+    "sheet_price": 120.0,
+    "thickness": 18,
+    "sheet_width": 2400,
+    "sheet_height": 1200,
+    "texture": "/textures/plywood.png"
+  }
+]
+
+

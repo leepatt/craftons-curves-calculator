@@ -60,6 +60,16 @@ src/app/apps/[app-name]/
 - **Card styling**: `rounded-xl border border-gray-200/60 bg-white shadow-lg shadow-gray-200/60`
 - **Section headers**: `text-lg md:text-xl font-bold text-gray-900`
 - **Form inputs**: Use Shadcn UI components with consistent styling
+- **Visualizer**: Advanced 2D and 3D experience matching the Curves calculator and the attached screenshot. Include the following elements visible in the image:
+  - Ground grid plane with subtle cells and slight distance fade
+  - Colored world axes intersecting at the origin (e.g., blue X, green Y, vertical Z)
+  - A view cube/gizmo in the top-right with labeled faces (top/front/left) for quick orientation
+  - Semi‑transparent material shading on geometry with crisp dark edge outlines
+  - Soft ground shadow/ambient occlusion for depth
+  - Smooth orbit/pan/zoom interactions (mouse and touch), with double‑click/tap to focus the object
+  - Toggle between 3D perspective and 2D orthographic views (Top, Front, Left)
+  - In 2D mode, high-contrast dimension lines with tick marks/arrows and labeled values in mm
+  - Consistent millimetre units and grid/world scale
 - **Dimensions**: CAD-style with tick marks, professional appearance
 - **Background**: `bg-gray-50` for visualizer, `bg-white` for cards
 
@@ -229,12 +239,14 @@ export const [AppName]Visualizer: React.FC<[AppName]VisualizerProps> = ({
 }) => {
   return (
     <div className="relative w-full h-full bg-gray-50 overflow-hidden">
-      {/* CAD-style visualization with proper dimensions */}
+      {/* Advanced 2D & 3D visualization similar to the Curves calculator and the provided screenshot */}
       {/* MUST include:
-          - Professional dimension lines with tick marks
-          - Material representation
-          - Clear visual feedback
-          - Responsive scaling
+          - 3D mode: ground grid plane, colored world axes, semi‑transparent shaded model with crisp edges, soft ground shadow, and a view cube in the top-right
+          - Camera: orbit/pan/zoom interactions (mouse + touch), focus on double‑click/tap
+          - View modes: toggle Perspective 3D and Orthographic (Top/Front/Left)
+          - 2D mode: CAD drawing with dimension lines, tick marks/arrows, and mm labels
+          - Visual feedback: highlight on selection/hover and invalid state indicators
+          - Responsiveness: scales cleanly on mobile/desktop and respects container size
       */}
     </div>
   );
@@ -497,8 +509,8 @@ npm run dev           # Development server
 - [ ] Mobile responsive (test on phone)
 - [ ] All inputs have validation and error handling
 - [ ] Real-time calculations work correctly
-- [ ] Visualizer shows accurate representation
-- [ ] CAD-style dimensions with tick marks
+ - [ ] Visualizer matches Curves-style advanced 2D/3D (grid, axes, view cube, shaded model)
+ - [ ] CAD-style 2D dimensions with tick marks/arrows and unit labels
 - [ ] Shopify integration functional
 - [ ] No TypeScript/build errors
 - [ ] Consistent styling with existing apps
