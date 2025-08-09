@@ -5,10 +5,12 @@ export interface Material {
   type: string;
   thickness_mm: number;
   sheet_price: number; // inc GST (as per Shopify standard)
+  rate_per_m2: number; // Rate per square meter
   sheet_length_mm: number;
   sheet_width_mm: number;
   usable_sheet_length_mm: number;
   usable_sheet_width_mm: number;
+  sheet_area_m2: number; // Sheet area in square meters
   texture_diffuse?: string; // Path to diffuse texture image
   texture_normal?: string; // Path to normal map texture
   texture_scale?: [number, number]; // UV scale for texture tiling

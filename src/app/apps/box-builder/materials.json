@@ -1,0 +1,26 @@
+[
+  {
+    "id": "mdf",
+    "name": "MDF (Medium Density Fiberboard)",
+    "price": 45.50,
+    "sheet_width": 2400,
+    "sheet_height": 1200,
+    "texture": "mdf.jpg"
+  },
+  {
+    "id": "plywood",
+    "name": "Marine Grade Plywood",
+    "price": 85.00,
+    "sheet_width": 2400,
+    "sheet_height": 1200,
+    "texture": "plywood.png"
+  },
+  {
+    "id": "formply",
+    "name": "Formply Structural Plywood",
+    "price": 75.00,
+    "sheet_width": 2400,
+    "sheet_height": 1200,
+    "texture": "formply.png"
+  }
+]

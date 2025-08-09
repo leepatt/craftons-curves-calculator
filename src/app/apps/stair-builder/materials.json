@@ -1,0 +1,34 @@
+[
+  {
+    "id": "form-17",
+    "name": "Formply",
+    "price": 28.64,
+    "sheet_width": 1200,
+    "sheet_height": 2400,
+    "texture": "/textures/formply.png"
+  },
+  {
+    "id": "BC-18",
+    "name": "BC Structural Plywood",
+    "price": 33.92,
+    "sheet_width": 1200,
+    "sheet_height": 2400,
+    "texture": "/textures/plywood.png"
+  },
+  {
+    "id": "BC-25",
+    "name": "BC Structural Plywood (25mm)",
+    "price": 45.13,
+    "sheet_width": 1200,
+    "sheet_height": 2400,
+    "texture": "/textures/plywood.png"
+  },
+  {
+    "id": "mdf-18",
+    "name": "MDF Standard",
+    "price": 19.09,
+    "sheet_width": 1200,
+    "sheet_height": 2400,
+    "texture": "/textures/mdf.jpg"
+  }
+]
