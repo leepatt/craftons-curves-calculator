@@ -51,12 +51,15 @@ const ToggleGroupItem = React.forwardRef<HTMLButtonElement, ToggleGroupItemProps
 
     const variantStyles = {
       default: isSelected
-        ? "bg-slate-900 text-white border-slate-900"
+        ? "text-white border-[#93B29C]"
         : "bg-white text-slate-700 border-slate-300 hover:bg-slate-50",
       outline: isSelected
-        ? "bg-slate-900 text-white border-slate-900"
+        ? "text-white border-[#93B29C]"
         : "bg-white text-slate-700 border-slate-300 hover:bg-slate-50",
     };
+
+    // Apply custom background color for selected state using inline styles
+    const selectedStyle = isSelected ? { backgroundColor: '#93B29C' } : {};
 
     return (
       <button
@@ -66,6 +69,7 @@ const ToggleGroupItem = React.forwardRef<HTMLButtonElement, ToggleGroupItemProps
           variantStyles[variant],
           className
         )}
+        style={selectedStyle}
         onClick={handleClick}
         {...props}
       >

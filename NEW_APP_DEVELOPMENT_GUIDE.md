@@ -109,7 +109,9 @@ import { [AppName]Visualizer } from './[AppName]Visualizer';
 import { [AppName]BuilderForm } from './[AppName]BuilderForm';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { Button } from "@/components/ui/button";
 import materials from './materials.json'; // Or shared materials
+import { [appName]Config } from './config';
 
 // Define calculation interface
 interface [AppName]Calculation {
@@ -125,6 +127,9 @@ export function [AppName]Customizer() {
   // State management
   const [selectedMaterial, setSelectedMaterial] = useState(materials[0]?.id || '');
   // Add app-specific state variables
+  
+  // Add to Cart states
+  const [isAddingToCart, setIsAddingToCart] = useState(false);
   
   // Iframe height communication (REQUIRED for Shopify embedding)
   const communicateHeightToParent = () => {
@@ -313,6 +318,21 @@ const calculation = useMemo((): [AppName]Calculation => {
           <span className="text-base font-semibold text-gray-900">Total Price (inc GST):</span>
           <span className="text-xl font-bold text-gray-900">${calculation.totalCost.toFixed(2)}</span>
         </div>
+
+        {/* Add to Cart Button */}
+        <div className="mt-4">
+          <Button 
+            onClick={handleAddToCart}
+            disabled={isAddingToCart}
+            className="w-full text-white font-bold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg shadow-md hover:shadow-lg"
+            style={{
+              backgroundColor: '#194431',
+              borderColor: '#194431'
+            }}
+          >
+            {isAddingToCart ? 'Adding...' : `Add to Cart - $${calculation.totalCost.toFixed(2)}`}
+          </Button>
+        </div>
       </>
     ) : (
       <div className="text-center py-4 text-gray-500">
@@ -324,6 +344,35 @@ const calculation = useMemo((): [AppName]Calculation => {
 ```
 
 ## Shopify Integration Requirements
+
+### Configuration Structure (MANDATORY)
+```tsx
+// src/app/apps/[app-name]/config.ts
+export const [appName]Config = {
+  product: {
+    id: "[app-name]",
+    name: "[App Name]",
+    description: "[App description]",
+  },
+  // Shopify integration - $1.00 variant for whole dollar pricing
+  shopify: {
+    productId: '[APP_NAME]_PRODUCT_ID', // TODO: Set actual Shopify product ID
+    dollarVariantId: Number(
+      process.env.NEXT_PUBLIC_[APP_NAME]_DOLLAR_VARIANT_ID ||
+      process.env.NEXT_PUBLIC_DOLLAR_VARIANT_ID ||
+      process.env.[APP_NAME]_DOLLAR_VARIANT_ID ||
+      45721553469618  // Default fallback variant ID
+    ),
+    shopDomain: 
+      process.env.NEXT_PUBLIC_[APP_NAME]_SHOP_DOMAIN ||
+      process.env.NEXT_PUBLIC_SHOP_DOMAIN ||
+      process.env.NEXT_PUBLIC_SHOPIFY_STORE_DOMAIN ||
+      process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN ||
+      process.env.SHOPIFY_STORE_DOMAIN ||
+      'craftons-au.myshopify.com',
+  },
+};
+```
 
 ### Product Configuration Interface
 ```tsx
@@ -339,35 +388,71 @@ interface [AppName]ProductConfiguration {
 }
 ```
 
-### Add to Cart Integration
+### Add to Cart Integration (Shopify Cart Permalink Approach)
 ```tsx
-// MUST integrate with existing cart system
-const handleAddToCart = async () => {
-  const configuration: [AppName]ProductConfiguration = {
-    app: '[app-name]',
-    material: selectedMaterial,
-    // Build configuration object
-    totalPrice: calculation.totalCost,
-    specifications: {
-      // Add manufacturing specifications
-    }
-  };
+// MUST use Shopify Cart Permalink approach (like ripping app)
+// Import configuration
+import { [appName]Config } from './config';
 
-  // Use existing cart API
+// Add to Cart states
+const [isAddingToCart, setIsAddingToCart] = useState(false);
+
+// Add to Cart Handler - Using Shopify Cart Permalink Approach
+const handleAddToCart = async () => {
+  if (!calculation || calculation.totalCost <= 0) {
+    alert("Please configure your [app name] to add to cart!");
+    return;
+  }
+
+  setIsAddingToCart(true);
+  
   try {
-    const response = await fetch('/api/cart/add', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        productId: '[SHOPIFY_PRODUCT_ID]', // Unique per app
-        variantId: '[SHOPIFY_VARIANT_ID]', // Unique per app
-        quantity: 1,
-        properties: configuration
-      })
-    });
-    // Handle response
+    // Calculate quantity based on variant type:
+    // - For $1.00 variants (ripping, pelmet-pro, stair-builder, box-builder): quantity = Math.round(price)
+    // - For 1-cent variants (curves, radius-pro): quantity = Math.round(price * 100)
+    const quantity = Math.round(calculation.totalCost); // For $1.00 variants (recommended for new apps)
+    const materialData = materials.find(m => m.id === selectedMaterial);
+
+    if (![appName]Config.shopify.dollarVariantId) {
+      alert('[App Name] $1 variant ID is not configured. Check [appName]Config.shopify.dollarVariantId');
+      throw new Error('Missing [appName]Config.shopify.dollarVariantId');
+    }
+
+    // Build cart item with properties
+    const cartItem = {
+      id: [appName]Config.shopify.dollarVariantId,
+      quantity: quantity, // $1.00 variant: quantity = dollars
+      properties: {
+        _order_type: 'custom_[app_name]',
+        _display_price: `$${calculation.totalCost.toFixed(2)}`,
+        _total_price: calculation.totalCost.toFixed(2),
+        _material: materialData?.name || selectedMaterial,
+        // Add app-specific properties
+        _configuration_summary: '[App specific summary]',
+        _price_component: 'dollars_only'
+      }
+    };
+
+    // Encode properties as Base64
+    const propertiesParam = btoa(
+      unescape(encodeURIComponent(JSON.stringify(cartItem.properties)))
+    );
+
+    // Build Shopify cart permalink
+    const cartUrl = `https://${[appName]Config.shopify.shopDomain}/cart/${cartItem.id}:${cartItem.quantity}?properties=${propertiesParam}`;
+
+    console.log('🛒 Adding to cart with quantity:', quantity, 'for price:', calculation.totalCost.toFixed(2), '($1.00 variant: quantity = dollars)');
+    console.log('📦 Cart item:', cartItem);
+    console.log('🔗 Cart URL:', cartUrl);
+
+    // Redirect to Shopify cart
+    window.open(cartUrl, '_top');
+
   } catch (error) {
-    // Error handling
+    console.error('❌ Add to cart error:', error);
+    alert('Failed to add to cart. Please try again.');
+  } finally {
+    setIsAddingToCart(false);
   }
 };
 ```
@@ -483,7 +568,9 @@ export const [AppName]Visualizer: React.FC<[AppName]VisualizerProps> = ({
 - [ ] Copy and modify template files
 - [ ] Update app-specific naming throughout
 - [ ] Create materials.json (if app-specific materials needed)
-- [ ] Set up Shopify product and variant IDs
+- [ ] Set up config.ts with Shopify dollarVariantId and shopDomain
+- [ ] Implement Shopify cart permalink approach (not API route)
+- [ ] Add proper cart button styling and state management
 
 ### 4. Development Process
 1. **Start with placeholder structure** - Get basic layout and naming correct
@@ -501,7 +588,9 @@ npm run build          # Build must succeed
 npm run dev           # Development server
 # Test on multiple screen sizes
 # Test all input validation
-# Test cart integration
+# Test cart integration (permalink approach)
+# Verify cart button state management
+# Check console logs for cart debugging info
 ```
 
 ### 4. Quality Checklist
@@ -509,9 +598,11 @@ npm run dev           # Development server
 - [ ] Mobile responsive (test on phone)
 - [ ] All inputs have validation and error handling
 - [ ] Real-time calculations work correctly
- - [ ] Visualizer matches Curves-style advanced 2D/3D (grid, axes, view cube, shaded model)
- - [ ] CAD-style 2D dimensions with tick marks/arrows and unit labels
-- [ ] Shopify integration functional
+- [ ] Visualizer matches Curves-style advanced 2D/3D (grid, axes, view cube, shaded model)
+- [ ] CAD-style 2D dimensions with tick marks/arrows and unit labels
+- [ ] Shopify cart permalink integration functional (not API route)
+- [ ] Cart button has proper styling (#194431 green) and loading states
+- [ ] Cart console logging for debugging
 - [ ] No TypeScript/build errors
 - [ ] Consistent styling with existing apps
 
@@ -650,9 +741,10 @@ When developing a new app:
 2. **Replace all placeholders** - Implement real calculations and functionality
 3. **Implement real-time calculations** - No job-based systems, immediate feedback
 4. **Use CAD-style visualizers** - Professional appearance with proper dimensions
-5. **Integrate with Shopify** - Each app needs unique product/variant IDs
-6. **Test thoroughly** - Build, responsiveness, functionality
-7. **Maintain quality** - Code standards, performance, user experience
+5. **Integrate with Shopify cart permalink** - Use $1.00 variants and proper configuration
+6. **Add cart button with proper styling** - Green (#194431) styling and loading states
+7. **Test thoroughly** - Build, responsiveness, cart functionality
+8. **Maintain quality** - Code standards, performance, user experience
 
 ### Key Workflow Points
 - **Never assume requirements** - Always use placeholders until specifications are provided

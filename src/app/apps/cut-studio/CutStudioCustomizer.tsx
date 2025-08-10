@@ -10,6 +10,7 @@ import { Share2, Pencil } from 'lucide-react';
 import materials from './materials.json';
 import { CUT_STUDIO_CONFIG } from '@/apps/cut-studio/config';
 import { EDGE_MARGIN_MM, PART_SPACING_MM, ROTATIONS_ALLOWED, calculateManufacturingCost, getSheetPrice, MaterialForPricing, MIN_PART_SIZE_MM, MIN_HOLE_DIAMETER_MM } from '@/apps/cut-studio/pricing';
+import { NestingEngine, createNestingParts, type NestingOptions } from '@/apps/cut-studio/nesting';
 
 type ShapeType = 'rectangle' | 'circle';
 
@@ -28,6 +29,8 @@ interface CutStudioCalculation {
   materialCost: number;
   manufactureCost: number;
   totalCost: number;
+  efficiency: number;
+  wastedArea: number;
 }
 
 interface PartSpec {
@@ -46,13 +49,13 @@ export function CutStudioCustomizer() {
   const [shapeType, setShapeType] = useState<ShapeType | null>(null);
 
   // Shape inputs (placeholders - to be refined in Phase 3)
-  const [widthMm, setWidthMm] = useState<number>(0);
-  const [heightMm, setHeightMm] = useState<number>(0);
-  const [diameterMm, setDiameterMm] = useState<number>(0);
+  const [widthMm, setWidthMm] = useState<number>(300);
+  const [heightMm, setHeightMm] = useState<number>(300);
+  const [diameterMm, setDiameterMm] = useState<number>(300);
   const [outerDiameterMm, setOuterDiameterMm] = useState<number>(0);
   const [innerDiameterMm, setInnerDiameterMm] = useState<number>(0);
   const [rectCornerRadiusMm, setRectCornerRadiusMm] = useState<number>(0); // unused for now
-  const [quantity, setQuantity] = useState<number>(0);
+  const [quantity, setQuantity] = useState<number>(1);
   const [parts, setParts] = useState<PartSpec[]>([]);
   
   // States for cart and sharing functionality
@@ -61,6 +64,9 @@ export function CutStudioCustomizer() {
   
   // State for editing functionality
   const [editingPartId, setEditingPartId] = useState<string | null>(null);
+  
+  // Nesting strategy state
+  const [nestingStrategy, setNestingStrategy] = useState<NestingOptions['sortStrategy']>('area');
 
   // Iframe height communication (Shopify embed compatibility)
   const communicateHeightToParent = () => {
@@ -92,45 +98,47 @@ export function CutStudioCustomizer() {
   const calculation = useMemo((): CutStudioCalculation => {
     const materialData = (materials as Material[]).find(m => m.id === selectedMaterial) as (Material & MaterialForPricing) | undefined;
 
-    if (!materialData) {
+    if (!materialData || parts.length === 0) {
       return {
         sheetsNeeded: 0,
         materialCost: 0,
         manufactureCost: 0,
         totalCost: 0,
+        efficiency: 0,
+        wastedArea: 0,
       };
     }
 
-    const usableWidth = Math.max(0, materialData.sheet_width - 2 * EDGE_MARGIN_MM);
-    const usableHeight = Math.max(0, materialData.sheet_height - 2 * EDGE_MARGIN_MM);
+    // Use the advanced nesting algorithm for accurate calculations
+    const nestingParts = createNestingParts(parts);
+    
+    const nestingEngine = new NestingEngine({
+      sheetWidth: materialData.sheet_width,
+      sheetHeight: materialData.sheet_height,
+      margin: EDGE_MARGIN_MM,
+      spacing: PART_SPACING_MM,
+      allowRotation: true,
+      sortStrategy: nestingStrategy
+    });
 
-    // compute sheets needed for all parts using simple per-part capacity
-    const capacityFor = (w: number, h: number) => {
-      const cols = Math.max(0, Math.floor((usableWidth + PART_SPACING_MM) / (w + PART_SPACING_MM)));
-      const rows = Math.max(0, Math.floor((usableHeight + PART_SPACING_MM) / (h + PART_SPACING_MM)));
-      return { cols, rows, capacity: cols * rows };
-    };
-
-    let totalSheets = 0;
-    let totalParts = 0;
-    for (const p of parts) {
-      const c0 = capacityFor(p.w, p.h);
-      const c90 = capacityFor(p.h, p.w);
-      const cap = Math.max(c0.capacity, c90.capacity);
-      if (cap === 0) {
-        // this part does not fit a sheet at all; treat as zero-cost here
-        continue;
-      }
-      totalSheets += Math.ceil(p.qty / cap);
-      totalParts += p.qty;
-    }
-
+    const nestingResult = nestingEngine.nest(nestingParts);
+    
+    const totalSheets = nestingResult.sheets.length;
+    const totalParts = parts.reduce((sum, p) => sum + p.qty, 0);
+    
     const materialCost = totalSheets * getSheetPrice(materialData);
     const manufactureCost = calculateManufacturingCost(totalSheets, totalParts);
     const totalCost = materialCost + manufactureCost;
 
-    return { sheetsNeeded: totalSheets, materialCost, manufactureCost, totalCost };
-  }, [selectedMaterial, parts]);
+    return { 
+      sheetsNeeded: totalSheets, 
+      materialCost, 
+      manufactureCost, 
+      totalCost,
+      efficiency: nestingResult.totalEfficiency,
+      wastedArea: nestingResult.totalWastedArea
+    };
+  }, [selectedMaterial, parts, nestingStrategy]);
 
   const handleAddPart = () => {
     // Validate inputs by shape and push to parts list
@@ -138,7 +146,7 @@ export function CutStudioCustomizer() {
       if (widthMm < MIN_PART_SIZE_MM || heightMm < MIN_PART_SIZE_MM) return;
       setParts(prev => [...prev, { id: `p-${Date.now()}`, shape: 'rectangle', w: widthMm, h: heightMm, qty: quantity }]);
     } else if (shapeType === 'circle') {
-      if (diameterMm < MIN_PART_SIZE_MM) return;
+      if (diameterMm < MIN_PART_SIZE_MM || diameterMm <= 0) return;
       setParts(prev => [...prev, { id: `p-${Date.now()}`, shape: 'circle', w: diameterMm, h: diameterMm, qty: quantity }]);
     }
     
@@ -147,11 +155,11 @@ export function CutStudioCustomizer() {
   };
 
   const resetForm = () => {
-    setShapeType(null);
-    setWidthMm(0);
-    setHeightMm(0);
-    setDiameterMm(0);
-    setQuantity(0);
+    setShapeType(null); // Clear selection to highlight shape selection tool
+    setWidthMm(300);
+    setHeightMm(300);
+    setDiameterMm(300);
+    setQuantity(1);
     setEditingPartId(null);
   };
 
@@ -186,7 +194,7 @@ export function CutStudioCustomizer() {
     if (shapeType === 'rectangle') {
       if (widthMm < MIN_PART_SIZE_MM || heightMm < MIN_PART_SIZE_MM) return;
     } else if (shapeType === 'circle') {
-      if (diameterMm < MIN_PART_SIZE_MM) return;
+      if (diameterMm < MIN_PART_SIZE_MM || diameterMm <= 0) return;
     }
     
     // Update the existing part
@@ -252,7 +260,8 @@ export function CutStudioCustomizer() {
               spacingMm={PART_SPACING_MM}
               quantity={quantity}
               parts={parts}
-              pendingPart={shapeType ? (shapeType === 'rectangle' ? { shape: 'rectangle', w: widthMm, h: heightMm, qty: quantity } : { shape: 'circle', w: diameterMm, h: diameterMm, qty: quantity }) : null}
+              pendingPart={shapeType && quantity > 0 ? (shapeType === 'rectangle' ? { shape: 'rectangle', w: widthMm, h: heightMm, qty: quantity } : { shape: 'circle', w: diameterMm, h: diameterMm, qty: quantity }) : null}
+              nestingStrategy={nestingStrategy}
             />
           </div>
         </main>
@@ -319,7 +328,7 @@ export function CutStudioCustomizer() {
                     {parts.map((p, index) => (
                       <li key={p.id} className="flex justify-between items-center text-sm border-b border-dashed border-gray-200 pb-2">
                         <span className="cursor-pointer transition-colors duration-200 flex-1 hover:text-blue-500 hover:bg-gray-50 px-2 py-1 rounded">
-                          {`${index + 1}. ${p.shape.charAt(0).toUpperCase() + p.shape.slice(1)} ${p.w}×${p.h}mm (Qty: ${p.qty})`}
+                          {`${index + 1}. ${p.shape.charAt(0).toUpperCase() + p.shape.slice(1)} ${p.shape === 'circle' ? `⌀${p.w}mm` : `${p.w}×${p.h}mm`} (Qty: ${p.qty})`}
                         </span>
                         <div className="flex items-center gap-1">
                           <button 
@@ -358,6 +367,16 @@ export function CutStudioCustomizer() {
                         <span className="text-gray-600">Sheets required:</span>
                         <span className="font-semibold text-gray-900">{calculation.sheetsNeeded}</span>
                       </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600">Material efficiency:</span>
+                        <span className={`font-semibold ${calculation.efficiency >= 0.8 ? 'text-green-600' : calculation.efficiency >= 0.6 ? 'text-yellow-600' : 'text-red-600'}`}>
+                          {(calculation.efficiency * 100).toFixed(1)}%
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600">Waste area:</span>
+                        <span className="font-semibold text-gray-900">{(calculation.wastedArea / 1000000).toFixed(2)} m²</span>
+                      </div>
                       <Separator className="my-2" />
                       <div className="flex justify-between items-center">
                         <span className="text-gray-600">Material cost:</span>
@@ -379,6 +398,26 @@ export function CutStudioCustomizer() {
                     </div>
                   )}
                 </div>
+
+                {/* Nesting Strategy Selector */}
+                {calculation.totalCost > 0 && (
+                  <div className="mt-3 pt-3 border-t border-gray-200">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-gray-700">Nesting Strategy:</span>
+                      <select 
+                        value={nestingStrategy} 
+                        onChange={(e) => setNestingStrategy(e.target.value as NestingOptions['sortStrategy'])}
+                        className="text-xs px-2 py-1 border border-gray-300 rounded bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="area">By Area (largest first)</option>
+                        <option value="width">By Width</option>
+                        <option value="height">By Height</option>
+                        <option value="perimeter">By Perimeter</option>
+                        <option value="none">No Sorting</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
                 
                 {/* Action Buttons */}
                 {calculation.totalCost > 0 && (

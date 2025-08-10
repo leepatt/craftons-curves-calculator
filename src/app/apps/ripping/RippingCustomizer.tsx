@@ -7,7 +7,6 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Button } from '@/components/ui/button';
 import { Share2, Copy, ExternalLink, X as XIcon } from 'lucide-react';
-import { APP_CONFIG } from '@/lib/config';
 import { rippingConfig } from './config';
 import materials from './materials.json'; // We'll use the app-specific materials
 
@@ -265,7 +264,7 @@ export function RippingCustomizer() {
     }
   }, [selectedMaterial, height, totalLength, lengthUnit, calculation]);
 
-  // Handler functions for Add to Cart
+  // Handler functions for Add to Cart - Using Shopify Cart Permalink Approach (like other apps)
   const handleAddToCart = useCallback(async () => {
     if (!calculation || calculation.sheetsNeeded === 0) {
       alert("Please enter valid rip height and total length to add to cart!");
@@ -275,53 +274,118 @@ export function RippingCustomizer() {
     setIsAddingToCart(true);
     
     try {
-      const qty = Math.max(1, Math.ceil(roundedTotalDollars));
+      // Calculate quantity for $1.00 variant (whole dollar pricing)
+      // Unlike other apps that use 1-cent variants, ripping uses $1.00 variants
+      const quantity = Math.round(roundedTotalDollars);
       const materialData = materials.find(m => m.id === selectedMaterial);
 
-      const payload = {
+      if (!rippingConfig.shopifyDollarVariantId) {
+        alert('Ripping $1 variant ID is not configured. Check rippingConfig.shopifyDollarVariantId');
+        throw new Error('Missing rippingConfig.shopifyDollarVariantId');
+      }
+
+      // Build comprehensive cart item data (matching curves/radius-pro approach)
+      const cartItemData = {
         items: [{
           id: rippingConfig.shopifyDollarVariantId,
-          quantity: qty,
+          quantity: quantity, // $1.00 variant: quantity = dollars
           properties: {
-            _order_type: 'custom_ripping',
-            _display_price: `$${roundedTotalDollars.toFixed(2)}`,
-            _total_price: roundedTotalDollars.toFixed(2),
-            _material: materialData?.name || selectedMaterial,
-            _rip_height: `${height}mm`,
-            _total_length: `${totalLength}${lengthUnit}`,
-            _sheets_needed: String(calculation.sheetsNeeded),
-            _rips_per_sheet: String(calculation.ripsPerSheet),
-            _turnaround: '1-2 days',
-            _configuration_summary: `${materialData?.name || selectedMaterial}: ${height}mm high rips, ${totalLength}${lengthUnit} total length, ${calculation.sheetsNeeded} sheets needed`,
-            _price_component: 'dollars_only'
+            '_order_type': 'custom_ripping',
+            '_total_price': roundedTotalDollars.toFixed(2),
+            '_display_price': `$${roundedTotalDollars.toFixed(2)}`,
+            '_material': materialData?.name || selectedMaterial,
+            '_rip_height': `${height}mm`,
+            '_total_length': `${totalLength}${lengthUnit}`,
+            '_sheets_needed': String(calculation.sheetsNeeded),
+            '_rips_per_sheet': String(calculation.ripsPerSheet),
+            '_turnaround': '1-2 days',
+            '_configuration_summary': `${materialData?.name || selectedMaterial}: ${height}mm high rips, ${totalLength}${lengthUnit} total length, ${calculation.sheetsNeeded} sheets needed`,
+            '_material_cost': calculation.materialCost.toFixed(2),
+            '_manufacture_cost': calculation.manufactureCost.toFixed(2),
+            '_kerf_width': `${calculation.kerfWidth}mm`,
+            '_cutter_size': `${calculation.cutterSize}mm`,
+            '_offcut_size': `${calculation.offcutSize}mm`,
+            '_timestamp': new Date().toISOString()
           }
         }]
       };
 
-      const res = await fetch('/api/cart/add', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify(payload)
-      });
+      console.log('🛒 Adding to cart with quantity:', quantity, 'for price:', roundedTotalDollars.toFixed(2), '($1.00 variant: quantity = dollars)');
+      console.log('📦 Cart data:', JSON.stringify(cartItemData, null, 2));
 
-      if (!res.ok) {
-        let msg = 'Failed to add to cart';
-        try { msg = (await res.json())?.error || msg; } catch { msg = await res.text() || msg; }
-        throw new Error(msg);
+      // --- SHOPIFY CART PERMALINK APPROACH (like curves and radius-pro apps) ---
+      // This approach builds a Shopify cart permalink that encodes all line-item 
+      // properties in Base64 and sends the customer straight to the cart page with 
+      // their item pre-loaded. This guarantees the cart shows the item even when 
+      // running on different origins.
+      // 
+      // NOTE: Ripping app uses $1.00 variants (quantity = dollars) unlike curves/radius-pro 
+      // which use 1-cent variants (quantity = price * 100)
+
+      // Build visible part summaries as separate properties (for cart display)
+      const visibleProps: Record<string, string> = {
+        'Material': materialData?.name || selectedMaterial,
+        'Rip Height': `${height}mm`,
+        'Total Length': `${totalLength}${lengthUnit}`,
+        'Sheets Needed': String(calculation.sheetsNeeded),
+        'Rips per Sheet': String(calculation.ripsPerSheet),
+        'Total Price': `$${roundedTotalDollars.toFixed(2)}`
+      };
+
+      // Merge visible props into the main properties object
+      cartItemData.items[0].properties = {
+        ...cartItemData.items[0].properties,
+        ...visibleProps,
+      };
+
+      const propsJson = JSON.stringify(cartItemData.items[0].properties);
+      // Base64-URL encode the JSON string (Shopify requires URL-safe Base64)
+      const base64Props = btoa(unescape(encodeURIComponent(propsJson)))
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=+$/, '');
+
+      const shopDomain = rippingConfig.shopDomain;
+      const variantId = rippingConfig.shopifyDollarVariantId;
+      const permalink = `https://${shopDomain}/cart/${variantId}:${quantity}?properties=${encodeURIComponent(base64Props)}&storefront=true`;
+
+      console.log('🚀 Redirecting to cart permalink:', permalink);
+      console.log(`Added ripping configuration to cart. Redirecting…`);
+
+      // If embedded inside an iframe (Shopify app embed), redirect the parent;
+      // otherwise redirect the current window.
+      if (window.top) {
+        window.top.location.href = permalink;
+      } else {
+        window.location.href = permalink;
       }
 
-      alert('Added to cart');
-      setTimeout(() => { window.location.href = '/cart'; }, 300);
+      return; // Skip any other logic
 
-    } catch (err) {
-      console.error('Add to cart error:', err);
-      alert('Failed to add to cart. Please try again.');
+    } catch (cartError) {
+      console.error('💥 Error adding to cart:', cartError);
+      
+      let errorMessage = 'Failed to add to cart. ';
+      if (cartError instanceof Error) {
+        errorMessage += cartError.message;
+        
+        // Enhanced error message based on common issues
+        if (cartError.message.includes('422') || cartError.message.includes('variant')) {
+          errorMessage += '\n\n🔧 Note: The 1-cent product may need to be set up in your Shopify store.';
+        } else if (cartError.message.includes('405')) {
+          errorMessage += '\n\n🔧 Note: This app needs to be embedded in your Shopify store or accessed through a Shopify product page for cart functionality to work.';
+        }
+      } else {
+        errorMessage += 'An unknown error occurred.';
+      }
+      
+      alert(`❌ ${errorMessage}`);
     } finally {
       setIsAddingToCart(false);
     }
   }, [
     calculation, roundedTotalDollars, materials, selectedMaterial,
-    height, totalLength, lengthUnit, rippingConfig
+    height, totalLength, lengthUnit
   ]);
 
   // Share modal handlers
