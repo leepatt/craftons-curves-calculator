@@ -89,11 +89,11 @@ export const CutStudioBuilderForm: React.FC<CutStudioBuilderFormProps> = ({
         <ToggleGroup type="single" value={shapeType ?? ''} onValueChange={(v) => v && onShapeTypeChange(v as ShapeType)} className="flex flex-wrap gap-2">
           <ToggleGroupItem value="rectangle" aria-label="Rectangle">
             {/* rectangle icon */}
-            <svg width="28" height="20" viewBox="0 0 28 20" className="text-gray-700"><rect x="2" y="2" width="24" height="16" rx="0" stroke="currentColor" fill="none"/></svg>
+            <svg width="58" height="42" viewBox="0 0 28 20" className="text-gray-700"><rect x="2" y="2" width="24" height="16" rx="0" stroke="currentColor" fill="none" strokeWidth="1.5"/></svg>
           </ToggleGroupItem>
           <ToggleGroupItem value="circle" aria-label="Circle">
             {/* circle icon */}
-            <svg width="22" height="22" viewBox="0 0 22 22" className="text-gray-700"><circle cx="11" cy="11" r="9" stroke="currentColor" fill="none"/></svg>
+            <svg width="47" height="47" viewBox="0 0 22 22" className="text-gray-700"><circle cx="11" cy="11" r="9" stroke="currentColor" fill="none" strokeWidth="1.5"/></svg>
           </ToggleGroupItem>
         </ToggleGroup>
       </div>
@@ -217,7 +217,7 @@ export const CutStudioBuilderForm: React.FC<CutStudioBuilderFormProps> = ({
                 size="default"
               >
                 <PlusCircle className="mr-2 h-4 w-4"/>
-                Add
+                Add More Parts
               </Button>
             )}
           </div>
