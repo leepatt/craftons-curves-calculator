@@ -406,8 +406,9 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = ({
       return;
     }
 
-    const sheetL = selectedMaterial.sheet_length_mm;
-    const sheetW = selectedMaterial.sheet_width_mm;
+    // Use usable dimensions for split calculations (accounts for cutting tolerances)
+    const sheetL = selectedMaterial.usable_sheet_length_mm || selectedMaterial.sheet_length_mm;
+    const sheetW = selectedMaterial.usable_sheet_width_mm || selectedMaterial.sheet_width_mm;
     const partConfigWidth = Number(currentConfig.width);
 
     // Enhanced width validation
@@ -416,24 +417,29 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = ({
       return;
     }
     
-    // Determine available sheet length for chord with improved logic
+    // For curved parts, we need to check if the chord can fit within the sheet dimensions
+    // The part width goes perpendicular to the chord direction
     let availableSheetLengthForChord: number;
     const minSheetDimension = Math.min(sheetL, sheetW);
     const maxSheetDimension = Math.max(sheetL, sheetW);
     
+    // CORRECTED LOGIC: For any curve, the chord needs to fit in one sheet dimension
+    // and the part width needs to fit in the perpendicular dimension
+    // We should always check against the more restrictive constraint
+    
     if (partConfigWidth <= minSheetDimension) {
-      // Part width fits in smaller dimension, chord can use larger dimension
+      // Part width fits in smaller dimension, so chord must fit in larger dimension  
       availableSheetLengthForChord = maxSheetDimension;
     } else if (partConfigWidth <= maxSheetDimension) {
-      // Part width only fits in larger dimension, chord must use smaller dimension
+      // Part width only fits in larger dimension, so chord must fit in smaller dimension
       availableSheetLengthForChord = minSheetDimension;
     } else {
-      // Part width exceeds both sheet dimensions - this is a fundamental issue
+      // Part width exceeds both sheet dimensions
       console.warn(`Part width (${partConfigWidth}mm) exceeds maximum sheet dimension (${maxSheetDimension}mm)`);
       setSplitInfo({ isTooLarge: true, numSplits: 1 });
       return;
     }
-
+    
     // Additional safety check for available length
     if (availableSheetLengthForChord <= 0) {
       console.error(`Invalid available sheet length calculated: ${availableSheetLengthForChord}mm`);
@@ -444,13 +450,22 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = ({
     // Calculate chord length for split calculations
     const angleRad = angleNum * (Math.PI / 180);
     
-    // FIXED: For angles > 180°, the piece spans the full diameter
+    // FIXED: For angles >= 180°, the piece spans the full diameter
     let chord_N1;
-    if (angleNum > 180) {
-      chord_N1 = 2 * actualOuterRadius; // Diameter for any angle > 180°
+    if (angleNum >= 180) {
+      chord_N1 = 2 * actualOuterRadius; // Diameter for any angle >= 180°
     } else {
-      chord_N1 = 2 * actualOuterRadius * Math.sin(angleRad / 2); // Standard chord formula for ≤ 180°
+      chord_N1 = 2 * actualOuterRadius * Math.sin(angleRad / 2); // Standard chord formula for < 180°
     }
+    
+    // CRITICAL FIX FOR 180° CURVES: For semicircles, we need to consider optimal nesting
+    if (angleNum >= 180) {
+      // For 180°+ curves, always check against the smaller dimension first (more restrictive)
+      // This ensures we catch cases where the diameter is too big for efficient nesting
+      availableSheetLengthForChord = minSheetDimension; // Use 1190mm for width-constrained check
+    }
+
+
 
     if (chord_N1 <= availableSheetLengthForChord) {
       // The part fits in a single sheet
@@ -494,8 +509,8 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = ({
       const splitAngle = angleNum / numSplitsCalc;
       // FIXED: Apply same logic for split chord calculation
       let splitChordLength;
-      if (splitAngle > 180) {
-        splitChordLength = 2 * actualOuterRadius; // Diameter for split angles > 180°
+      if (splitAngle >= 180) {
+        splitChordLength = 2 * actualOuterRadius; // Diameter for split angles >= 180°
       } else {
         splitChordLength = 2 * actualOuterRadius * Math.sin((splitAngle * Math.PI / 180) / 2);
       }
@@ -1330,12 +1345,12 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = ({
     const angleRad = angleNum * (Math.PI / 180);
     const calculatedArcLength = displayOuterRadius * angleRad;
     
-    // FIXED: For angles > 180°, the piece spans the full diameter
+    // FIXED: For angles >= 180°, the piece spans the full diameter
     let calculatedChordLength;
-    if (angleNum > 180) {
-      calculatedChordLength = 2 * displayOuterRadius; // Diameter for any angle > 180°
+    if (angleNum >= 180) {
+      calculatedChordLength = 2 * displayOuterRadius; // Diameter for any angle >= 180°
     } else {
-      calculatedChordLength = 2 * displayOuterRadius * Math.sin(angleRad / 2); // Standard chord formula for ≤ 180°
+      calculatedChordLength = 2 * displayOuterRadius * Math.sin(angleRad / 2); // Standard chord formula for < 180°
     }
     
     if (isNaN(calculatedArcLength) || isNaN(calculatedChordLength) || calculatedArcLength <= 0 || calculatedChordLength <= 0) {

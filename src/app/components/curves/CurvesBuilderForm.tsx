@@ -197,12 +197,12 @@ export function CurvesBuilderForm({
         const angleRad = angleNum * (Math.PI / 180);
         const calculatedArc = calcOuterR * angleRad;
         
-        // FIXED: For angles > 180°, the piece spans the full diameter
+        // FIXED: For angles >= 180°, the piece spans the full diameter
         let calculatedChord;
-        if (angleNum > 180) {
-          calculatedChord = 2 * calcOuterR; // Diameter for any angle > 180°
+        if (angleNum >= 180) {
+          calculatedChord = 2 * calcOuterR; // Diameter for any angle >= 180°
         } else {
-          calculatedChord = 2 * calcOuterR * Math.sin(angleRad / 2); // Standard chord formula for ≤ 180°
+          calculatedChord = 2 * calcOuterR * Math.sin(angleRad / 2); // Standard chord formula for < 180°
         }
         
         // Only update derived values if user is not currently editing them
@@ -309,13 +309,13 @@ export function CurvesBuilderForm({
         const angleRad = currentAngleFromStore * (Math.PI / 180);
         const calcArc = currentOuterR > 0 ? currentOuterR * angleRad : 0;
         
-        // FIXED: For angles > 180°, the piece spans the full diameter
+        // FIXED: For angles >= 180°, the piece spans the full diameter
         let calcChord = 0;
         if (currentOuterR > 0) {
-          if (currentAngleFromStore > 180) {
-            calcChord = 2 * currentOuterR; // Diameter for any angle > 180°
+          if (currentAngleFromStore >= 180) {
+            calcChord = 2 * currentOuterR; // Diameter for any angle >= 180°
           } else {
-            calcChord = 2 * currentOuterR * Math.sin(angleRad / 2); // Standard chord formula for ≤ 180°
+            calcChord = 2 * currentOuterR * Math.sin(angleRad / 2); // Standard chord formula for < 180°
           }
         }
         
@@ -340,11 +340,11 @@ export function CurvesBuilderForm({
         calculatedAngle = numValue;
         calculatedArc = currentOuterR * angleRad;
         
-        // FIXED: For angles > 180°, the piece spans the full diameter
-        if (numValue > 180) {
-          calculatedChord = 2 * currentOuterR; // Diameter for any angle > 180°
+        // FIXED: For angles >= 180°, the piece spans the full diameter
+        if (numValue >= 180) {
+          calculatedChord = 2 * currentOuterR; // Diameter for any angle >= 180°
         } else {
-          calculatedChord = 2 * currentOuterR * Math.sin(angleRad / 2); // Standard chord formula for ≤ 180°
+          calculatedChord = 2 * currentOuterR * Math.sin(angleRad / 2); // Standard chord formula for < 180°
         }
         
         // Validate calculated values before setting
@@ -363,11 +363,11 @@ export function CurvesBuilderForm({
           
           // Validate angle range
           if (calculatedAngle >= 0.1 && calculatedAngle <= 360) {
-            // FIXED: For angles > 180°, the piece spans the full diameter
-            if (calculatedAngle > 180) {
-              calculatedChord = 2 * currentOuterR; // Diameter for any angle > 180°
+            // FIXED: For angles >= 180°, the piece spans the full diameter
+            if (calculatedAngle >= 180) {
+              calculatedChord = 2 * currentOuterR; // Diameter for any angle >= 180°
             } else {
-              calculatedChord = 2 * currentOuterR * Math.sin(angleRad / 2); // Standard chord formula for ≤ 180°
+              calculatedChord = 2 * currentOuterR * Math.sin(angleRad / 2); // Standard chord formula for < 180°
             }
             
             // Validate calculated values
@@ -426,13 +426,13 @@ export function CurvesBuilderForm({
           const angleRad = currentAngleFromStore * (Math.PI / 180);
           const calcArc = currentOuterR > 0 ? currentOuterR * angleRad : 0;
           
-          // FIXED: For angles > 180°, the piece spans the full diameter
+          // FIXED: For angles >= 180°, the piece spans the full diameter
           let calcChord = 0;
           if (currentOuterR > 0) {
-            if (currentAngleFromStore > 180) {
-              calcChord = 2 * currentOuterR; // Diameter for any angle > 180°
+            if (currentAngleFromStore >= 180) {
+              calcChord = 2 * currentOuterR; // Diameter for any angle >= 180°
             } else {
-              calcChord = 2 * currentOuterR * Math.sin(angleRad / 2); // Standard chord formula for ≤ 180°
+              calcChord = 2 * currentOuterR * Math.sin(angleRad / 2); // Standard chord formula for < 180°
             }
           }
           
@@ -459,13 +459,13 @@ export function CurvesBuilderForm({
         const angleRad = currentAngleFromStore * (Math.PI / 180);
         const calcArc = currentOuterR > 0 ? currentOuterR * angleRad : 0;
         
-        // FIXED: For angles > 180°, the piece spans the full diameter
+        // FIXED: For angles >= 180°, the piece spans the full diameter
         let calcChord = 0;
         if (currentOuterR > 0) {
-          if (currentAngleFromStore > 180) {
-            calcChord = 2 * currentOuterR; // Diameter for any angle > 180°
+          if (currentAngleFromStore >= 180) {
+            calcChord = 2 * currentOuterR; // Diameter for any angle >= 180°
           } else {
-            calcChord = 2 * currentOuterR * Math.sin(angleRad / 2); // Standard chord formula for ≤ 180°
+            calcChord = 2 * currentOuterR * Math.sin(angleRad / 2); // Standard chord formula for < 180°
           }
         }
         
