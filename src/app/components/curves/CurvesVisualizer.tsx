@@ -749,6 +749,16 @@ const CurvesVisualizer: React.FC<CurvesVisualizerProps> = ({
   const maxDimension = useMemo(() => {
     // Calculate size based on outer radius and angle
     const outerRadius = radius + width;
+    
+    // Special handling for full circles (360 degrees)
+    if (angle >= 360) {
+      // For full circles, the extent is simply the diameter plus padding
+      const diameter = outerRadius * 2;
+      const paddingFactor = 1.04; // Further reduced padding for closer fit
+      return (diameter / scaleFactor) * paddingFactor;
+    }
+    
+    // For partial arcs, calculate the bounding box
     const maxExtent = Math.max(
       outerRadius,
       outerRadius * Math.sin(angle * Math.PI / 180)
@@ -761,6 +771,17 @@ const CurvesVisualizer: React.FC<CurvesVisualizerProps> = ({
   
   // Calculate the initial camera distance factor - make it dependent on size
   const calculateDistanceFactor = useCallback((r: number, w: number, a: number) => {
+    // Special handling for full circles (360 degrees)
+    if (a >= 360) {
+      // For full circles, we need more distance to see the entire circle
+      let factor = 1.6; // Further reduced base factor for closer zoom
+      // Scale factor based on radius (more zoom out for larger radius)
+      if (r > 2000) {
+        factor += Math.floor((r - 2000) / 1000) * 0.1; 
+      }
+      return Math.min(factor, 2.8); // Further reduced cap for closer view
+    }
+    
     // Base factor - reduced for tighter framing
     let factor = 1.5;
     // Scale factor based on radius (more zoom out for larger radius)

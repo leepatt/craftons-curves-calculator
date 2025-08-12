@@ -381,8 +381,9 @@ export const RadiusProCustomizer: React.FC<RadiusProCustomizerProps> = ({
       return;
     }
 
-    const sheetL = selectedMaterial.sheet_length_mm;
-    const sheetW = selectedMaterial.sheet_width_mm;
+    // Use usable dimensions for split calculations (accounts for cutting tolerances)
+    const sheetL = selectedMaterial.usable_sheet_length_mm || selectedMaterial.sheet_length_mm;
+    const sheetW = selectedMaterial.usable_sheet_width_mm || selectedMaterial.sheet_width_mm;
     const partConfigWidth = Number(currentConfig.width);
 
     if (isNaN(partConfigWidth) || partConfigWidth <= 0) {
@@ -413,10 +414,17 @@ export const RadiusProCustomizer: React.FC<RadiusProCustomizerProps> = ({
     const angleRad = angleNum * (Math.PI / 180);
     
     let chord_N1;
-    if (angleNum > 180) {
+    if (angleNum >= 180) {
       chord_N1 = 2 * actualOuterRadius;
     } else {
       chord_N1 = 2 * actualOuterRadius * Math.sin(angleRad / 2);
+    }
+    
+    // CRITICAL FIX FOR 180° CURVES: For semicircles, we need to consider optimal nesting
+    if (angleNum >= 180) {
+      // For 180°+ curves, always check against the smaller dimension first (more restrictive)
+      // This ensures we catch cases where the diameter is too big for efficient nesting
+      availableSheetLengthForChord = minSheetDimension; // Use 1190mm for width-constrained check
     }
 
     if (chord_N1 <= availableSheetLengthForChord) {
@@ -445,7 +453,7 @@ export const RadiusProCustomizer: React.FC<RadiusProCustomizerProps> = ({
       
       const splitAngle = angleNum / numSplitsCalc;
       let splitChordLength;
-      if (splitAngle > 180) {
+      if (splitAngle >= 180) {
         splitChordLength = 2 * actualOuterRadius;
       } else {
         splitChordLength = 2 * actualOuterRadius * Math.sin((splitAngle * Math.PI / 180) / 2);
@@ -1180,7 +1188,7 @@ export const RadiusProCustomizer: React.FC<RadiusProCustomizerProps> = ({
     const calculatedArcLength = displayOuterRadius * angleRad;
     
     let calculatedChordLength;
-    if (angleNum > 180) {
+    if (angleNum >= 180) {
       calculatedChordLength = 2 * displayOuterRadius;
     } else {
       calculatedChordLength = 2 * displayOuterRadius * Math.sin(angleRad / 2);
