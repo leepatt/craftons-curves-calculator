@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Share2, Copy, ExternalLink, X as XIcon } from 'lucide-react';
 import { rippingConfig } from './config';
 import materials from './materials.json'; // We'll use the app-specific materials
+import { SharedConfiguration } from '@/lib/shareStorage';
 
 // Interface for ripping calculation results
 interface RippingCalculation {
@@ -28,14 +29,44 @@ interface RippingCalculation {
   excessRips: number;
 }
 
+interface RippingCustomizerProps {
+  defaultMaterial?: string;
+  initialData?: SharedConfiguration;
+}
+
 // This is the main component for the Ripping app.
 // Real-time calculation with immediate summary display.
-export function RippingCustomizer() {
+export function RippingCustomizer({ defaultMaterial, initialData }: RippingCustomizerProps = {}) {
   const customizerContainerRef = useRef<HTMLDivElement>(null);
-  const [selectedMaterial, setSelectedMaterial] = useState(materials[0]?.id || '');
-  const [height, setHeight] = useState(0);
-  const [totalLength, setTotalLength] = useState(0);
-  const [lengthUnit, setLengthUnit] = useState<'mm' | 'm'>('mm');
+  
+  // Initialize state from initialData if provided, otherwise use defaults
+  const [selectedMaterial, setSelectedMaterial] = useState(() => {
+    if (initialData && (initialData as any).selectedMaterial) {
+      return (initialData as any).selectedMaterial;
+    }
+    return defaultMaterial || materials[0]?.id || '';
+  });
+  
+  const [height, setHeight] = useState(() => {
+    if (initialData && (initialData as any).height) {
+      return (initialData as any).height;
+    }
+    return 0;
+  });
+  
+  const [totalLength, setTotalLength] = useState(() => {
+    if (initialData && (initialData as any).totalLength) {
+      return (initialData as any).totalLength;
+    }
+    return 0;
+  });
+  
+  const [lengthUnit, setLengthUnit] = useState<'mm' | 'm'>(() => {
+    if (initialData && (initialData as any).lengthUnit) {
+      return (initialData as any).lengthUnit;
+    }
+    return 'mm';
+  });
 
   // Share and Cart states
   const [isSharing, setIsSharing] = useState<boolean>(false);
