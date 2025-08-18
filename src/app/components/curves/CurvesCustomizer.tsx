@@ -1059,6 +1059,7 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = ({
         totalTurnaround: totalTurnaround,
         isEngravingEnabled: isEngravingEnabled,
         isJoinerBlocksEnabled: isJoinerBlocksEnabled,
+        appType: 'curves', // Add app type to shared data
         timestamp: new Date().toISOString()
       };
 
