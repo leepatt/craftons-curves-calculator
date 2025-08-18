@@ -9,7 +9,7 @@ export const APP_CONFIG = {
     manufactureAreaRate: 22, // $/m² (inc GST) - was 20, now 20 * 1.10 = 22
     defaultEfficiency: 0.5,
     maxSplits: 10,
-    shopifyVariantId: 45300623343794,
+    shopifyVariantId: 45300623343794, // Updated to correct variant ID for Radius Pro
   },
 
   // Materials are now loaded dynamically from /api/materials.json

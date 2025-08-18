@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Cart Verification Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .test { margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Cart API Verification Test</h1>
+    <p>This will test if the cart functionality is actually working properly.</p>
+
+    <div class="test info">
+        <h3>📋 Test Plan</h3>
+        <p>We'll verify:</p>
+        <ul>
+            <li>✅ Items are actually added to cart</li>
+            <li>✅ Multiple items accumulate (no replacement)</li>
+            <li>✅ Properties are correctly stored</li>
+            <li>✅ Cart API responds properly</li>
+        </ul>
+    </div>
+
+    <button onclick="testCartEmpty()">1. Check If Cart Is Empty</button>
+    <button onclick="addTestItem()">2. Add Test Item</button>
+    <button onclick="checkCartAfterAdd()">3. Verify Item Added</button>
+    <button onclick="addSecondItem()">4. Add Second Item</button>
+    <button onclick="verifyNoReplacement()">5. Verify No Replacement</button>
+    <button onclick="clearCart()">🗑️ Clear Cart</button>
+
+    <div id="results"></div>
+
+    <script>
+        const results = document.getElementById('results');
+        
+        function addResult(title, content, type = 'info') {
+            const div = document.createElement('div');
+            div.className = `test ${type}`;
+            div.innerHTML = `<h3>${title}</h3><pre>${content}</pre>`;
+            results.appendChild(div);
+            div.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        async function testCartEmpty() {
+            try {
+                const response = await fetch('/api/cart/local', { credentials: 'include' });
+                const cart = await response.json();
+                
+                const itemCount = cart.items?.length || 0;
+                const content = `Items in cart: ${itemCount}\n\nFull response:\n${JSON.stringify(cart, null, 2)}`;
+                
+                if (itemCount === 0) {
+                    addResult('✅ Cart Empty Test (Local Dev Mode)', content, 'success');
+                } else {
+                    addResult('ℹ️ Cart Has Items (Local Dev Mode)', content, 'info');
+                }
+            } catch (error) {
+                addResult('❌ Cart Check Failed', error.message, 'error');
+            }
+        }
+
+        async function addTestItem() {
+            try {
+                const testItem = {
+                    id: 45701356617906,
+                    quantity: 1,
+                    properties: {
+                        '_order_type': 'test_item_1',
+                        '_custom_price': '99.99',
+                        '_test_timestamp': new Date().toISOString(),
+                        'Test Item': 'First test item for verification'
+                    }
+                };
+
+                const response = await fetch('/api/cart/local', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(testItem),
+                    credentials: 'include'
+                });
+
+                const result = await response.json();
+                
+                if (response.ok) {
+                    addResult('✅ Test Item Added', `Successfully added test item!\n\nResponse:\n${JSON.stringify(result, null, 2)}`, 'success');
+                } else {
+                    addResult('❌ Failed to Add Item', `Error: ${result.error}\n\nDetails:\n${JSON.stringify(result, null, 2)}`, 'error');
+                }
+            } catch (error) {
+                addResult('❌ Add Item Failed', error.message, 'error');
+            }
+        }
+
+        async function checkCartAfterAdd() {
+            try {
+                const response = await fetch('/api/cart/local', { credentials: 'include' });
+                const cart = await response.json();
+                
+                const itemCount = cart.items?.length || 0;
+                const hasTestItem = cart.items?.some(item => item.properties?._order_type === 'test_item_1');
+                
+                let content = `Items in cart: ${itemCount}\n`;
+                content += `Test item found: ${hasTestItem ? 'YES ✅' : 'NO ❌'}\n\n`;
+                content += `Cart contents:\n${JSON.stringify(cart, null, 2)}`;
+                
+                if (itemCount > 0 && hasTestItem) {
+                    addResult('✅ Item Successfully Added', content, 'success');
+                } else {
+                    addResult('❌ Item Not Found', content, 'error');
+                }
+            } catch (error) {
+                addResult('❌ Cart Check Failed', error.message, 'error');
+            }
+        }
+
+        async function addSecondItem() {
+            try {
+                const secondItem = {
+                    id: 45701356617906,
+                    quantity: 1,
+                    properties: {
+                        '_order_type': 'test_item_2',
+                        '_custom_price': '149.99',
+                        '_test_timestamp': new Date().toISOString(),
+                        'Test Item': 'Second test item - should NOT replace first'
+                    }
+                };
+
+                const response = await fetch('/api/cart/local', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(secondItem),
+                    credentials: 'include'
+                });
+
+                const result = await response.json();
+                
+                if (response.ok) {
+                    addResult('✅ Second Test Item Added', `Successfully added second item!\n\nResponse:\n${JSON.stringify(result, null, 2)}`, 'success');
+                } else {
+                    addResult('❌ Failed to Add Second Item', `Error: ${result.error}\n\nDetails:\n${JSON.stringify(result, null, 2)}`, 'error');
+                }
+            } catch (error) {
+                addResult('❌ Add Second Item Failed', error.message, 'error');
+            }
+        }
+
+        async function verifyNoReplacement() {
+            try {
+                const response = await fetch('/api/cart/local', { credentials: 'include' });
+                const cart = await response.json();
+                
+                const itemCount = cart.items?.length || 0;
+                const hasFirstItem = cart.items?.some(item => item.properties?._order_type === 'test_item_1');
+                const hasSecondItem = cart.items?.some(item => item.properties?._order_type === 'test_item_2');
+                
+                let content = `Total items in cart: ${itemCount}\n`;
+                content += `First test item still exists: ${hasFirstItem ? 'YES ✅' : 'NO ❌'}\n`;
+                content += `Second test item exists: ${hasSecondItem ? 'YES ✅' : 'NO ❌'}\n\n`;
+                
+                if (itemCount >= 2 && hasFirstItem && hasSecondItem) {
+                    content += `🎉 SUCCESS! Cart replacement bug is FIXED!\n\n`;
+                    addResult('🎉 NO REPLACEMENT VERIFIED', content, 'success');
+                } else {
+                    content += `❌ PROBLEM: Cart replacement still occurring!\n\n`;
+                    addResult('❌ Replacement Still Happening', content, 'error');
+                }
+                
+                content += `Full cart:\n${JSON.stringify(cart, null, 2)}`;
+                
+            } catch (error) {
+                addResult('❌ Verification Failed', error.message, 'error');
+            }
+        }
+
+        async function clearCart() {
+            try {
+                const response = await fetch('/api/cart/local', {
+                    method: 'DELETE',
+                    credentials: 'include'
+                });
+                const result = await response.json();
+                
+                if (response.ok) {
+                    addResult('✅ Cart Cleared', `Local cart cleared successfully!\n\nResponse:\n${JSON.stringify(result, null, 2)}`, 'success');
+                } else {
+                    addResult('❌ Clear Failed', `Error: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                addResult('❌ Clear Failed', error.message, 'error');
+            }
+        }
+    </script>
+</body>
+</html>

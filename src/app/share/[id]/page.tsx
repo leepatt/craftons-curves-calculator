@@ -4,12 +4,15 @@ import { useEffect, useState } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import CurvesCustomizer from '@/components/curves/CurvesCustomizer';
+import { RippingCustomizer } from '@/apps/ripping/RippingCustomizer';
+import { RadiusProCustomizer } from '@/apps/radius-pro/RadiusProCustomizer';
 import { SharedConfiguration, shareStorage } from '@/lib/shareStorage';
 
 export default function SharedConfigurationPage() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [sharedConfig, setSharedConfig] = useState<SharedConfiguration | null>(null);
+  const [appType, setAppType] = useState<string>('curves'); // Default to curves for backward compatibility
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -25,7 +28,12 @@ export default function SharedConfigurationPage() {
         const decodedConfig = shareStorage.decodeConfigFromUrl(dataParam);
         if (decodedConfig) {
           setSharedConfig(decodedConfig);
-          console.log('✅ Successfully loaded configuration from URL');
+          
+          // Detect app type from shared data
+          const detectedAppType = (decodedConfig as any).appType || 'curves';
+          setAppType(detectedAppType);
+          
+          console.log('✅ Successfully loaded configuration from URL, app type:', detectedAppType);
         } else {
           throw new Error('Failed to decode configuration from URL');
         }
@@ -132,10 +140,14 @@ export default function SharedConfigurationPage() {
         </div>
       </div>
       
-      {/* Main calculator with shared data */}
-      <CurvesCustomizer
-        initialData={sharedConfig} 
-      />
+      {/* Main calculator with shared data - Route to correct app */}
+      {appType === 'ripping' ? (
+        <RippingCustomizer initialData={sharedConfig} />
+      ) : appType === 'radius-pro' ? (
+        <RadiusProCustomizer initialData={sharedConfig} />
+      ) : (
+        <CurvesCustomizer initialData={sharedConfig} />
+      )}
     </div>
   );
 } 
