@@ -29,8 +29,8 @@ export default function SharedConfigurationPage() {
         if (decodedConfig) {
           setSharedConfig(decodedConfig);
           
-          // Detect app type from shared data
-          const detectedAppType = (decodedConfig as any).appType || 'curves';
+          // Use app type from shared data
+          const detectedAppType = decodedConfig.appType || 'curves';
           setAppType(detectedAppType);
           
           console.log('✅ Successfully loaded configuration from URL, app type:', detectedAppType);

@@ -7,6 +7,7 @@ export interface SharedConfiguration {
   totalTurnaround: number | null;
   isEngravingEnabled: boolean;
   isJoinerBlocksEnabled: boolean;
+  appType?: string; // Add app type to identify which customizer to use
   createdAt: string;
   expiresAt: string;
 }
@@ -52,6 +53,7 @@ export const shareStorage = {
         d: config.totalTurnaround,
         e: config.isEngravingEnabled,
         j: config.isJoinerBlocksEnabled,
+        a: config.appType, // Include app type
         c: config.createdAt
       };
 
@@ -81,6 +83,7 @@ export const shareStorage = {
         totalTurnaround: shareData.d || null,
         isEngravingEnabled: shareData.e ?? true,
         isJoinerBlocksEnabled: shareData.j ?? true,
+        appType: shareData.a || 'curves', // Include app type
         createdAt: shareData.c || new Date().toISOString(),
         expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // 30 days
       };

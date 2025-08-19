@@ -714,14 +714,14 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = ({
         }, 0);
         const joinerBlocksCost = (totalJoinerBlocks > 0 && isJoinerBlocksEnabled) ? totalJoinerBlocks * 1.50 : 0;
 
-        // Calculate final totals
-        const totalIncGST = totalMaterialCost + totalManufactureCost + partIdEngravingCost + joinerBlocksCost;
+        // Calculate final totals and round to whole dollars
+        const totalIncGST = Math.ceil(totalMaterialCost + totalManufactureCost + partIdEngravingCost + joinerBlocksCost);
 
         setTotalPriceDetails({
-            materialCost: totalMaterialCost,
-            manufactureCost: totalManufactureCost,
-            partIdEngravingCost: partIdEngravingCost,
-            joinerBlocksCost: joinerBlocksCost,
+            materialCost: Math.ceil(totalMaterialCost),
+            manufactureCost: Math.ceil(totalManufactureCost),
+            partIdEngravingCost: Math.ceil(partIdEngravingCost),
+            joinerBlocksCost: Math.ceil(joinerBlocksCost),
             totalIncGST: totalIncGST,
             sheetsByMaterial: sheetsByMaterial,
             totalPartCount: totalPartCount,
@@ -1059,6 +1059,7 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = ({
         totalTurnaround: totalTurnaround,
         isEngravingEnabled: isEngravingEnabled,
         isJoinerBlocksEnabled: isJoinerBlocksEnabled,
+        appType: 'curves', // Add app type to shared data
         timestamp: new Date().toISOString()
       };
 
@@ -1116,7 +1117,7 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = ({
   // 🎯 FIXED ADD TO CART FUNCTION
   // The previous developers' approach failed because they used absolute URLs (https://domain.com/cart/add.js)
   // which triggered CORS restrictions. This fix uses context-aware URLs and handles both embedded and direct access.
-  // This preserves the brilliant 1-cent hack and all detailed order properties while actually working!
+  // This preserves the brilliant $1 hack and all detailed order properties while actually working!
   const handleAddToCart = useCallback(async () => {
     if (!totalPriceDetails || partsList.length === 0) {
       alert("No parts to add to cart!");
@@ -1130,8 +1131,8 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = ({
     setIsAddingToCart(true);
   
     try {
-      // Calculate quantity from price using the 1-cent hack. A price of $173.44 becomes a quantity of 17344.
-      const quantity = Math.round(totalPriceDetails.totalIncGST * 100);
+      // Calculate quantity from price using the $1 hack. A price of $174 becomes a quantity of 174.
+      const quantity = Math.round(totalPriceDetails.totalIncGST);
 
       // Prepare comprehensive cart item data for Shopify
       const cartItemData = {
@@ -1248,7 +1249,7 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = ({
         
         // Enhanced error message based on common issues
         if (cartError.message.includes('422') || cartError.message.includes('variant')) {
-          errorMessage += '\n\n🔧 Note: The 1-cent product may need to be set up in your Shopify store.';
+          errorMessage += '\n\n🔧 Note: The $1 base product may need to be set up in your Shopify store.';
         } else if (cartError.message.includes('405')) {
           errorMessage += '\n\n🔧 Note: This app needs to be embedded in your Shopify store or accessed through a Shopify product page for cart functionality to work.';
         } else if (cartError.message.includes('CORS') || cartError.message.includes('Failed to fetch')) {
@@ -1603,7 +1604,7 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = ({
                                             </Button>
                                         </div>
                                         <span className={`font-semibold ${isEngravingEnabled ? 'text-gray-900' : 'text-gray-400 line-through'}`}>
-                                            ${isEngravingEnabled ? totalPriceDetails.partIdEngravingCost.toFixed(2) : (totalPriceDetails.totalPartCount * 1.50).toFixed(2)}
+                                            ${isEngravingEnabled ? totalPriceDetails.partIdEngravingCost.toFixed(2) : Math.ceil(totalPriceDetails.totalPartCount * 1.50).toFixed(2)}
                                         </span>
                                     </div>
                                 )}
@@ -1624,7 +1625,7 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = ({
                                             </Button>
                                         </div>
                                         <span className={`font-semibold ${isJoinerBlocksEnabled ? 'text-gray-900' : 'text-gray-400 line-through'}`}>
-                                            ${isJoinerBlocksEnabled ? totalPriceDetails.joinerBlocksCost.toFixed(2) : (totalPriceDetails.totalJoinerBlocks * 1.50).toFixed(2)}
+                                            ${isJoinerBlocksEnabled ? totalPriceDetails.joinerBlocksCost.toFixed(2) : Math.ceil(totalPriceDetails.totalJoinerBlocks * 1.50).toFixed(2)}
                                         </span>
                                     </div>
                                 )}
