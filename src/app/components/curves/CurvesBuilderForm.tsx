@@ -195,15 +195,16 @@ export function CurvesBuilderForm({
         !isNaN(w) && w > 0 &&
         !isNaN(angleNum) && angleNum > 0) {
         const angleRad = angleNum * (Math.PI / 180);
-        const calculatedArc = calcOuterR * angleRad;
         
-        // FIXED: For angles >= 180°, the piece spans the full diameter
-        let calculatedChord;
-        if (angleNum >= 180) {
-          calculatedChord = 2 * calcOuterR; // Diameter for any angle >= 180°
-        } else {
-          calculatedChord = 2 * calcOuterR * Math.sin(angleRad / 2); // Standard chord formula for < 180°
-        }
+        // FIXED: BOTH measurements use the radius that matches the user's selected radiusType
+        const calculationRadius = rType === 'external' ? calcOuterR : calcInnerR;
+        const calculatedArc = calculationRadius * angleRad;
+        
+        // FIXED: Standard chord formula works for ALL angles (0° to 360°)
+        // Special case: For 360° (full circle), chord length is the diameter
+        const calculatedChord = angleNum === 360 
+          ? 2 * calculationRadius 
+          : 2 * calculationRadius * Math.sin(angleRad / 2);
         
         // Only update derived values if user is not currently editing them
         if (activeField !== 'arcLength') {
@@ -237,13 +238,17 @@ export function CurvesBuilderForm({
     const w = Number(initialConfig.width);
     const rType = initialConfig.radiusType as 'internal' | 'external';
     
-    // Calculate current outer radius for calculations
+    // Calculate current inner and outer radius for calculations
+    let currentInnerR = 0;
     let currentOuterR = 0;
     if (rType === 'internal') {
+      currentInnerR = specRad;
       currentOuterR = specRad + w;
     } else {
       currentOuterR = specRad;
+      currentInnerR = specRad - w;
     }
+    if (currentInnerR < 0) currentInnerR = 0;
 
     // Only update config if we have valid input and configuration
     if (!isNaN(numValue) && numValue > 0 && 
@@ -260,13 +265,19 @@ export function CurvesBuilderForm({
           calculatedAngle = numValue;
           isValidForConfig = true;
         } else if (field === 'arcLength') {
-          const angleRad = numValue / currentOuterR;
-          calculatedAngle = angleRad * (180 / Math.PI);
-          isValidForConfig = calculatedAngle >= 0.1 && calculatedAngle <= 360;
+          // FIXED: Arc length uses the radius that matches the user's selected radiusType
+          const calculationRadius = rType === 'external' ? currentOuterR : currentInnerR;
+          if (calculationRadius > 0) {
+            const angleRad = numValue / calculationRadius;
+            calculatedAngle = angleRad * (180 / Math.PI);
+            isValidForConfig = calculatedAngle >= 0.1 && calculatedAngle <= 360;
+          }
         } else if (field === 'chordLength') {
-          const maxChordLength = 2 * currentOuterR;
-          if (numValue <= maxChordLength) {
-            const sinHalfAngle = numValue / (2 * currentOuterR);
+          // FIXED: Chord length uses the radius that matches the user's selected radiusType
+          const calculationRadius = rType === 'external' ? currentOuterR : currentInnerR;
+          const maxChordLength = 2 * calculationRadius;
+          if (numValue <= maxChordLength && calculationRadius > 0) {
+            const sinHalfAngle = numValue / (2 * calculationRadius);
             if (sinHalfAngle <= 1 && sinHalfAngle > 0) {
               const angleRad = 2 * Math.asin(sinHalfAngle);
               calculatedAngle = angleRad * (180 / Math.PI);
@@ -290,13 +301,17 @@ export function CurvesBuilderForm({
     const w = Number(initialConfig.width);
     const rType = initialConfig.radiusType as 'internal' | 'external';
     
-    // Calculate current outer radius for calculations
+    // Calculate current inner and outer radius for calculations
+    let currentInnerR = 0;
     let currentOuterR = 0;
     if (rType === 'internal') {
+      currentInnerR = specRad;
       currentOuterR = specRad + w;
     } else {
       currentOuterR = specRad;
+      currentInnerR = specRad - w;
     }
+    if (currentInnerR < 0) currentInnerR = 0;
 
     let changedConfig: Partial<ProductConfiguration> = {};
 
@@ -307,17 +322,14 @@ export function CurvesBuilderForm({
       if (!isNaN(currentAngleFromStore) && currentAngleFromStore > 0) {
         setDisplayAngle(currentAngleFromStore.toFixed(2));
         const angleRad = currentAngleFromStore * (Math.PI / 180);
-        const calcArc = currentOuterR > 0 ? currentOuterR * angleRad : 0;
         
-        // FIXED: For angles >= 180°, the piece spans the full diameter
-        let calcChord = 0;
-        if (currentOuterR > 0) {
-          if (currentAngleFromStore >= 180) {
-            calcChord = 2 * currentOuterR; // Diameter for any angle >= 180°
-          } else {
-            calcChord = 2 * currentOuterR * Math.sin(angleRad / 2); // Standard chord formula for < 180°
-          }
-        }
+        // FIXED: BOTH measurements use the radius that matches the user's selected radiusType
+        const calculationRadius = rType === 'external' ? currentOuterR : currentInnerR;
+        const calcArc = calculationRadius > 0 ? calculationRadius * angleRad : 0;
+        // Special case: For 360° (full circle), chord length is the diameter
+        const calcChord = calculationRadius > 0 
+          ? (currentAngleFromStore === 360 ? 2 * calculationRadius : 2 * calculationRadius * Math.sin(angleRad / 2))
+          : 0;
         
         if (calcArc > 0) setDisplayArcLength(Math.round(calcArc).toString());
         if (calcChord > 0) setDisplayChordLength(Math.round(calcChord).toString());
@@ -338,14 +350,16 @@ export function CurvesBuilderForm({
       if (field === 'angle' && isValidInput && numValue <= 360 && numValue >= 0.1) {
         const angleRad = numValue * (Math.PI / 180);
         calculatedAngle = numValue;
-        calculatedArc = currentOuterR * angleRad;
         
-        // FIXED: For angles >= 180°, the piece spans the full diameter
-        if (numValue >= 180) {
-          calculatedChord = 2 * currentOuterR; // Diameter for any angle >= 180°
-        } else {
-          calculatedChord = 2 * currentOuterR * Math.sin(angleRad / 2); // Standard chord formula for < 180°
-        }
+        // FIXED: BOTH measurements use the radius that matches the user's selected radiusType
+        const calculationRadius = rType === 'external' ? currentOuterR : currentInnerR;
+        calculatedArc = calculationRadius * angleRad;
+        
+        // FIXED: Standard chord formula works for ALL angles (0° to 360°)
+        // Special case: For 360° (full circle), chord length is the diameter
+        calculatedChord = numValue === 360 
+          ? 2 * calculationRadius 
+          : 2 * calculationRadius * Math.sin(angleRad / 2);
         
         // Validate calculated values before setting
         if (!isNaN(calculatedArc) && !isNaN(calculatedChord) && calculatedArc > 0 && calculatedChord > 0) {
@@ -357,18 +371,19 @@ export function CurvesBuilderForm({
           isValidInput = false;
         }
       } else if (field === 'arcLength' && isValidInput) {
-        if (currentOuterR > 0) {
-          const angleRad = numValue / currentOuterR;
+        // FIXED: Arc length uses the radius that matches the user's selected radiusType
+        const calculationRadius = rType === 'external' ? currentOuterR : currentInnerR;
+        if (calculationRadius > 0) {
+          const angleRad = numValue / calculationRadius;
           calculatedAngle = angleRad * (180 / Math.PI);
           
           // Validate angle range
           if (calculatedAngle >= 0.1 && calculatedAngle <= 360) {
-            // FIXED: For angles >= 180°, the piece spans the full diameter
-            if (calculatedAngle >= 180) {
-              calculatedChord = 2 * currentOuterR; // Diameter for any angle >= 180°
-            } else {
-              calculatedChord = 2 * currentOuterR * Math.sin(angleRad / 2); // Standard chord formula for < 180°
-            }
+            // FIXED: Standard chord formula works for ALL angles (0° to 360°)
+            // Special case: For 360° (full circle), chord length is the diameter
+            calculatedChord = calculatedAngle === 360 
+              ? 2 * calculationRadius 
+              : 2 * calculationRadius * Math.sin(angleRad / 2);
             
             // Validate calculated values
             if (!isNaN(calculatedAngle) && !isNaN(calculatedChord) && calculatedChord >= 0) {
@@ -386,10 +401,12 @@ export function CurvesBuilderForm({
           isValidInput = false;
         }
       } else if (field === 'chordLength' && isValidInput) {
-        // Enhanced chord length validation
-        const maxChordLength = 2 * currentOuterR;
-        if (currentOuterR > 0 && numValue <= maxChordLength && numValue > 0) {
-          const sinHalfAngle = numValue / (2 * currentOuterR);
+        // FIXED: BOTH measurements use the radius that matches the user's selected radiusType
+        const calculationRadius = rType === 'external' ? currentOuterR : currentInnerR;
+        const maxChordLength = 2 * calculationRadius;
+        
+        if (calculationRadius > 0 && numValue <= maxChordLength && numValue > 0) {
+          const sinHalfAngle = numValue / (2 * calculationRadius);
           
           // Validate sine value is within valid range
           if (sinHalfAngle <= 1 && sinHalfAngle > 0) {
@@ -398,7 +415,7 @@ export function CurvesBuilderForm({
             
             // Validate angle range
             if (calculatedAngle >= 0.1 && calculatedAngle <= 360) {
-              calculatedArc = currentOuterR * angleRad;
+              calculatedArc = calculationRadius * angleRad;
               
               // Validate calculated values
               if (!isNaN(calculatedAngle) && !isNaN(calculatedArc) && calculatedArc > 0) {
@@ -424,17 +441,14 @@ export function CurvesBuilderForm({
         if (!isNaN(currentAngleFromStore) && currentAngleFromStore > 0) {
           setDisplayAngle(currentAngleFromStore.toFixed(2));
           const angleRad = currentAngleFromStore * (Math.PI / 180);
-          const calcArc = currentOuterR > 0 ? currentOuterR * angleRad : 0;
           
-          // FIXED: For angles >= 180°, the piece spans the full diameter
-          let calcChord = 0;
-          if (currentOuterR > 0) {
-            if (currentAngleFromStore >= 180) {
-              calcChord = 2 * currentOuterR; // Diameter for any angle >= 180°
-            } else {
-              calcChord = 2 * currentOuterR * Math.sin(angleRad / 2); // Standard chord formula for < 180°
-            }
-          }
+          // FIXED: BOTH measurements use the radius that matches the user's selected radiusType
+          const calculationRadius = rType === 'external' ? currentOuterR : currentInnerR;
+          const calcArc = calculationRadius > 0 ? calculationRadius * angleRad : 0;
+          // Special case: For 360° (full circle), chord length is the diameter
+          const calcChord = calculationRadius > 0 
+            ? (currentAngleFromStore === 360 ? 2 * calculationRadius : 2 * calculationRadius * Math.sin(angleRad / 2))
+            : 0;
           
           if (calcArc > 0) setDisplayArcLength(Math.round(calcArc).toString());
           if (calcChord > 0) setDisplayChordLength(Math.round(calcChord).toString());
@@ -457,17 +471,14 @@ export function CurvesBuilderForm({
       if (!isNaN(currentAngleFromStore) && currentAngleFromStore > 0) {
         setDisplayAngle(currentAngleFromStore.toFixed(2));
         const angleRad = currentAngleFromStore * (Math.PI / 180);
-        const calcArc = currentOuterR > 0 ? currentOuterR * angleRad : 0;
         
-        // FIXED: For angles >= 180°, the piece spans the full diameter
-        let calcChord = 0;
-        if (currentOuterR > 0) {
-          if (currentAngleFromStore >= 180) {
-            calcChord = 2 * currentOuterR; // Diameter for any angle >= 180°
-          } else {
-            calcChord = 2 * currentOuterR * Math.sin(angleRad / 2); // Standard chord formula for < 180°
-          }
-        }
+        // FIXED: BOTH measurements use the radius that matches the user's selected radiusType
+        const calculationRadius = rType === 'external' ? currentOuterR : currentInnerR;
+        const calcArc = calculationRadius > 0 ? calculationRadius * angleRad : 0;
+        // Special case: For 360° (full circle), chord length is the diameter
+        const calcChord = calculationRadius > 0 
+          ? (currentAngleFromStore === 360 ? 2 * calculationRadius : 2 * calculationRadius * Math.sin(angleRad / 2))
+          : 0;
         
         if (calcArc > 0) setDisplayArcLength(Math.round(calcArc).toString());
         if (calcChord > 0) setDisplayChordLength(Math.round(calcChord).toString());
