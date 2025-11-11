@@ -450,13 +450,12 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = ({
     // Calculate chord length for split calculations
     const angleRad = angleNum * (Math.PI / 180);
     
-    // FIXED: For angles >= 180°, the piece spans the full diameter
-    let chord_N1;
-    if (angleNum >= 180) {
-      chord_N1 = 2 * actualOuterRadius; // Diameter for any angle >= 180°
-    } else {
-      chord_N1 = 2 * actualOuterRadius * Math.sin(angleRad / 2); // Standard chord formula for < 180°
-    }
+    // FIXED: For split calculations, we need the BOUNDING BOX dimension, not just chord
+    // For angles >= 180°, the part wraps around and needs full diameter to fit on sheet
+    // For angles < 180°, chord length determines the required sheet dimension
+    const chord_N1 = angleNum >= 180 
+      ? 2 * actualOuterRadius  // Diameter (bounding box for wrapped parts)
+      : 2 * actualOuterRadius * Math.sin(angleRad / 2);  // Standard chord for partial arcs
     
     // CRITICAL FIX FOR 180° CURVES: For semicircles, we need to consider optimal nesting
     if (angleNum >= 180) {
@@ -507,13 +506,10 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = ({
       
       // Validate that splitting will actually work
       const splitAngle = angleNum / numSplitsCalc;
-      // FIXED: Apply same logic for split chord calculation
-      let splitChordLength;
-      if (splitAngle >= 180) {
-        splitChordLength = 2 * actualOuterRadius; // Diameter for split angles >= 180°
-      } else {
-        splitChordLength = 2 * actualOuterRadius * Math.sin((splitAngle * Math.PI / 180) / 2);
-      }
+      // FIXED: For split validation, use bounding box dimension (diameter for >=180°)
+      const splitChordLength = splitAngle >= 180
+        ? 2 * actualOuterRadius  // Diameter for wrapped parts
+        : 2 * actualOuterRadius * Math.sin((splitAngle * Math.PI / 180) / 2);  // Chord for partial arcs
       
       if (splitChordLength > availableSheetLengthForChord) {
         console.warn(`Split calculation insufficient. Split chord: ${splitChordLength.toFixed(2)}mm, Available: ${availableSheetLengthForChord}mm. Need more splits.`);
@@ -1344,15 +1340,21 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = ({
     }
     
     const angleRad = angleNum * (Math.PI / 180);
-    const calculatedArcLength = displayOuterRadius * angleRad;
     
-    // FIXED: For angles >= 180°, the piece spans the full diameter
-    let calculatedChordLength;
-    if (angleNum >= 180) {
-      calculatedChordLength = 2 * displayOuterRadius; // Diameter for any angle >= 180°
-    } else {
-      calculatedChordLength = 2 * displayOuterRadius * Math.sin(angleRad / 2); // Standard chord formula for < 180°
-    }
+    // FIXED: BOTH Arc Length and Chord Length use the radius matching the user's selected radiusType
+    // If user selects Internal Dimensions: measure from internal radius
+    // If user selects External Dimensions: measure from external radius
+    const calculationRadius = displayConfig.radiusType === 'external' 
+      ? displayOuterRadius 
+      : displayInnerRadius;
+    
+    const calculatedArcLength = calculationRadius * angleRad;
+    
+    // FIXED: Standard chord formula works for ALL angles (0° to 360°)
+    // Special case: For 360° (full circle), chord length is the diameter
+    const calculatedChordLength = angleNum === 360 
+      ? 2 * calculationRadius 
+      : 2 * calculationRadius * Math.sin(angleRad / 2);
     
     if (isNaN(calculatedArcLength) || isNaN(calculatedChordLength) || calculatedArcLength <= 0 || calculatedChordLength <= 0) {
       return { arcLength: 0, chordLength: 0 };
@@ -1362,7 +1364,7 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = ({
       arcLength: calculatedArcLength,
       chordLength: calculatedChordLength
     };
-  }, [displayOuterRadius, visualizerAngle]);
+  }, [displayOuterRadius, displayInnerRadius, visualizerAngle, displayConfig.radiusType]);
   
   // Calculate split info for display
   const displaySplitInfo = useMemo(() => {

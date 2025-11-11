@@ -261,8 +261,15 @@ const CurvedPanel: React.FC<{
     }
   }, [radiusType]);
   
+  // Calculate outer radius first (needed for guideRadius calculation below)
+  const outerRadius = radius + width;
+  
+  // Determine which radius to display based on radiusType
+  // This is used for dimension labels - shows the radius the user specified
+  const displayRadius = radiusType === 'external' ? outerRadius : radius;
+  
   // Real-world values (without scaling)
-  const realRadius = radius * scaleFactor;
+  const realRadius = displayRadius * scaleFactor;
   const realWidth = width * scaleFactor;
   const realArcLength = arcLength ? arcLength : 0;
   const realChordLength = chordLength ? chordLength : 0;
@@ -336,10 +343,10 @@ const CurvedPanel: React.FC<{
 
   // Calculate dimension points
   const angleInRad = angle * Math.PI / 180;
-  const outerR = radius + width;
+  // Note: outerRadius already calculated above
   
   // Determine which radius to use for guide lines based on radiusType
-  const guideRadius = radiusType === 'external' ? outerR : radius;
+  const guideRadius = radiusType === 'external' ? outerRadius : radius;
   
   // Define desired height for dimension lines in mm
   const DIMENSION_LINE_HEIGHT_MM = 20;
@@ -358,7 +365,7 @@ const CurvedPanel: React.FC<{
   // Apply fixed height to width line
   const widthLine = [
     [radius + centerOffset.x, centerOffset.y, DIMENSION_LINE_Z], 
-    [outerR + centerOffset.x, centerOffset.y, DIMENSION_LINE_Z]
+    [outerRadius + centerOffset.x, centerOffset.y, DIMENSION_LINE_Z]
   ];
   
   // Points for angle indicator (at DIMENSION_LINE_Z height)
@@ -691,8 +698,8 @@ const CurvedPanel: React.FC<{
                   SPLIT_LINE_Z_OFFSET // Raise above material surface
                 );
                 const outerPoint = new THREE.Vector3(
-                  outerR * Math.cos(splitAngleRad) + centerOffset.x,
-                  outerR * Math.sin(splitAngleRad) + centerOffset.y,
+                  outerRadius * Math.cos(splitAngleRad) + centerOffset.x,
+                  outerRadius * Math.sin(splitAngleRad) + centerOffset.y,
                   SPLIT_LINE_Z_OFFSET // Raise above material surface
                 );
                 // Define hover styles
