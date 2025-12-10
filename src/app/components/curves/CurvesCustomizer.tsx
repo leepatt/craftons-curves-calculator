@@ -1133,16 +1133,16 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = ({
 
       // Build configuration summary
       const configSummary = partsList.map((part, index) => {
-        const rType = part.config.radiusType as 'internal' | 'external';
-        const specifiedRadius = Number(part.config.specifiedRadius);
-        const width = Number(part.config.width);
-        const angle = Number(part.config.angle);
-        const internalRadiusCalc = rType === 'internal' ? specifiedRadius : specifiedRadius - width;
-        const internalRadius = internalRadiusCalc < 0 ? 0 : internalRadiusCalc;
+              const rType = part.config.radiusType as 'internal' | 'external';
+              const specifiedRadius = Number(part.config.specifiedRadius);
+              const width = Number(part.config.width);
+              const angle = Number(part.config.angle);
+              const internalRadiusCalc = rType === 'internal' ? specifiedRadius : specifiedRadius - width;
+              const internalRadius = internalRadiusCalc < 0 ? 0 : internalRadiusCalc;
         const radiusMarker = rType === 'internal' ? 'R' : 'R(int)';
-        const splitStr = part.numSplits > 1 ? ` Split:${part.numSplits}` : '';
-        const materialStr = ` ${part.config.material}`;
-        return `${index + 1}. ${radiusMarker}:${internalRadius} W:${width} A:${angle} Qty:${part.quantity}${splitStr}${materialStr}`;
+              const splitStr = part.numSplits > 1 ? ` Split:${part.numSplits}` : '';
+              const materialStr = ` ${part.config.material}`;
+              return `${index + 1}. ${radiusMarker}:${internalRadius} W:${width} A:${angle} Qty:${part.quantity}${splitStr}${materialStr}`;
       }).join('; ');
 
       // Build visible part summaries as separate properties
@@ -1167,26 +1167,26 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = ({
         '_parts_count': partsList.length.toString(),
         '_total_turnaround': totalTurnaround ? `${totalTurnaround} days` : 'TBD',
         '_configuration_summary': configSummary,
-        // Add engraving info if applicable
-        ...(partsList.length > 1 && isEngravingEnabled ? {
-          '_part_id_engraving': 'Included',
-          '_engraving_cost': totalPriceDetails.partIdEngravingCost.toFixed(2)
-        } : {}),
-        // Add joiner blocks info if applicable
-        ...(totalPriceDetails.totalJoinerBlocks > 0 && isJoinerBlocksEnabled ? {
-          '_joiner_blocks': 'Included',
-          '_joiner_blocks_quantity': totalPriceDetails.totalJoinerBlocks.toString(),
-          '_joiner_blocks_cost': totalPriceDetails.joinerBlocksCost.toFixed(2)
-        } : {}),
-        // Add detailed material breakdown
+            // Add engraving info if applicable
+            ...(partsList.length > 1 && isEngravingEnabled ? {
+              '_part_id_engraving': 'Included',
+              '_engraving_cost': totalPriceDetails.partIdEngravingCost.toFixed(2)
+            } : {}),
+            // Add joiner blocks info if applicable
+            ...(totalPriceDetails.totalJoinerBlocks > 0 && isJoinerBlocksEnabled ? {
+              '_joiner_blocks': 'Included',
+              '_joiner_blocks_quantity': totalPriceDetails.totalJoinerBlocks.toString(),
+              '_joiner_blocks_cost': totalPriceDetails.joinerBlocksCost.toFixed(2)
+            } : {}),
+            // Add detailed material breakdown
         '_materials': partsList.map(part => part.config.material).join(', '),
-        '_materials_used': Object.entries(totalPriceDetails.sheetsByMaterial).map(([matId, count]) => {
-          const materialName = materials?.find(m => m.id === matId)?.name || matId;
-          return `${materialName}: ${count} sheet${count !== 1 ? 's' : ''}`;
-        }).join(', '),
-        '_material_cost': totalPriceDetails.materialCost.toFixed(2),
-        '_manufacture_cost': totalPriceDetails.manufactureCost.toFixed(2),
-        '_total_sheets': Object.values(totalPriceDetails.sheetsByMaterial).reduce((sum, count) => sum + count, 0).toString(),
+            '_materials_used': Object.entries(totalPriceDetails.sheetsByMaterial).map(([matId, count]) => {
+              const materialName = materials?.find(m => m.id === matId)?.name || matId;
+              return `${materialName}: ${count} sheet${count !== 1 ? 's' : ''}`;
+            }).join(', '),
+            '_material_cost': totalPriceDetails.materialCost.toFixed(2),
+            '_manufacture_cost': totalPriceDetails.manufactureCost.toFixed(2),
+            '_total_sheets': Object.values(totalPriceDetails.sheetsByMaterial).reduce((sum, count) => sum + count, 0).toString(),
         '_timestamp': new Date().toISOString(),
         // Add visible part summaries
         ...visiblePartProps,

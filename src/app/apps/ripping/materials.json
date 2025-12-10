@@ -9,6 +9,15 @@
     "texture": "/textures/formply.png"
   },
   {
+    "id": "bendy-ply-6-rip",
+    "name": "6mm Bendy Ply Film Faced",
+    "price": 70.00,
+    "thickness": 6,
+    "sheet_width": 2400,
+    "sheet_height": 1200,
+    "texture": "/textures/formply.png"
+  },
+  {
     "id": "bendy-ply-9-rip",
     "name": "9mm Bendy Ply Film Faced",
     "price": 80.00,

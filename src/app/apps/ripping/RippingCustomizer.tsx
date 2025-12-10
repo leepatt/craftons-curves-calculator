@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { RippingVisualizer } from './RippingVisualizer';
-import { RippingBuilderForm } from './RippingBuilderForm';
+import { RippingBuilderForm, InputMode } from './RippingBuilderForm';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Button } from '@/components/ui/button';
@@ -70,6 +70,20 @@ export function RippingCustomizer({ defaultMaterial, initialData }: RippingCusto
     return 'mm';
   });
 
+  const [inputMode, setInputMode] = useState<InputMode>(() => {
+    if (initialData && (initialData as any).inputMode) {
+      return (initialData as any).inputMode;
+    }
+    return 'length';
+  });
+
+  const [ripsQuantity, setRipsQuantity] = useState(() => {
+    if (initialData && (initialData as any).ripsQuantity) {
+      return (initialData as any).ripsQuantity;
+    }
+    return 0;
+  });
+
   // Share and Cart states
   const [isSharing, setIsSharing] = useState<boolean>(false);
   const [isAddingToCart, setIsAddingToCart] = useState<boolean>(false);
@@ -126,7 +140,7 @@ export function RippingCustomizer({ defaultMaterial, initialData }: RippingCusto
   const calculation = useMemo((): RippingCalculation => {
     const materialData = materials.find(m => m.id === selectedMaterial);
     
-    // Convert total length to mm for calculations
+    // Convert total length to mm for calculations (only used when inputMode is 'length')
     const totalLengthMm = lengthUnit === 'm' ? totalLength * 1000 : totalLength;
     
     // Determine cutter size and kerf width based on material thickness
@@ -135,13 +149,18 @@ export function RippingCustomizer({ defaultMaterial, initialData }: RippingCusto
     const cutterSize = materialThickness <= 10 ? 4 : 8; // mm diameter
     const kerfWidth = cutterSize; // Kerf width equals cutter diameter
     
+    // Determine if we have valid input based on input mode
+    const hasValidInput = inputMode === 'length' 
+      ? (totalLengthMm > 0)
+      : (ripsQuantity > 0);
+    
     // Default values for invalid inputs
-    if (!materialData || height <= 0 || totalLengthMm <= 0) {
+    if (!materialData || height <= 0 || !hasValidInput) {
       return {
         ripsPerSheet: 0,
         lengthPerSheet: 0,
         sheetsNeeded: 0,
-        totalLength: totalLengthMm,
+        totalLength: inputMode === 'length' ? totalLengthMm : 0,
         offcutSize: 0,
         materialCost: 0,
         manufactureCost: 0,
@@ -184,7 +203,7 @@ export function RippingCustomizer({ defaultMaterial, initialData }: RippingCusto
         ripsPerSheet: 0,
         lengthPerSheet: 0,
         sheetsNeeded: 0,
-        totalLength: totalLengthMm,
+        totalLength: inputMode === 'length' ? totalLengthMm : ripsQuantity * sheetLength,
         offcutSize: sheetHeight,
         materialCost: 0,
         manufactureCost: 0,
@@ -200,8 +219,19 @@ export function RippingCustomizer({ defaultMaterial, initialData }: RippingCusto
 
     const lengthPerSheet = ripsPerSheet * sheetLength;
     
-    // Calculate how many individual rips are actually needed
-    const ripsNeeded = Math.ceil(totalLengthMm / sheetLength);
+    // Calculate how many individual rips are actually needed based on input mode
+    let ripsNeeded: number;
+    let calculatedTotalLength: number;
+    
+    if (inputMode === 'quantity') {
+      // User specified number of rips directly
+      ripsNeeded = ripsQuantity;
+      calculatedTotalLength = ripsQuantity * sheetLength;
+    } else {
+      // User specified total length - calculate rips needed
+      ripsNeeded = Math.ceil(totalLengthMm / sheetLength);
+      calculatedTotalLength = totalLengthMm;
+    }
     
     // Calculate sheets needed to provide enough rips
     const sheetsNeeded = Math.ceil(ripsNeeded / ripsPerSheet);
@@ -235,7 +265,7 @@ export function RippingCustomizer({ defaultMaterial, initialData }: RippingCusto
       ripsPerSheet,
       lengthPerSheet,
       sheetsNeeded,
-      totalLength: totalLengthMm,
+      totalLength: calculatedTotalLength,
       offcutSize,
       materialCost,
       manufactureCost,
@@ -247,7 +277,7 @@ export function RippingCustomizer({ defaultMaterial, initialData }: RippingCusto
       totalRipsProvided,
       excessRips
     };
-  }, [selectedMaterial, height, totalLength, lengthUnit]);
+  }, [selectedMaterial, height, totalLength, lengthUnit, inputMode, ripsQuantity]);
 
   // Rounded-up total for $1.00 variant flow (GST-inclusive store)
   const roundedTotalDollars = useMemo(() => {
@@ -257,7 +287,10 @@ export function RippingCustomizer({ defaultMaterial, initialData }: RippingCusto
   // Handler functions for Save and Share
   const handleSaveAndShare = useCallback(async () => {
     if (calculation.sheetsNeeded === 0) {
-      alert("Please enter valid rip height and total length to share!");
+      const message = inputMode === 'quantity' 
+        ? "Please enter valid rip height and number of rips to share!"
+        : "Please enter valid rip height and total length to share!";
+      alert(message);
       return;
     }
 
@@ -268,6 +301,8 @@ export function RippingCustomizer({ defaultMaterial, initialData }: RippingCusto
         height,
         totalLength,
         lengthUnit,
+        inputMode,
+        ripsQuantity,
         calculation,
         timestamp: new Date().toISOString(),
         appType: 'ripping'
@@ -295,14 +330,17 @@ export function RippingCustomizer({ defaultMaterial, initialData }: RippingCusto
     } finally {
       setIsSharing(false);
     }
-  }, [selectedMaterial, height, totalLength, lengthUnit, calculation]);
+  }, [selectedMaterial, height, totalLength, lengthUnit, inputMode, ripsQuantity, calculation]);
 
   // 🎯 UNIFIED ADD TO CART FUNCTION
   // Uses postMessage when embedded in Shopify (adds to cart without replacing)
   // Falls back to permalink when accessed directly (replaces cart - Shopify limitation)
   const handleAddToCart = useCallback(async () => {
     if (!calculation || calculation.sheetsNeeded === 0) {
-      alert("Please enter valid rip height and total length to add to cart!");
+      const message = inputMode === 'quantity'
+        ? "Please enter valid rip height and number of rips to add to cart!"
+        : "Please enter valid rip height and total length to add to cart!";
+      alert(message);
       return;
     }
 
@@ -323,17 +361,23 @@ export function RippingCustomizer({ defaultMaterial, initialData }: RippingCusto
       }
 
       // Build all properties
+      const specifiedQuantity = inputMode === 'quantity' 
+        ? `${ripsQuantity} rips` 
+        : `${totalLength}${lengthUnit}`;
+      
       const properties: Record<string, string> = {
         '_order_type': 'custom_ripping',
         '_total_price': roundedTotalDollars.toFixed(2),
         '_display_price': `$${roundedTotalDollars.toFixed(2)}`,
         '_material': materialData?.name || selectedMaterial,
         '_rip_height': `${height}mm`,
-        '_total_length': `${totalLength}${lengthUnit}`,
+        '_input_mode': inputMode,
+        '_total_length': `${calculation.totalLength}mm`,
+        '_rips_needed': String(calculation.ripsNeeded),
         '_sheets_needed': String(calculation.sheetsNeeded),
         '_rips_per_sheet': String(calculation.ripsPerSheet),
         '_turnaround': '1-2 days',
-        '_configuration_summary': `${materialData?.name || selectedMaterial}: ${height}mm high rips, ${totalLength}${lengthUnit} total length, ${calculation.sheetsNeeded} sheets needed`,
+        '_configuration_summary': `${materialData?.name || selectedMaterial}: ${height}mm high rips, ${specifiedQuantity}, ${calculation.sheetsNeeded} sheets needed`,
         '_material_cost': calculation.materialCost.toFixed(2),
         '_manufacture_cost': calculation.manufactureCost.toFixed(2),
         '_kerf_width': `${calculation.kerfWidth}mm`,
@@ -343,7 +387,8 @@ export function RippingCustomizer({ defaultMaterial, initialData }: RippingCusto
         // Visible properties for cart display
         'Material': materialData?.name || selectedMaterial,
         'Rip Height': `${height}mm`,
-        'Total Length': `${totalLength}${lengthUnit}`,
+        'Rips Needed': String(calculation.ripsNeeded),
+        'Total Length': `${(calculation.totalLength / 1000).toFixed(1)}m`,
         'Sheets Needed': String(calculation.sheetsNeeded),
         'Rips per Sheet': String(calculation.ripsPerSheet),
         'Total Price': `$${roundedTotalDollars.toFixed(2)}`
@@ -393,7 +438,7 @@ export function RippingCustomizer({ defaultMaterial, initialData }: RippingCusto
     }
   }, [
     calculation, roundedTotalDollars, materials, selectedMaterial,
-    height, totalLength, lengthUnit
+    height, totalLength, lengthUnit, inputMode, ripsQuantity
   ]);
 
   // Share modal handlers
@@ -458,6 +503,10 @@ export function RippingCustomizer({ defaultMaterial, initialData }: RippingCusto
                   onTotalLengthChange={setTotalLength}
                   lengthUnit={lengthUnit}
                   onLengthUnitChange={setLengthUnit}
+                  inputMode={inputMode}
+                  onInputModeChange={setInputMode}
+                  ripsQuantity={ripsQuantity}
+                  onRipsQuantityChange={setRipsQuantity}
                 />
               </div>
 
@@ -553,12 +602,16 @@ export function RippingCustomizer({ defaultMaterial, initialData }: RippingCusto
                     </>
                   ) : (
                     <div className="text-center py-4 text-gray-500">
-                      {height <= 0 && totalLength <= 0 ? (
-                        "Enter rip height and total length to see calculations"
+                      {height <= 0 && (inputMode === 'length' ? totalLength <= 0 : ripsQuantity <= 0) ? (
+                        inputMode === 'quantity' 
+                          ? "Enter rip height and number of rips to see calculations"
+                          : "Enter rip height and total length to see calculations"
                       ) : height <= 0 ? (
                         "Enter rip height to see calculations"
-                      ) : totalLength <= 0 ? (
-                        "Enter total length needed to see calculations"
+                      ) : (inputMode === 'length' ? totalLength <= 0 : ripsQuantity <= 0) ? (
+                        inputMode === 'quantity'
+                          ? "Enter number of rips to see calculations"
+                          : "Enter total length needed to see calculations"
                       ) : (
                         "Rip height exceeds sheet dimensions"
                       )}
