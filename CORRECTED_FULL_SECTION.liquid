@@ -188,6 +188,104 @@
         }
       }
     }
+    
+    // 🛒 Handle ADD TO CART requests from calculator iframe
+    // This allows the calculator to add items to cart WITHOUT replacing existing items
+    // because this code runs on the Shopify domain (same-origin with /cart/add.js)
+    if (event.data && 
+        event.data.type === 'ADD_TO_CART_REQUEST' && 
+        event.data.source === 'craftons-curves-calculator') {
+      
+      console.log('🛒 Received ADD_TO_CART_REQUEST from calculator iframe');
+      console.log('📦 Cart data:', event.data.cartData);
+      
+      handleAddToCart(event.data.cartData, event.source, event.origin);
+    }
+  }
+  
+  // 🛒 Add to cart handler - runs on Shopify domain so /cart/add.js works!
+  async function handleAddToCart(cartData, eventSource, eventOrigin) {
+    try {
+      console.log('🛒 Adding to cart via Shopify AJAX API (same-origin)...');
+      
+      // Build the cart item payload
+      const payload = {
+        id: cartData.variantId,
+        quantity: cartData.quantity,
+        properties: cartData.properties || {}
+      };
+      
+      console.log('📦 Payload:', JSON.stringify(payload, null, 2));
+      
+      // Call Shopify's /cart/add.js API - this ADDS to cart, doesn't replace!
+      const response = await fetch('/cart/add.js', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify(payload),
+        credentials: 'same-origin'
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Cart API error:', response.status, errorText);
+        
+        // Send error back to iframe
+        sendCartResponse(eventSource, eventOrigin, {
+          success: false,
+          error: `Cart API error (${response.status}): ${errorText}`
+        });
+        return;
+      }
+      
+      const result = await response.json();
+      console.log('✅ Successfully added to cart:', result);
+      
+      // Send success response back to iframe
+      sendCartResponse(eventSource, eventOrigin, {
+        success: true,
+        item: result
+      });
+      
+      // Redirect to cart page after short delay (allows iframe to show success message)
+      if (cartData.redirectToCart !== false) {
+        setTimeout(() => {
+          window.location.href = '/cart';
+        }, 500);
+      }
+      
+    } catch (error) {
+      console.error('❌ Error adding to cart:', error);
+      
+      // Send error back to iframe
+      sendCartResponse(eventSource, eventOrigin, {
+        success: false,
+        error: error.message || 'Unknown error adding to cart'
+      });
+    }
+  }
+  
+  // Send cart response back to the calculator iframe
+  function sendCartResponse(eventSource, eventOrigin, response) {
+    try {
+      const message = {
+        type: 'ADD_TO_CART_RESPONSE',
+        source: 'shopify-parent',
+        ...response
+      };
+      
+      if (eventSource) {
+        eventSource.postMessage(message, eventOrigin || '*');
+        console.log('📤 Sent cart response to iframe:', response.success ? '✅ Success' : '❌ Error');
+      } else if (calculatorIframe && calculatorIframe.contentWindow) {
+        calculatorIframe.contentWindow.postMessage(message, '*');
+        console.log('📤 Sent cart response via calculatorIframe reference');
+      }
+    } catch (error) {
+      console.error('❌ Could not send cart response:', error);
+    }
   }
   
   // Set up message listener for all calculator communication

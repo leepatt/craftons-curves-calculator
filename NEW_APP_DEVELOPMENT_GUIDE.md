@@ -388,65 +388,82 @@ interface [AppName]ProductConfiguration {
 }
 ```
 
-### Add to Cart Integration (Shopify Cart Permalink Approach)
+### Add to Cart Integration (Unified PostMessage + Permalink Approach)
+
+The calculator suite uses a **unified cart utility** that:
+- Uses **postMessage** when embedded in Shopify (adds to cart WITHOUT replacing)
+- Falls back to **permalink** when accessed directly (replaces cart - Shopify limitation)
+
 ```tsx
-// MUST use Shopify Cart Permalink approach (like ripping app)
-// Import configuration
+// MUST use the unified Shopify cart utility
+// Import the cart utility and configuration
+import { submitToShopifyCart, isEmbeddedInShopify } from '@/lib/shopify-cart';
 import { [appName]Config } from './config';
 
 // Add to Cart states
 const [isAddingToCart, setIsAddingToCart] = useState(false);
 
-// Add to Cart Handler - Using Shopify Cart Permalink Approach
+// 🎯 UNIFIED ADD TO CART FUNCTION
+// Uses postMessage when embedded in Shopify (adds to cart without replacing)
+// Falls back to permalink when accessed directly (replaces cart - Shopify limitation)
 const handleAddToCart = async () => {
   if (!calculation || calculation.totalCost <= 0) {
     alert("Please configure your [app name] to add to cart!");
     return;
   }
 
+  console.log('🎯 [App Name]: Using unified cart utility');
+  const isEmbedded = isEmbeddedInShopify();
+  console.log('📍 Embedded in Shopify:', isEmbedded);
+
   setIsAddingToCart(true);
   
   try {
-    // Calculate quantity based on variant type:
-    // - For $1.00 variants (ripping, pelmet-pro, stair-builder, box-builder): quantity = Math.round(price)
-    // - For 1-cent variants (curves, radius-pro): quantity = Math.round(price * 100)
-    const quantity = Math.round(calculation.totalCost); // For $1.00 variants (recommended for new apps)
+    // Calculate quantity using the $1 hack (quantity = dollars)
+    const quantity = Math.round(calculation.totalCost);
     const materialData = materials.find(m => m.id === selectedMaterial);
 
     if (![appName]Config.shopify.dollarVariantId) {
-      alert('[App Name] $1 variant ID is not configured. Check [appName]Config.shopify.dollarVariantId');
+      alert('[App Name] $1 variant ID is not configured.');
       throw new Error('Missing [appName]Config.shopify.dollarVariantId');
     }
 
-    // Build cart item with properties
-    const cartItem = {
-      id: [appName]Config.shopify.dollarVariantId,
-      quantity: quantity, // $1.00 variant: quantity = dollars
-      properties: {
-        _order_type: 'custom_[app_name]',
-        _display_price: `$${calculation.totalCost.toFixed(2)}`,
-        _total_price: calculation.totalCost.toFixed(2),
-        _material: materialData?.name || selectedMaterial,
-        // Add app-specific properties
-        _configuration_summary: '[App specific summary]',
-        _price_component: 'dollars_only'
-      }
+    // Build all properties
+    const properties: Record<string, string> = {
+      '_order_type': 'custom_[app_name]',
+      '_total_price': calculation.totalCost.toFixed(2),
+      '_display_price': `$${calculation.totalCost.toFixed(2)}`,
+      '_material': materialData?.name || selectedMaterial,
+      '_configuration_summary': '[App specific summary]',
+      '_material_cost': calculation.materialCost.toFixed(2),
+      '_manufacture_cost': calculation.manufactureCost.toFixed(2),
+      '_timestamp': new Date().toISOString(),
+      // Add app-specific visible properties for cart display
+      'Material': materialData?.name || selectedMaterial,
+      'Total Price': `$${calculation.totalCost.toFixed(2)}`
     };
 
-    // Encode properties as Base64
-    const propertiesParam = btoa(
-      unescape(encodeURIComponent(JSON.stringify(cartItem.properties)))
-    );
+    console.log('🛒 Adding to cart with quantity:', quantity, 'for price:', calculation.totalCost.toFixed(2));
+    console.log('📦 Properties:', properties);
 
-    // Build Shopify cart permalink
-    const cartUrl = `https://${[appName]Config.shopify.shopDomain}/cart/${cartItem.id}:${cartItem.quantity}?properties=${propertiesParam}`;
+    // Use the unified cart utility
+    const result = await submitToShopifyCart({
+      variantId: [appName]Config.shopify.dollarVariantId,
+      quantity: quantity,
+      properties: properties,
+      shopDomain: [appName]Config.shopify.shopDomain,
+      redirectToCart: true
+    });
 
-    console.log('🛒 Adding to cart with quantity:', quantity, 'for price:', calculation.totalCost.toFixed(2), '($1.00 variant: quantity = dollars)');
-    console.log('📦 Cart item:', cartItem);
-    console.log('🔗 Cart URL:', cartUrl);
+    console.log('🛒 Cart submission result:', result);
 
-    // Redirect to Shopify cart
-    window.open(cartUrl, '_top');
+    if (result.success && result.method === 'postMessage') {
+      console.log('✅ Added to cart via postMessage (items accumulated, not replaced)');
+    } else if (result.method === 'permalink') {
+      console.log('🔗 Redirected via permalink');
+    } else if (!result.success) {
+      throw new Error(result.error || 'Failed to add to cart');
+    }
 
   } catch (error) {
     console.error('❌ Add to cart error:', error);
@@ -456,6 +473,17 @@ const handleAddToCart = async () => {
   }
 };
 ```
+
+### Cart Behavior by Context
+
+| Context | Method | Cart Behavior |
+|---------|--------|---------------|
+| **Embedded in Shopify** | postMessage → `/cart/add.js` | ✅ Accumulates items |
+| **Direct access** | Permalink redirect | ⚠️ Replaces cart |
+
+### Required Liquid Code (Shopify Theme)
+
+For the postMessage cart to work, your Shopify theme must include the `ADD_TO_CART_REQUEST` handler. See `CORRECTED_FULL_SECTION.liquid` for the complete implementation.
 
 ## Development Workflow
 

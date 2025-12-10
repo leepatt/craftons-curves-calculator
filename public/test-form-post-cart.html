@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Form POST Cart Test - Does it ADD without replacing?</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            padding: 20px; 
+            max-width: 900px; 
+            margin: 0 auto;
+            background: #f5f5f5;
+        }
+        h1 { color: #333; }
+        .test-section { 
+            margin: 20px 0; 
+            padding: 20px; 
+            border: 1px solid #ddd; 
+            border-radius: 8px; 
+            background: white;
+        }
+        .info { background-color: #e7f3ff; border-color: #b3d7ff; }
+        .warning { background-color: #fff3cd; border-color: #ffc107; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        button { 
+            padding: 12px 24px; 
+            margin: 8px; 
+            cursor: pointer; 
+            font-size: 16px;
+            border-radius: 6px;
+            border: none;
+        }
+        .btn-primary { background: #007bff; color: white; }
+        .btn-primary:hover { background: #0056b3; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-success:hover { background: #1e7e34; }
+        .btn-danger { background: #dc3545; color: white; }
+        .btn-danger:hover { background: #c82333; }
+        .btn-warning { background: #ffc107; color: #333; }
+        .btn-warning:hover { background: #e0a800; }
+        pre { 
+            background: #f8f9fa; 
+            padding: 15px; 
+            border-radius: 5px; 
+            overflow-x: auto;
+            font-size: 12px;
+        }
+        .step { 
+            display: flex; 
+            align-items: center; 
+            margin: 10px 0;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 5px;
+        }
+        .step-number {
+            background: #007bff;
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 15px;
+            font-weight: bold;
+        }
+        .config-display {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: monospace;
+        }
+        .highlight { color: #50fa7b; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Form POST Cart Test</h1>
+    <p>This test will verify if submitting a form to Shopify's <code>/cart/add</code> endpoint <strong>ADDS</strong> to the cart without replacing existing items.</p>
+
+    <div class="test-section info">
+        <h3>📋 Configuration</h3>
+        <div class="config-display">
+            <div>Shop Domain: <span class="highlight" id="shopDomain">craftons-au.myshopify.com</span></div>
+            <div>Variant ID: <span class="highlight" id="variantId">45300623343794</span></div>
+            <div>Test Price 1: <span class="highlight">$25.00</span> (quantity: 25)</div>
+            <div>Test Price 2: <span class="highlight">$50.00</span> (quantity: 50)</div>
+        </div>
+    </div>
+
+    <div class="test-section warning">
+        <h3>⚠️ Important: Test Instructions</h3>
+        <div class="step">
+            <div class="step-number">1</div>
+            <div>First, <strong>open your Shopify store cart</strong> in another tab and note what's currently in it (or clear it)</div>
+        </div>
+        <div class="step">
+            <div class="step-number">2</div>
+            <div>Click <strong>"Add First Test Item ($25)"</strong> - you'll be redirected to the Shopify cart</div>
+        </div>
+        <div class="step">
+            <div class="step-number">3</div>
+            <div>Come back to this page and click <strong>"Add Second Test Item ($50)"</strong></div>
+        </div>
+        <div class="step">
+            <div class="step-number">4</div>
+            <div>Check if <strong>BOTH items are in the cart</strong> - if yes, the Form POST method works!</div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>🛒 Test Actions</h3>
+        
+        <p><strong>Form POST Method (Testing):</strong></p>
+        <button class="btn-primary" onclick="addItemViaFormPost(25, 'test_item_1', 'First Test Item')">
+            Add First Test Item ($25) via Form POST
+        </button>
+        <button class="btn-success" onclick="addItemViaFormPost(50, 'test_item_2', 'Second Test Item - Should NOT replace first!')">
+            Add Second Test Item ($50) via Form POST
+        </button>
+        
+        <hr style="margin: 20px 0;">
+        
+        <p><strong>Permalink Method (For Comparison - Known to REPLACE cart):</strong></p>
+        <button class="btn-warning" onclick="addItemViaPermalink(75, 'permalink_test', 'Permalink Test Item')">
+            Add via Permalink ($75) - Will REPLACE cart
+        </button>
+        
+        <hr style="margin: 20px 0;">
+        
+        <p><strong>Utility:</strong></p>
+        <button class="btn-danger" onclick="viewCart()">View Current Cart</button>
+    </div>
+
+    <div class="test-section">
+        <h3>📝 What Gets Submitted</h3>
+        <p>The form POST will submit these fields:</p>
+        <pre id="formPreview">Click a button to see what will be submitted...</pre>
+    </div>
+
+    <div class="test-section success" id="resultSection" style="display: none;">
+        <h3>✅ Expected Results</h3>
+        <div id="results"></div>
+    </div>
+
+    <!-- Hidden form for POST submission -->
+    <form id="cartForm" method="POST" style="display: none;">
+        <!-- Fields will be added dynamically -->
+    </form>
+
+    <script>
+        const SHOP_DOMAIN = 'craftons-au.myshopify.com';
+        const VARIANT_ID = 45300623343794; // $1 variant
+
+        function addItemViaFormPost(price, orderType, description) {
+            const quantity = Math.round(price); // $1 hack: quantity = dollars
+            
+            const properties = {
+                '_order_type': orderType,
+                '_total_price': price.toFixed(2),
+                '_test_description': description,
+                '_method': 'form_post',
+                '_timestamp': new Date().toISOString(),
+                'Item Description': description,
+                'Total Price': `$${price.toFixed(2)}`
+            };
+
+            // Show what we're submitting
+            const formData = {
+                action: `https://${SHOP_DOMAIN}/cart/add`,
+                method: 'POST',
+                fields: {
+                    id: VARIANT_ID,
+                    quantity: quantity,
+                    ...Object.fromEntries(
+                        Object.entries(properties).map(([k, v]) => [`properties[${k}]`, v])
+                    )
+                }
+            };
+            document.getElementById('formPreview').textContent = JSON.stringify(formData, null, 2);
+
+            // Create and submit the form
+            const form = document.getElementById('cartForm');
+            form.action = `https://${SHOP_DOMAIN}/cart/add`;
+            form.innerHTML = ''; // Clear previous fields
+
+            // Add variant ID
+            const idInput = document.createElement('input');
+            idInput.type = 'hidden';
+            idInput.name = 'id';
+            idInput.value = VARIANT_ID;
+            form.appendChild(idInput);
+
+            // Add quantity
+            const qtyInput = document.createElement('input');
+            qtyInput.type = 'hidden';
+            qtyInput.name = 'quantity';
+            qtyInput.value = quantity;
+            form.appendChild(qtyInput);
+
+            // Add each property
+            Object.entries(properties).forEach(([key, value]) => {
+                const propInput = document.createElement('input');
+                propInput.type = 'hidden';
+                propInput.name = `properties[${key}]`;
+                propInput.value = value;
+                form.appendChild(propInput);
+            });
+
+            // Add return_to parameter to come back to cart page
+            const returnInput = document.createElement('input');
+            returnInput.type = 'hidden';
+            returnInput.name = 'return_to';
+            returnInput.value = '/cart';
+            form.appendChild(returnInput);
+
+            console.log('🛒 Submitting form to:', form.action);
+            console.log('📦 Form data:', formData);
+
+            // Show expected result
+            showResult(`
+                <p><strong>Submitting Form POST for: ${description}</strong></p>
+                <p>Price: $${price.toFixed(2)} (quantity: ${quantity})</p>
+                <p>You will be redirected to the Shopify cart...</p>
+                <p>After checking the cart, come back here to add the second item!</p>
+            `);
+
+            // Submit the form (this will navigate away)
+            form.submit();
+        }
+
+        function addItemViaPermalink(price, orderType, description) {
+            const quantity = Math.round(price);
+            
+            const properties = {
+                '_order_type': orderType,
+                '_total_price': price.toFixed(2),
+                '_test_description': description,
+                '_method': 'permalink',
+                '_timestamp': new Date().toISOString(),
+                'Item Description': description,
+                'Total Price': `$${price.toFixed(2)}`
+            };
+
+            // Base64 encode properties
+            const propsJson = JSON.stringify(properties);
+            const base64Props = btoa(unescape(encodeURIComponent(propsJson)))
+                .replace(/\+/g, '-')
+                .replace(/\//g, '_')
+                .replace(/=+$/, '');
+
+            const permalink = `https://${SHOP_DOMAIN}/cart/${VARIANT_ID}:${quantity}?properties=${encodeURIComponent(base64Props)}&storefront=true`;
+
+            document.getElementById('formPreview').textContent = `Permalink URL:\n${permalink}`;
+
+            console.log('🔗 Redirecting to permalink:', permalink);
+
+            showResult(`
+                <p><strong>Redirecting via Permalink for: ${description}</strong></p>
+                <p>Price: $${price.toFixed(2)} (quantity: ${quantity})</p>
+                <p>⚠️ This method is known to REPLACE the cart!</p>
+            `);
+
+            window.location.href = permalink;
+        }
+
+        function viewCart() {
+            window.open(`https://${SHOP_DOMAIN}/cart`, '_blank');
+        }
+
+        function showResult(html) {
+            const section = document.getElementById('resultSection');
+            section.style.display = 'block';
+            document.getElementById('results').innerHTML = html;
+        }
+    </script>
+</body>
+</html>

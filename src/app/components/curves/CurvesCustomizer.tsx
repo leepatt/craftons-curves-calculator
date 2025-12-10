@@ -19,6 +19,8 @@ import {
 import { calculateNestingEfficiency, CURVE_EFFICIENCY_RATES } from '@/lib/pricingUtils';
 import { getApiBasePath } from '@/lib/utils';
 import { SharedConfiguration } from '@/lib/shareStorage';
+// Import the unified Shopify cart utility
+import { submitToShopifyCart, isEmbeddedInShopify } from '@/lib/shopify-cart';
 
 // Add iframe height communication utilities
 const communicateHeightToParent = () => {
@@ -1110,19 +1112,18 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = ({
 
 
 
-  // 🎯 FIXED ADD TO CART FUNCTION
-  // The previous developers' approach failed because they used absolute URLs (https://domain.com/cart/add.js)
-  // which triggered CORS restrictions. This fix uses context-aware URLs and handles both embedded and direct access.
-  // This preserves the brilliant $1 hack and all detailed order properties while actually working!
+  // 🎯 UNIFIED ADD TO CART FUNCTION
+  // Uses postMessage when embedded in Shopify (adds to cart without replacing)
+  // Falls back to permalink when accessed directly (replaces cart - Shopify limitation)
   const handleAddToCart = useCallback(async () => {
     if (!totalPriceDetails || partsList.length === 0) {
       alert("No parts to add to cart!");
       return;
     }
 
-    // DISABLED DEMO MODE - Always attempt real cart functionality
-    // Demo mode was interfering with legitimate Shopify embedding
-    console.log('🎯 Cart functionality enabled - attempting real Shopify cart API call');
+    console.log('🎯 Curves: Using unified cart utility');
+    const isEmbedded = isEmbeddedInShopify();
+    console.log('📍 Embedded in Shopify:', isEmbedded);
   
     setIsAddingToCart(true);
   
@@ -1130,67 +1131,22 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = ({
       // Calculate quantity from price using the $1 hack. A price of $174 becomes a quantity of 174.
       const quantity = Math.round(totalPriceDetails.totalIncGST);
 
-      // Prepare comprehensive cart item data for Shopify
-      const cartItemData = {
-        items: [{
-          id: APP_CONFIG.business.shopifyVariantId,
-          quantity: quantity, // Encoded price as quantity
-          properties: {
-            '_order_type': 'custom_curves',
-            '_total_price': totalPriceDetails.totalIncGST.toFixed(2),
-            '_parts_count': partsList.length.toString(),
-            '_total_turnaround': totalTurnaround ? `${totalTurnaround} days` : 'TBD',
-            '_configuration_summary': partsList.map((part, index) => {
-              // Build compact summary: "1. R(int):3200 W:90 A:90 Qty:3 Split:3" (shows R(int) when external radius was used)
-              const rType = part.config.radiusType as 'internal' | 'external';
-              const specifiedRadius = Number(part.config.specifiedRadius);
-              const width = Number(part.config.width);
-              const angle = Number(part.config.angle);
-              const internalRadiusCalc = rType === 'internal' ? specifiedRadius : specifiedRadius - width;
-              const internalRadius = internalRadiusCalc < 0 ? 0 : internalRadiusCalc;
-              const radiusMarker = rType === 'internal' ? 'R' : 'R(int)'; // Show R(int) when calculated from external
-              const splitStr = part.numSplits > 1 ? ` Split:${part.numSplits}` : '';
-              const materialStr = ` ${part.config.material}`;
-              return `${index + 1}. ${radiusMarker}:${internalRadius} W:${width} A:${angle} Qty:${part.quantity}${splitStr}${materialStr}`;
-            }).join('; '),
-            // Add engraving info if applicable
-            ...(partsList.length > 1 && isEngravingEnabled ? {
-              '_part_id_engraving': 'Included',
-              '_engraving_cost': totalPriceDetails.partIdEngravingCost.toFixed(2)
-            } : {}),
-            // Add joiner blocks info if applicable
-            ...(totalPriceDetails.totalJoinerBlocks > 0 && isJoinerBlocksEnabled ? {
-              '_joiner_blocks': 'Included',
-              '_joiner_blocks_quantity': totalPriceDetails.totalJoinerBlocks.toString(),
-              '_joiner_blocks_cost': totalPriceDetails.joinerBlocksCost.toFixed(2)
-            } : {}),
-            // Add detailed material breakdown
-            '_materials': partsList.map(part => part.config.material).join(', '), // List of all material IDs used
-            '_materials_used': Object.entries(totalPriceDetails.sheetsByMaterial).map(([matId, count]) => {
-              const materialName = materials?.find(m => m.id === matId)?.name || matId;
-              return `${materialName}: ${count} sheet${count !== 1 ? 's' : ''}`;
-            }).join(', '),
-            '_material_cost': totalPriceDetails.materialCost.toFixed(2),
-            '_manufacture_cost': totalPriceDetails.manufactureCost.toFixed(2),
-            '_total_sheets': Object.values(totalPriceDetails.sheetsByMaterial).reduce((sum, count) => sum + count, 0).toString(),
-            '_timestamp': new Date().toISOString()
-          }
-        }]
-      };
+      // Build configuration summary
+      const configSummary = partsList.map((part, index) => {
+        const rType = part.config.radiusType as 'internal' | 'external';
+        const specifiedRadius = Number(part.config.specifiedRadius);
+        const width = Number(part.config.width);
+        const angle = Number(part.config.angle);
+        const internalRadiusCalc = rType === 'internal' ? specifiedRadius : specifiedRadius - width;
+        const internalRadius = internalRadiusCalc < 0 ? 0 : internalRadiusCalc;
+        const radiusMarker = rType === 'internal' ? 'R' : 'R(int)';
+        const splitStr = part.numSplits > 1 ? ` Split:${part.numSplits}` : '';
+        const materialStr = ` ${part.config.material}`;
+        return `${index + 1}. ${radiusMarker}:${internalRadius} W:${width} A:${angle} Qty:${part.quantity}${splitStr}${materialStr}`;
+      }).join('; ');
 
-      console.log('🛒 Adding to cart with quantity:', quantity, 'for price:', totalPriceDetails.totalIncGST.toFixed(2));
-      console.log('📦 Cart data:', JSON.stringify(cartItemData, null, 2));
-
-      // --- NEW PERMALINK IMPLEMENTATION ---
-      // Instead of relying on the server-side proxy (which can't pass session cookies
-      // back to the browser), we build a Shopify cart permalink that encodes all
-      // line-item properties in Base64 and sends the customer straight to the cart
-      // page with their item pre-loaded. This guarantees that the cart page always
-      // shows the newly-added item, even when the calculator is running on a
-      // different origin (e.g. craftons-curves-calculator.vercel.app).
-      
-      // --- Build visible part summaries as separate properties ---
-      const visiblePartProps: Record<string,string> = {};
+      // Build visible part summaries as separate properties
+      const visiblePartProps: Record<string, string> = {};
       partsList.forEach((part, idx) => {
         const rType = part.config.radiusType as 'internal' | 'external';
         const specifiedRadius = Number(part.config.specifiedRadius);
@@ -1198,43 +1154,68 @@ const CurvesCustomizer: React.FC<CurvesCustomizerProps> = ({
         const angle = Number(part.config.angle);
         const internalRadiusCalc = rType === 'internal' ? specifiedRadius : specifiedRadius - width;
         const internalRadius = internalRadiusCalc < 0 ? 0 : internalRadiusCalc;
-        const radiusMarker = rType === 'internal' ? 'R' : 'R(int)'; // Show R(int) when calculated from external
+        const radiusMarker = rType === 'internal' ? 'R' : 'R(int)';
         const splitStr = part.numSplits > 1 ? ` Split:${part.numSplits}` : '';
         const materialStr = ` ${part.config.material}`;
         visiblePartProps[`${idx + 1}.`] = `${radiusMarker}:${internalRadius} W:${width} A:${angle} Qty:${part.quantity}${splitStr}${materialStr}`;
       });
 
-      // Merge visible props into the main properties object
-      cartItemData.items[0].properties = {
-        ...cartItemData.items[0].properties,
+      // Build all properties
+      const properties: Record<string, string> = {
+        '_order_type': 'custom_curves',
+        '_total_price': totalPriceDetails.totalIncGST.toFixed(2),
+        '_parts_count': partsList.length.toString(),
+        '_total_turnaround': totalTurnaround ? `${totalTurnaround} days` : 'TBD',
+        '_configuration_summary': configSummary,
+        // Add engraving info if applicable
+        ...(partsList.length > 1 && isEngravingEnabled ? {
+          '_part_id_engraving': 'Included',
+          '_engraving_cost': totalPriceDetails.partIdEngravingCost.toFixed(2)
+        } : {}),
+        // Add joiner blocks info if applicable
+        ...(totalPriceDetails.totalJoinerBlocks > 0 && isJoinerBlocksEnabled ? {
+          '_joiner_blocks': 'Included',
+          '_joiner_blocks_quantity': totalPriceDetails.totalJoinerBlocks.toString(),
+          '_joiner_blocks_cost': totalPriceDetails.joinerBlocksCost.toFixed(2)
+        } : {}),
+        // Add detailed material breakdown
+        '_materials': partsList.map(part => part.config.material).join(', '),
+        '_materials_used': Object.entries(totalPriceDetails.sheetsByMaterial).map(([matId, count]) => {
+          const materialName = materials?.find(m => m.id === matId)?.name || matId;
+          return `${materialName}: ${count} sheet${count !== 1 ? 's' : ''}`;
+        }).join(', '),
+        '_material_cost': totalPriceDetails.materialCost.toFixed(2),
+        '_manufacture_cost': totalPriceDetails.manufactureCost.toFixed(2),
+        '_total_sheets': Object.values(totalPriceDetails.sheetsByMaterial).reduce((sum, count) => sum + count, 0).toString(),
+        '_timestamp': new Date().toISOString(),
+        // Add visible part summaries
         ...visiblePartProps,
       };
 
-      const propsJson = JSON.stringify(cartItemData.items[0].properties);
-      // Base64-URL encode the JSON string (Shopify requires URL-safe Base64)
-      const base64Props = btoa(unescape(encodeURIComponent(propsJson)))
-        .replace(/\+/g, '-')
-        .replace(/\//g, '_')
-        .replace(/=+$/, '');
+      console.log('🛒 Adding to cart with quantity:', quantity, 'for price:', totalPriceDetails.totalIncGST.toFixed(2));
+      console.log('📦 Properties:', properties);
 
+      // Use the unified cart utility
       const shopDomain = process.env.NEXT_PUBLIC_SHOP_DOMAIN || 'craftons-au.myshopify.com';
-      const variantId = APP_CONFIG.business.shopifyVariantId;
-      const permalink = `https://${shopDomain}/cart/${variantId}:${quantity}?properties=${encodeURIComponent(base64Props)}&storefront=true`;
+      const result = await submitToShopifyCart({
+        variantId: APP_CONFIG.business.shopifyVariantId,
+        quantity: quantity,
+        properties: properties,
+        shopDomain: shopDomain,
+        redirectToCart: true
+      });
 
-      console.log('🚀 Redirecting to cart permalink:', permalink);
+      console.log('🛒 Cart submission result:', result);
 
-      // Optionally log to console for debugging but no popup
-      console.log(`Added ${partsList.length} part(s) to cart. Redirecting…`);
-
-      // If embedded inside an iframe (Shopify app embed), redirect the parent;
-      // otherwise redirect the current window.
-      if (window.top) {
-        window.top.location.href = permalink;
-      } else {
-        window.location.href = permalink;
+      if (result.success && result.method === 'postMessage') {
+        // PostMessage succeeded - parent will redirect to cart
+        console.log('✅ Added to cart via postMessage (items accumulated, not replaced)');
+      } else if (result.method === 'permalink') {
+        // Permalink was used - redirect already happened
+        console.log('🔗 Redirected via permalink');
+      } else if (!result.success) {
+        throw new Error(result.error || 'Failed to add to cart');
       }
-
-      return; // Skip legacy proxy logic
 
     } catch (cartError) {
       console.error('💥 Error adding to cart:', cartError);

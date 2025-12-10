@@ -18,6 +18,8 @@ import {
 import { calculateNestingEfficiency, CURVE_EFFICIENCY_RATES } from '@/lib/pricingUtils';
 import { SharedConfiguration } from '@/lib/shareStorage';
 import materials from './materials.json';
+// Import the unified Shopify cart utility
+import { submitToShopifyCart, isEmbeddedInShopify } from '@/lib/shopify-cart';
 
 // Add iframe height communication utilities
 const communicateHeightToParent = () => {
@@ -990,106 +992,41 @@ export const RadiusProCustomizer: React.FC<RadiusProCustomizerProps> = ({
     }
   }, [shareUrl]);
 
-  // Fallback function for when Cart API is not available
-  const handleFallbackToPermalink = useCallback(async (cartItemData: any, priceDetails: TotalPriceDetails) => {
-    console.log('⚠️ Using fallback permalink method (will replace cart contents)');
-    
-    // Convert back to permalink format as backup
-    const propsJson = JSON.stringify(cartItemData.properties);
-    const base64Props = btoa(unescape(encodeURIComponent(propsJson)))
-      .replace(/\+/g, '-')
-      .replace(/\//g, '_')
-      .replace(/=+$/, '');
-
-    const shopDomain = process.env.NEXT_PUBLIC_SHOP_DOMAIN || 'craftons-au.myshopify.com';
-    const variantId = APP_CONFIG.business.shopifyVariantId;
-    
-    // Use quantity=1 in permalink as well (no more 1-cent hack even in fallback)
-    const permalink = `https://${shopDomain}/cart/${variantId}:1?properties=${encodeURIComponent(base64Props)}&storefront=true`;
-
-    console.log('🚀 Fallback: Redirecting to cart permalink:', permalink);
-
-    // Warn user about cart replacement in fallback mode
-    if (confirm(`⚠️ Fallback mode: This will replace your cart contents.\n\nPrice: $${priceDetails.totalIncGST.toFixed(2)}\n\nProceed anyway?`)) {
-      const isEmbedded = window.parent && window.parent !== window;
-      if (window.top && isEmbedded) {
-        window.top.location.href = permalink;
-      } else {
-        window.location.href = permalink;
-      }
-    } else {
-      throw new Error('Operation cancelled by user in fallback mode.');
-    }
-  }, []);
-
-  // 🎯 IMPROVED ADD TO CART FUNCTION
-  // Fixes cart replacement issue by using Cart API instead of permalinks
-  // Eliminates 1-cent hack by using real quantity=1 with custom price properties
+  // 🎯 UNIFIED ADD TO CART FUNCTION
+  // Uses postMessage when embedded in Shopify (adds to cart without replacing)
+  // Falls back to permalink when accessed directly (replaces cart - Shopify limitation)
   const handleAddToCart = useCallback(async () => {
     if (!totalPriceDetails || partsList.length === 0) {
       alert("No parts to add to cart!");
       return;
     }
 
-    console.log('🎯 Radius Pro: Using improved Cart API approach - adds to existing cart without replacement!');
+    console.log('🎯 Radius Pro: Using unified cart utility');
+    const isEmbedded = isEmbeddedInShopify();
+    console.log('📍 Embedded in Shopify:', isEmbedded);
   
     setIsAddingToCart(true);
   
     try {
-      // NEW APPROACH: Use quantity=1 and store real price in properties
-      const cartItemData = {
-        id: APP_CONFIG.business.shopifyVariantId,
-        quantity: 1, // Always 1 for custom items - no more quantity encoding!
-        properties: {
-          // Core identification
-          '_order_type': 'radius_pro_custom',
-          '_custom_price': totalPriceDetails.totalIncGST.toFixed(2), // Real price stored here
-          '_is_custom_item': 'true',
-          
-          // Order details
-          '_parts_count': partsList.length.toString(),
-          '_total_turnaround': totalTurnaround ? `${totalTurnaround} days` : 'TBD',
-          
-          // Configuration summary
-          '_configuration_summary': partsList.map((part, index) => {
-            const rType = part.config.radiusType as 'internal' | 'external';
-            const specifiedRadius = Number(part.config.specifiedRadius);
-            const width = Number(part.config.width);
-            const angle = Number(part.config.angle);
-            const internalRadiusCalc = rType === 'internal' ? specifiedRadius : specifiedRadius - width;
-            const internalRadius = internalRadiusCalc < 0 ? 0 : internalRadiusCalc;
-            const radiusMarker = rType === 'internal' ? 'R' : 'R(int)';
-            const splitStr = part.numSplits > 1 ? ` Split:${part.numSplits}` : '';
-            const materialStr = ` ${part.config.material}`;
-            return `${index + 1}. ${radiusMarker}:${internalRadius} W:${width} A:${angle} Qty:${part.quantity}${splitStr}${materialStr}`;
-          }).join('; '),
-          
-          // Optional services
-          ...(partsList.length > 1 && isEngravingEnabled ? {
-            '_part_id_engraving': 'Included',
-            '_engraving_cost': totalPriceDetails.partIdEngravingCost.toFixed(2)
-          } : {}),
-          ...(totalPriceDetails.totalJoinerBlocks > 0 && isJoinerBlocksEnabled ? {
-            '_joiner_blocks': 'Included',
-            '_joiner_blocks_quantity': totalPriceDetails.totalJoinerBlocks.toString(),
-            '_joiner_blocks_cost': totalPriceDetails.joinerBlocksCost.toFixed(2)
-          } : {}),
-          
-          // Material breakdown
-          '_materials': partsList.map(part => part.config.material).join(', '),
-          '_materials_used': Object.entries(totalPriceDetails.sheetsByMaterial).map(([matId, count]) => {
-            const materialName = radiusProMaterials?.find(m => m.id === matId)?.name || matId;
-            return `${materialName}: ${count} sheet${count !== 1 ? 's' : ''}`;
-          }).join(', '),
-          '_material_cost': totalPriceDetails.materialCost.toFixed(2),
-          '_manufacture_cost': totalPriceDetails.manufactureCost.toFixed(2),
-          '_total_sheets': Object.values(totalPriceDetails.sheetsByMaterial).reduce((sum, count) => sum + count, 0).toString(),
-          '_timestamp': new Date().toISOString()
-        }
-      };
+      // Calculate quantity from price using the $1 hack
+      const quantity = Math.round(totalPriceDetails.totalIncGST);
 
-      // Add visible part breakdown as separate properties for cart display
-      const visiblePartProps: Record<string,string> = {};
+      // Build configuration summary
+      const configSummary = partsList.map((part, index) => {
+        const rType = part.config.radiusType as 'internal' | 'external';
+        const specifiedRadius = Number(part.config.specifiedRadius);
+        const width = Number(part.config.width);
+        const angle = Number(part.config.angle);
+        const internalRadiusCalc = rType === 'internal' ? specifiedRadius : specifiedRadius - width;
+        const internalRadius = internalRadiusCalc < 0 ? 0 : internalRadiusCalc;
+        const radiusMarker = rType === 'internal' ? 'R' : 'R(int)';
+        const splitStr = part.numSplits > 1 ? ` Split:${part.numSplits}` : '';
+        const materialStr = ` ${part.config.material}`;
+        return `${index + 1}. ${radiusMarker}:${internalRadius} W:${width} A:${angle} Qty:${part.quantity}${splitStr}${materialStr}`;
+      }).join('; ');
+
+      // Build visible part breakdown as separate properties for cart display
+      const visiblePartProps: Record<string, string> = {};
       partsList.forEach((part, idx) => {
         const rType = part.config.radiusType as 'internal' | 'external';
         const specifiedRadius = Number(part.config.specifiedRadius);
@@ -1103,99 +1040,58 @@ export const RadiusProCustomizer: React.FC<RadiusProCustomizerProps> = ({
         visiblePartProps[`Part ${idx + 1}`] = `${radiusMarker}:${internalRadius} W:${width} A:${angle}° Qty:${part.quantity}${splitStr}${materialStr}`;
       });
 
-      // Merge visible props into the main properties object
-      cartItemData.properties = {
-        ...cartItemData.properties,
+      // Build all properties
+      const properties: Record<string, string> = {
+        '_order_type': 'radius_pro_custom',
+        '_total_price': totalPriceDetails.totalIncGST.toFixed(2),
+        '_parts_count': partsList.length.toString(),
+        '_total_turnaround': totalTurnaround ? `${totalTurnaround} days` : 'TBD',
+        '_configuration_summary': configSummary,
+        // Optional services
+        ...(partsList.length > 1 && isEngravingEnabled ? {
+          '_part_id_engraving': 'Included',
+          '_engraving_cost': totalPriceDetails.partIdEngravingCost.toFixed(2)
+        } : {}),
+        ...(totalPriceDetails.totalJoinerBlocks > 0 && isJoinerBlocksEnabled ? {
+          '_joiner_blocks': 'Included',
+          '_joiner_blocks_quantity': totalPriceDetails.totalJoinerBlocks.toString(),
+          '_joiner_blocks_cost': totalPriceDetails.joinerBlocksCost.toFixed(2)
+        } : {}),
+        // Material breakdown
+        '_materials': partsList.map(part => part.config.material).join(', '),
+        '_materials_used': Object.entries(totalPriceDetails.sheetsByMaterial).map(([matId, count]) => {
+          const materialName = radiusProMaterials?.find(m => m.id === matId)?.name || matId;
+          return `${materialName}: ${count} sheet${count !== 1 ? 's' : ''}`;
+        }).join(', '),
+        '_material_cost': totalPriceDetails.materialCost.toFixed(2),
+        '_manufacture_cost': totalPriceDetails.manufactureCost.toFixed(2),
+        '_total_sheets': Object.values(totalPriceDetails.sheetsByMaterial).reduce((sum, count) => sum + count, 0).toString(),
+        '_timestamp': new Date().toISOString(),
+        // Add visible part summaries
         ...visiblePartProps,
       };
 
-      console.log('🛒 Adding to cart with quantity 1, real price:', totalPriceDetails.totalIncGST.toFixed(2));
-      console.log('📦 Cart data:', JSON.stringify(cartItemData, null, 2));
+      console.log('🛒 Adding to cart with quantity:', quantity, 'for price:', totalPriceDetails.totalIncGST.toFixed(2));
+      console.log('📦 Properties:', properties);
 
-      // Determine the correct cart API endpoint
-      const isEmbedded = window.parent && window.parent !== window;
-      const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-      let cartApiUrl;
-      
-      if (isDevelopment) {
-        // In development, always use our proxy API route
-        cartApiUrl = `/api/cart/add`;
-        console.log('🔧 Development mode: Using proxy API route');
-      } else if (isEmbedded) {
-        // When embedded in production, try to use the parent domain for same-origin requests
-        try {
-          const parentOrigin = document.referrer;
-          if (parentOrigin && parentOrigin.includes('myshopify.com')) {
-            const url = new URL(parentOrigin);
-            cartApiUrl = `${url.origin}/cart/add.js`;
-          } else {
-            cartApiUrl = `/cart/add.js`; // Fallback to relative URL
-          }
-        } catch {
-          cartApiUrl = `/cart/add.js`;
-        }
-      } else {
-        // When not embedded in production, use environment variable or default
-        const shopDomain = process.env.NEXT_PUBLIC_SHOP_DOMAIN || 'craftons-au.myshopify.com';
-        cartApiUrl = `https://${shopDomain}/cart/add.js`;
-      }
-
-      console.log('🌐 Using cart API URL:', cartApiUrl);
-
-      // Create a timeout signal for the request
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-
-      // Make the Cart API request - this ADDS to existing cart instead of replacing!
-      const response = await fetch(cartApiUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: JSON.stringify(cartItemData),
-        credentials: 'include', // Include cookies for session
-        signal: controller.signal,
+      // Use the unified cart utility
+      const shopDomain = process.env.NEXT_PUBLIC_SHOP_DOMAIN || 'craftons-au.myshopify.com';
+      const result = await submitToShopifyCart({
+        variantId: APP_CONFIG.business.shopifyVariantId,
+        quantity: quantity,
+        properties: properties,
+        shopDomain: shopDomain,
+        redirectToCart: true
       });
 
-      clearTimeout(timeoutId); // Clear timeout on successful response
+      console.log('🛒 Cart submission result:', result);
 
-      console.log('📡 Cart API response status:', response.status);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ Cart API error response:', errorText);
-        
-        // Enhanced error handling with fallback options
-        if (response.status === 422) {
-          throw new Error(`Invalid product configuration. Please check that the product variant (ID: ${APP_CONFIG.business.shopifyVariantId}) exists in your Shopify store.`);
-        } else if (response.status === 404) {
-          // Try fallback to permalink method if Cart API is not available
-          console.log('🔄 Cart API not found, attempting fallback to permalink method...');
-          return await handleFallbackToPermalink(cartItemData, totalPriceDetails);
-        } else if (response.status === 403 || response.status === 401) {
-          throw new Error('Access denied. Please ensure you are logged into your Shopify store and try again.');
-        } else {
-          throw new Error(`Cart API error (${response.status}): ${errorText}`);
-        }
-      }
-
-      const result = await response.json();
-      console.log('✅ Cart API success result:', result);
-
-      // Show success message with clear explanation
-      alert(`✅ Successfully added ${partsList.length} Radius Pro part(s) to cart!\n\nPrice: $${totalPriceDetails.totalIncGST.toFixed(2)}\n\n✨ Your cart now contains both your previous items AND this new configuration - no items were replaced!`);
-
-      // Optional: Redirect to cart page to show the updated cart
-      if (confirm('Would you like to view your cart now?')) {
-        const shopDomain = process.env.NEXT_PUBLIC_SHOP_DOMAIN || 'craftons-au.myshopify.com';
-        const cartUrl = isEmbedded ? '/cart' : `https://${shopDomain}/cart`;
-        
-        if (window.top && isEmbedded) {
-          window.top.location.href = cartUrl;
-        } else {
-          window.location.href = cartUrl;
-        }
+      if (result.success && result.method === 'postMessage') {
+        console.log('✅ Added to cart via postMessage (items accumulated, not replaced)');
+      } else if (result.method === 'permalink') {
+        console.log('🔗 Redirected via permalink');
+      } else if (!result.success) {
+        throw new Error(result.error || 'Failed to add to cart');
       }
 
     } catch (cartError) {
@@ -1205,17 +1101,10 @@ export const RadiusProCustomizer: React.FC<RadiusProCustomizerProps> = ({
       if (cartError instanceof Error) {
         errorMessage += cartError.message;
         
-        if (cartError.name === 'AbortError') {
-          errorMessage = 'Request timed out. Please check your connection and try again.';
-        } else if (cartError.message.includes('422') || cartError.message.includes('variant')) {
-          errorMessage += '\n\n🔧 Tip: Ensure the product variant (ID: ' + APP_CONFIG.business.shopifyVariantId + ') exists in your Shopify store admin.';
-        } else if (cartError.message.includes('404') || cartError.message.includes('CORS')) {
+        if (cartError.message.includes('422') || cartError.message.includes('variant')) {
+          errorMessage += '\n\n🔧 Tip: Ensure the product variant exists in your Shopify store admin.';
+        } else if (cartError.message.includes('CORS') || cartError.message.includes('Failed to fetch')) {
           errorMessage += '\n\n🔧 Tip: This app needs to be accessed through your Shopify store for cart functionality.';
-        } else if (cartError.message.includes('Failed to fetch')) {
-          errorMessage += '\n\n🔧 Tip: Check your network connection and try again.';
-        } else if (cartError.message.includes('cancelled by user')) {
-          // Don't show error for user cancellation
-          return;
         }
       } else {
         errorMessage += 'An unknown error occurred.';
