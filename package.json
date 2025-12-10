@@ -5,6 +5,11 @@
   "engines": {
     "node": "20.x"
   },
+  "overrides": {
+    "ink": {
+      "react": "$react"
+    }
+  },
   "scripts": {
     "shopify": "shopify",
     "dev": "next dev --turbopack",
