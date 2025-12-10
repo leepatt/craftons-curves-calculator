@@ -60,11 +60,11 @@
     "texture_scale": [2.3, 2.3]
   },
   {
-    "id": "mdf-16",
+    "id": "mdf-12",
     "name": "MDF Standard",
     "type": "Wood Composite",
-    "thickness_mm": 16,
-    "sheet_price": 50,
+    "thickness_mm": 12,
+    "sheet_price": 40,
     "rate_per_m2": 17.36,
     "sheet_length_mm": 2400,
     "sheet_width_mm": 1200,

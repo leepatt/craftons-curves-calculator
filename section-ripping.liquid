@@ -62,7 +62,92 @@
     }
   }
 
-  // Listen for height change messages from the ripping app with error handling
+  // 🛒 Add to cart handler - runs on Shopify domain so /cart/add.js works!
+  async function handleAddToCart(cartData, eventSource, eventOrigin) {
+    try {
+      console.log('🛒 Adding to cart via Shopify AJAX API (same-origin)...');
+      
+      // Build the cart item payload
+      const payload = {
+        id: cartData.variantId,
+        quantity: cartData.quantity,
+        properties: cartData.properties || {}
+      };
+      
+      console.log('📦 Payload:', JSON.stringify(payload, null, 2));
+      
+      // Call Shopify's /cart/add.js API - this ADDS to cart, doesn't replace!
+      const response = await fetch('/cart/add.js', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify(payload),
+        credentials: 'same-origin'
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Cart API error:', response.status, errorText);
+        
+        // Send error back to iframe
+        sendCartResponse(eventSource, eventOrigin, {
+          success: false,
+          error: `Cart API error (${response.status}): ${errorText}`
+        });
+        return;
+      }
+      
+      const result = await response.json();
+      console.log('✅ Successfully added to cart:', result);
+      
+      // Send success response back to iframe
+      sendCartResponse(eventSource, eventOrigin, {
+        success: true,
+        item: result
+      });
+      
+      // Redirect to cart page after short delay (allows iframe to show success message)
+      if (cartData.redirectToCart !== false) {
+        setTimeout(() => {
+          window.location.href = '/cart';
+        }, 500);
+      }
+      
+    } catch (error) {
+      console.error('❌ Error adding to cart:', error);
+      
+      // Send error back to iframe
+      sendCartResponse(eventSource, eventOrigin, {
+        success: false,
+        error: error.message || 'Unknown error adding to cart'
+      });
+    }
+  }
+  
+  // Send cart response back to the calculator iframe
+  function sendCartResponse(eventSource, eventOrigin, response) {
+    try {
+      const message = {
+        type: 'ADD_TO_CART_RESPONSE',
+        source: 'shopify-parent',
+        ...response
+      };
+      
+      if (eventSource) {
+        eventSource.postMessage(message, eventOrigin || '*');
+        console.log('📤 Sent cart response to iframe:', response.success ? '✅ Success' : '❌ Error');
+      } else if (iframe && iframe.contentWindow) {
+        iframe.contentWindow.postMessage(message, '*');
+        console.log('📤 Sent cart response via iframe reference');
+      }
+    } catch (error) {
+      console.error('❌ Could not send cart response:', error);
+    }
+  }
+
+  // Listen for messages from the ripping app with error handling
   function handleIframeMessage(event) {
     try {
       // Allow both production and development origins
@@ -77,9 +162,24 @@
 
       const data = event.data;
       
-      if (data && data.type === 'IFRAME_HEIGHT_CHANGE' && data.source === 'craftons-ripping-calculator') {
+      // Handle height change messages
+      if (data && data.type === 'IFRAME_HEIGHT_CHANGE' && 
+          (data.source === 'craftons-ripping-calculator' || data.source === 'craftons-curves-calculator')) {
         console.log(`📏 Section Ripping: Received height update: ${data.height}px`);
         adjustIframeHeight(data.height);
+      }
+      
+      // 🛒 Handle ADD TO CART requests from calculator iframe
+      // This allows the calculator to add items to cart WITHOUT replacing existing items
+      // because this code runs on the Shopify domain (same-origin with /cart/add.js)
+      if (data && 
+          data.type === 'ADD_TO_CART_REQUEST' && 
+          data.source === 'craftons-curves-calculator') {
+        
+        console.log('🛒 Received ADD_TO_CART_REQUEST from ripping app iframe');
+        console.log('📦 Cart data:', data.cartData);
+        
+        handleAddToCart(data.cartData, event.source, event.origin);
       }
     } catch (error) {
       // Silently handle errors to prevent conflicts with theme scripts
@@ -90,6 +190,7 @@
   // Add message listener with error isolation
   try {
     window.addEventListener('message', handleIframeMessage, false);
+    console.log('👂 Ripping app: Message listener set up (including cart handler)');
   } catch (error) {
     console.warn('Could not set up ripping app message listener:', error);
   }
