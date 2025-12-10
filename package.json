@@ -2,6 +2,14 @@
   "name": "shopify-curves-app",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": "20.x"
+  },
+  "overrides": {
+    "ink": {
+      "react": "$react"
+    }
+  },
   "scripts": {
     "shopify": "shopify",
     "dev": "next dev --turbopack",
@@ -50,7 +58,7 @@
     "@types/three": "^0.178.0",
     "@types/uuid": "^10.0.0",
     "eslint": "^9",
-    "eslint-config-next": "15.3.5",
+    "eslint-config-next": "^16.0.8",
     "tailwindcss": "^4.1.11",
     "typescript": "^5"
   }
