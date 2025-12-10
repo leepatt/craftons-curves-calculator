@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Share2, Pencil } from 'lucide-react';
 import materials from './materials.json';
 import { CUT_STUDIO_CONFIG } from '@/apps/cut-studio/config';
+import { submitToShopifyCart, isEmbeddedInShopify } from '@/lib/shopify-cart';
 import { EDGE_MARGIN_MM, PART_SPACING_MM, ROTATIONS_ALLOWED, calculateManufacturingCost, getSheetPrice, MaterialForPricing, MIN_PART_SIZE_MM, MIN_HOLE_DIAMETER_MM } from '@/apps/cut-studio/pricing';
 import { NestingEngine, createNestingParts, type NestingOptions } from '@/apps/cut-studio/nesting';
 
@@ -230,13 +231,78 @@ export function CutStudioCustomizer() {
     }
   };
 
+  // 🎯 UNIFIED ADD TO CART FUNCTION
+  // Uses postMessage when embedded in Shopify (adds to cart without replacing)
+  // Falls back to permalink when accessed directly (replaces cart - Shopify limitation)
   const handleAddToCart = async () => {
+    if (calculation.sheetsNeeded === 0 || calculation.totalCost <= 0) {
+      alert("Please add parts to your cut sheet before adding to cart!");
+      return;
+    }
+
+    console.log('🎯 Cut Studio: Using unified cart utility');
+    const isEmbedded = isEmbeddedInShopify();
+    console.log('📍 Embedded in Shopify:', isEmbedded);
+
     setIsAddingToCart(true);
+    
     try {
-      // TODO: Implement add to cart functionality
-      console.log('Add to cart functionality to be implemented');
+      const quantity = Math.round(calculation.totalCost);
+      const materialData = (materials as Material[]).find(m => m.id === selectedMaterial);
+
+      // Build parts summary
+      const partsSummary = parts.map((p, i) => 
+        `${i + 1}. ${p.shape === 'circle' ? `Circle ⌀${p.w}mm` : `Rect ${p.w}×${p.h}mm`} x${p.qty}`
+      ).join('; ');
+
+      // Build all properties
+      const properties: Record<string, string> = {
+        '_order_type': 'custom_cut_studio',
+        '_total_price': calculation.totalCost.toFixed(2),
+        '_display_price': `$${calculation.totalCost.toFixed(2)}`,
+        '_material': materialData?.name || selectedMaterial,
+        '_sheets_needed': String(calculation.sheetsNeeded),
+        '_total_parts': String(parts.reduce((sum, p) => sum + p.qty, 0)),
+        '_nesting_strategy': nestingStrategy,
+        '_turnaround': '3-5 days',
+        '_configuration_summary': `${materialData?.name || selectedMaterial}: ${parts.length} part types, ${calculation.sheetsNeeded} sheets`,
+        '_parts_detail': partsSummary,
+        '_material_cost': calculation.materialCost.toFixed(2),
+        '_manufacture_cost': calculation.manufactureCost.toFixed(2),
+        '_timestamp': new Date().toISOString(),
+        // Visible properties
+        'Material': materialData?.name || selectedMaterial,
+        'Sheets Needed': String(calculation.sheetsNeeded),
+        'Total Parts': String(parts.reduce((sum, p) => sum + p.qty, 0)),
+        'Parts': partsSummary,
+        'Total Price': `$${calculation.totalCost.toFixed(2)}`
+      };
+
+      console.log('🛒 Adding to cart with quantity:', quantity, 'for price:', calculation.totalCost.toFixed(2));
+      console.log('📦 Properties:', properties);
+
+      // Use the unified cart utility
+      const result = await submitToShopifyCart({
+        variantId: CUT_STUDIO_CONFIG.shopify.dollarVariantId,
+        quantity: quantity,
+        properties: properties,
+        shopDomain: CUT_STUDIO_CONFIG.shopify.shopDomain,
+        redirectToCart: true
+      });
+
+      console.log('🛒 Cart submission result:', result);
+
+      if (result.success && result.method === 'postMessage') {
+        console.log('✅ Added to cart via postMessage (items accumulated, not replaced)');
+      } else if (result.method === 'permalink') {
+        console.log('🔗 Redirected via permalink');
+      } else if (!result.success) {
+        throw new Error(result.error || 'Failed to add to cart');
+      }
+
     } catch (error) {
-      console.error('Error adding to cart:', error);
+      console.error('💥 Error adding to cart:', error);
+      alert(`❌ Failed to add to cart. ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsAddingToCart(false);
     }

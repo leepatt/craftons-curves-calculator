@@ -8,6 +8,7 @@ import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import materials from './materials.json';
 import { boxBuilderConfig } from './config';
+import { submitToShopifyCart, isEmbeddedInShopify } from '@/lib/shopify-cart';
 
 // Define calculation interface
 interface BoxBuilderCalculation {
@@ -119,97 +120,80 @@ export function BoxBuilderCustomizer() {
   // Add to Cart states
   const [isAddingToCart, setIsAddingToCart] = useState(false);
 
-  // Add to Cart Handler - Using Shopify Cart Permalink Approach
+  // 🎯 UNIFIED ADD TO CART FUNCTION
+  // Uses postMessage when embedded in Shopify (adds to cart without replacing)
+  // Falls back to permalink when accessed directly (replaces cart - Shopify limitation)
   const handleAddToCart = async () => {
     if (!calculation || calculation.totalCost <= 0) {
       alert("Please configure your box dimensions to add to cart!");
       return;
     }
 
+    console.log('🎯 Box Builder: Using unified cart utility');
+    const isEmbedded = isEmbeddedInShopify();
+    console.log('📍 Embedded in Shopify:', isEmbedded);
+
     setIsAddingToCart(true);
     
     try {
-      // Calculate quantity for $1.00 variant (whole dollar pricing like ripping app)
       const quantity = Math.round(calculation.totalCost);
       const materialData = materials.find(m => m.id === selectedMaterial);
 
       if (!boxBuilderConfig.shopify.dollarVariantId) {
-        alert('Box Builder $1 variant ID is not configured. Check boxBuilderConfig.shopify.dollarVariantId');
+        alert('Box Builder $1 variant ID is not configured.');
         throw new Error('Missing boxBuilderConfig.shopify.dollarVariantId');
       }
 
-      // Build comprehensive cart item data (matching ripping app approach)
-      const cartItemData = {
-        items: [{
-          id: boxBuilderConfig.shopify.dollarVariantId,
-          quantity: quantity, // $1.00 variant: quantity = dollars
-          properties: {
-            '_order_type': 'custom_box_builder',
-            '_total_price': calculation.totalCost.toFixed(2),
-            '_display_price': `$${calculation.totalCost.toFixed(2)}`,
-            '_material': materialData?.name || selectedMaterial,
-            '_box_width': `${width}mm`,
-            '_box_depth': `${depth}mm`,
-            '_box_height': `${height}mm`,
-            '_dimensions_type': dimensionsType,
-            '_box_type': boxType,
-            '_join_type': joinType,
-            '_quantity': String(quantity),
-            '_turnaround': '3-5 days',
-            '_configuration_summary': `${materialData?.name || selectedMaterial}: ${boxType === 'open-top' ? 'Open top' : 'Closed lid'} box, ${dimensionsType} dimensions ${width}×${depth}×${height}mm, ${joinType} joints`,
-            '_material_cost': calculation.materialCost.toFixed(2),
-            '_manufacture_cost': calculation.manufactureCost.toFixed(2),
-            '_volume': calculation.volume ? `${calculation.volume.toFixed(2)}L` : '0L',
-            '_surface_area': calculation.surfaceArea ? `${calculation.surfaceArea.toFixed(2)}m²` : '0m²',
-            '_timestamp': new Date().toISOString()
-          }
-        }]
-      };
-
-      console.log('🛒 Adding to cart with quantity:', quantity, 'for price:', calculation.totalCost.toFixed(2), '($1.00 variant: quantity = dollars)');
-      console.log('📦 Cart data:', JSON.stringify(cartItemData, null, 2));
-
-      // --- SHOPIFY CART PERMALINK APPROACH (like ripping app) ---
-      // Build visible part summaries as separate properties (for cart display)
-      const visibleProps: Record<string, string> = {
+      // Build all properties
+      const properties: Record<string, string> = {
+        '_order_type': 'custom_box_builder',
+        '_total_price': calculation.totalCost.toFixed(2),
+        '_display_price': `$${calculation.totalCost.toFixed(2)}`,
+        '_material': materialData?.name || selectedMaterial,
+        '_box_width': `${width}mm`,
+        '_box_depth': `${depth}mm`,
+        '_box_height': `${height}mm`,
+        '_dimensions_type': dimensionsType,
+        '_box_type': boxType,
+        '_join_type': joinType,
+        '_quantity': String(quantity),
+        '_turnaround': '3-5 days',
+        '_configuration_summary': `${materialData?.name || selectedMaterial}: ${boxType === 'open-top' ? 'Open top' : 'Closed lid'} box, ${dimensionsType} dimensions ${width}×${depth}×${height}mm, ${joinType} joints`,
+        '_material_cost': calculation.materialCost.toFixed(2),
+        '_manufacture_cost': calculation.manufactureCost.toFixed(2),
+        '_volume': calculation.volume ? `${calculation.volume.toFixed(2)}L` : '0L',
+        '_surface_area': calculation.surfaceArea ? `${calculation.surfaceArea.toFixed(2)}m²` : '0m²',
+        '_timestamp': new Date().toISOString(),
+        // Visible properties
         'Material': materialData?.name || selectedMaterial,
         'Box Type': boxType === 'open-top' ? 'Open Top' : 'Closed Lid',
         'Dimensions': `${width}×${depth}×${height}mm (${dimensionsType})`,
         'Join Type': joinType === 'butt-join' ? 'Butt Join' : 'Finger Join',
-        'Quantity': String(quantity),
         'Volume': calculation.volume ? `${calculation.volume.toFixed(2)}L` : '0L',
         'Total Price': `$${calculation.totalCost.toFixed(2)}`
       };
 
-      // Merge visible props into the main properties object
-      cartItemData.items[0].properties = {
-        ...cartItemData.items[0].properties,
-        ...visibleProps,
-      };
+      console.log('🛒 Adding to cart with quantity:', quantity, 'for price:', calculation.totalCost.toFixed(2));
+      console.log('📦 Properties:', properties);
 
-      const propsJson = JSON.stringify(cartItemData.items[0].properties);
-      // Base64-URL encode the JSON string (Shopify requires URL-safe Base64)
-      const base64Props = btoa(unescape(encodeURIComponent(propsJson)))
-        .replace(/\+/g, '-')
-        .replace(/\//g, '_')
-        .replace(/=+$/, '');
+      // Use the unified cart utility
+      const result = await submitToShopifyCart({
+        variantId: boxBuilderConfig.shopify.dollarVariantId,
+        quantity: quantity,
+        properties: properties,
+        shopDomain: boxBuilderConfig.shopify.shopDomain,
+        redirectToCart: true
+      });
 
-      const shopDomain = boxBuilderConfig.shopify.shopDomain;
-      const variantId = boxBuilderConfig.shopify.dollarVariantId;
-      const permalink = `https://${shopDomain}/cart/${variantId}:${quantity}?properties=${encodeURIComponent(base64Props)}&storefront=true`;
+      console.log('🛒 Cart submission result:', result);
 
-      console.log('🚀 Redirecting to cart permalink:', permalink);
-      console.log(`Added box configuration to cart. Redirecting…`);
-
-      // If embedded inside an iframe (Shopify app embed), redirect the parent;
-      // otherwise redirect the current window.
-      if (window.top) {
-        window.top.location.href = permalink;
-      } else {
-        window.location.href = permalink;
+      if (result.success && result.method === 'postMessage') {
+        console.log('✅ Added to cart via postMessage (items accumulated, not replaced)');
+      } else if (result.method === 'permalink') {
+        console.log('🔗 Redirected via permalink');
+      } else if (!result.success) {
+        throw new Error(result.error || 'Failed to add to cart');
       }
-
-      return; // Skip any other logic
 
     } catch (cartError) {
       console.error('💥 Error adding to cart:', cartError);
@@ -218,9 +202,8 @@ export function BoxBuilderCustomizer() {
       if (cartError instanceof Error) {
         errorMessage += cartError.message;
         
-        // Enhanced error message based on common issues
         if (cartError.message.includes('422') || cartError.message.includes('variant')) {
-          errorMessage += '\n\n🔧 Note: The 1-cent product may need to be set up in your Shopify store.';
+          errorMessage += '\n\n🔧 Note: The $1 product may need to be set up in your Shopify store.';
         } else if (cartError.message.includes('405')) {
           errorMessage += '\n\n🔧 Note: This app needs to be embedded in your Shopify store or accessed through a Shopify product page for cart functionality to work.';
         }

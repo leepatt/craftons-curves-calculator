@@ -1,128 +1,173 @@
-# Production Deployment Checklist - Add to Cart Fix
+# Production Deployment Checklist - Cart Integration
 
-## 🎯 Local Testing Results ✅
-- [x] Dev server runs on http://localhost:3002
-- [x] Add to cart function executes without CORS errors
-- [x] Cart data properly formatted with 1-cent hack (price → quantity)
-- [x] All order properties included (materials, costs, configurations)
-- [x] Expected 404 error in local dev (no Shopify endpoints)
-- [x] **CORS issue that blocked previous developers is RESOLVED**
+## 🎯 Cart System Overview
 
-## 🚀 Production Deployment Steps
+The calculator suite uses a **unified cart system** that:
+- ✅ **PostMessage method** (embedded): Adds items WITHOUT replacing cart
+- ⚠️ **Permalink fallback** (direct): Replaces cart (Shopify limitation)
+
+### How It Works
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  Embedded in Shopify (iframe)                                   │
+│  ─────────────────────────────                                  │
+│  1. Calculator sends ADD_TO_CART_REQUEST via postMessage        │
+│  2. Shopify Liquid handler receives message                     │
+│  3. Liquid calls /cart/add.js (same-origin)                     │
+│  4. Items ACCUMULATE in cart ✅                                 │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│  Direct Access (not embedded)                                   │
+│  ───────────────────────────                                    │
+│  1. Calculator builds permalink URL                             │
+│  2. Redirects to /cart/{variant}:{qty}                          │
+│  3. Cart is REPLACED ⚠️ (Shopify limitation)                   │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+## ✅ Pre-Deployment Checklist
+
+### Local Testing
+- [ ] Dev server runs without errors
+- [ ] All apps load correctly at their URLs
+- [ ] PostMessage cart test passes (`/test-postmessage-cart.html`)
+- [ ] Multiple items accumulate in simulated cart
+- [ ] Console shows correct postMessage logs
+
+### Code Updates
+- [ ] All Customizer files use `submitToShopifyCart` utility
+- [ ] Import: `import { submitToShopifyCart, isEmbeddedInShopify } from '@/lib/shopify-cart'`
+- [ ] No old permalink-only cart code remains
+
+## 🚀 Deployment Steps
 
 ### 1. Deploy to Vercel
 ```bash
-# Commit the changes
+# Commit all changes
 git add .
-git commit -m "Fix: Resolve add-to-cart CORS issue with relative URL approach"
+git commit -m "Update: Unified cart system with postMessage for cart accumulation"
 git push origin main
 
 # Vercel auto-deploys from main branch
-# Check deployment at https://your-app.vercel.app
+# Verify at https://craftons-curves-calculator.vercel.app
 ```
 
-### 2. Verify Shopify Product Setup
-In Shopify Admin, confirm:
-- [ ] Product exists: "Custom Curves Calculator" 
-- [ ] Price set to: **$0.01**
-- [ ] Variant ID: **45300623343794**
+### 2. Update Shopify Theme (CRITICAL!)
+
+The postMessage cart system requires the Liquid handler. **Without this, cart accumulation won't work.**
+
+1. Go to **Shopify Admin** → **Online Store** → **Themes** → **Edit Code**
+2. Find your calculator section (e.g., `curves-calculator.liquid`)
+3. **Replace** with contents of `CORRECTED_FULL_SECTION.liquid`
+4. **Save**
+
+Key code that must be present:
+```javascript
+// 🛒 Handle ADD TO CART requests from calculator iframe
+if (event.data && 
+    event.data.type === 'ADD_TO_CART_REQUEST' && 
+    event.data.source === 'craftons-curves-calculator') {
+  handleAddToCart(event.data.cartData, event.source, event.origin);
+}
+```
+
+### 3. Verify Shopify Product Setup
+
+In Shopify Admin:
+- [ ] $1 product exists (Variant ID: `45300623343794`)
+- [ ] Price set to: **$1.00**
 - [ ] Inventory tracking: **Disabled**
-- [ ] Product visibility: **Hidden** (not in catalog)
+- [ ] Product visibility: **Hidden**
 
-### 3. Test in Production Contexts
+## 📊 Production Testing
 
-#### A. Direct Access Test
-- [ ] Visit https://your-app.vercel.app directly
-- [ ] Configure curves and test add to cart
-- [ ] Should redirect to cart with items
+### Test 1: Cart Accumulation (Embedded)
+1. Visit your Shopify product page with embedded calculator
+2. Add item from Curves calculator
+3. Navigate to another calculator (e.g., Radius Pro)
+4. Add another item
+5. **Check cart**: Both items should be present
 
-#### B. Shopify Iframe Embedding Test  
-- [ ] Embed app in Shopify product page
-- [ ] Test add to cart from iframe context
-- [ ] Verify cart drawer opens OR redirects to cart
+**Expected Result**: ✅ Both items in cart
 
-#### C. Cross-Browser Testing
-- [ ] Chrome (primary target)
-- [ ] Safari (iOS users)
-- [ ] Firefox (desktop users)
-- [ ] Mobile browsers
+### Test 2: Direct Access Fallback
+1. Visit calculator directly (not via Shopify): `https://craftons-curves-calculator.vercel.app`
+2. Add item to cart
+3. **Observe**: Redirects to Shopify cart with item
 
-## 🔧 Shopify Integration Verification
+**Expected Result**: ⚠️ Cart contains only the new item (expected behavior)
 
-### Environment Variables
-Confirm these are set in Vercel:
-- [ ] `NEXT_PUBLIC_SHOP_DOMAIN=craftons-au.myshopify.com`
-- [ ] `SHOPIFY_ADMIN_ACCESS_TOKEN=shpat_...` (if using admin APIs)
+### Test 3: Multi-App Workflow
+1. Add Ripping order → Check cart
+2. Add Radius Pro order → Check cart
+3. Add Pelmet Pro order → Check cart
+4. **All three orders should be in cart**
 
-### Cart Integration Points
-- [ ] Cart items appear with correct quantity (price * 100)
-- [ ] All custom properties preserved in cart
-- [ ] Order shows detailed configuration breakdown
-- [ ] Cart drawer triggers for supported themes
-- [ ] Fallback cart page redirect works
+## 🔧 Troubleshooting
 
-## 🎨 Theme Compatibility Testing
+### Cart Still Replacing Items (When Embedded)
 
-### Test with Popular Themes:
-- [ ] **Dawn** (Shopify default theme)
-- [ ] **Debut** (classic theme)
-- [ ] **Brooklyn** (popular choice)
-- [ ] **Custom theme** (if using)
+**Check 1**: Liquid handler present?
+- Open browser console on Shopify page
+- Look for: `🛒 Received ADD_TO_CART_REQUEST from calculator iframe`
+- If missing, update Liquid file
 
-### Cart Drawer Events to Verify:
-- [ ] `cart:open` event triggered
-- [ ] `cart-drawer:open` event triggered  
-- [ ] `CartDrawer.open()` function called
-- [ ] `theme.CartDrawer.open()` function called
-- [ ] Fallback cart page redirect works
+**Check 2**: Source matching?
+- Calculator must send: `source: 'craftons-curves-calculator'`
+- Liquid must check for this source
 
-## 📊 Success Metrics
+**Check 3**: postMessage being sent?
+- Open calculator in iframe, add to cart
+- Console should show: `📤 Sending ADD_TO_CART_REQUEST to parent...`
 
-### Technical Success:
-- [ ] Zero CORS errors in any context
-- [ ] Cart items added with proper quantity encoding
-- [ ] All order details preserved in properties
-- [ ] Error handling graceful for all scenarios
+### Cart Working But Wrong Price
 
-### Business Success:
-- [ ] Customers can successfully add custom curves to cart
-- [ ] Order details are comprehensive for fulfillment
-- [ ] Pricing calculations are accurate (materials + manufacturing)
-- [ ] User experience is smooth and intuitive
+**Check**: Quantity encoding
+- Price $174 should become quantity 174
+- Verify: `quantity = Math.round(totalPrice)`
 
-## 🚨 Rollback Plan
+### 404 Errors in Console
 
-If issues arise in production:
+**Expected**: 404 is normal for direct access (Shopify `/cart/add.js` doesn't exist on Vercel)
+**Action**: Only matters for embedded context
 
-1. **Immediate**: Revert to previous commit
-2. **Investigation**: Check browser console for specific errors
-3. **Common Issues**:
-   - Variant ID doesn't exist → Create 1-cent product
-   - Cart drawer not opening → Update theme integration
-   - Pricing incorrect → Verify calculation logic
+## ✅ Success Criteria
 
-## 📝 Post-Deployment Verification
+### Technical
+- [ ] Zero CORS errors
+- [ ] PostMessage cart works when embedded
+- [ ] Permalink fallback works for direct access
+- [ ] All order properties preserved
 
-After successful deployment:
-- [ ] Create test order end-to-end
-- [ ] Verify order properties in Shopify admin
-- [ ] Confirm pricing calculations match expectations
-- [ ] Test customer journey from curves config to checkout
-- [ ] Monitor for any error reports
+### Business
+- [ ] Multiple calculators can be used in one session
+- [ ] Orders accumulate correctly
+- [ ] Pricing is accurate
+- [ ] Customer experience is smooth
 
-## 🎉 Success Criteria
+## 📝 Apps Updated
 
-The add-to-cart fix is successful when:
-1. **No CORS errors** in any embedding context
-2. **Cart integration works** in both direct and iframe access
-3. **All order details preserved** with 1-cent quantity hack
-4. **User experience is seamless** with proper feedback
-5. **Ready for customer use** in production Shopify store
+All apps now use the unified cart system:
 
----
+| App | File | Status |
+|-----|------|--------|
+| Curves | `CurvesCustomizer.tsx` | ✅ Updated |
+| Radius Pro | `RadiusProCustomizer.tsx` | ✅ Updated |
+| Ripping | `RippingCustomizer.tsx` | ✅ Updated |
+| Box Builder | `BoxBuilderCustomizer.tsx` | ✅ Updated |
+| Stair Builder | `StairCustomizer.tsx` | ✅ Updated |
+| Pelmet Pro | `PelmetProCustomizer.tsx` | ✅ Updated |
+| Cut Studio | `CutStudioCustomizer.tsx` | ✅ Updated |
 
-## 🎯 Summary
+## 🎉 Summary
 
-The CORS issue that blocked previous developers has been resolved by switching from absolute URLs (`https://domain.com/cart/add.js`) to relative URLs (`/cart/add.js`). This allows the app to work in all contexts while preserving the excellent 1-cent pricing hack and comprehensive order details.
+The cart system is now production-ready with:
 
-**The fix is ready for production deployment! 🚀** 
+1. **PostMessage integration** - Items accumulate when embedded in Shopify
+2. **Permalink fallback** - Works for direct access (with cart replacement)
+3. **Unified utility** - All apps use `submitToShopifyCart` from `@/lib/shopify-cart.ts`
+4. **Complete documentation** - Updated guides reflect new system
+
+**Deploy and update your Shopify theme to enable cart accumulation! 🚀**

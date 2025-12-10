@@ -59,7 +59,16 @@ The app uses local JSON files for materials and product definitions:
 ## Shopify Integration
 
 Configured as a Shopify embedded app with:
-- Custom product variants for pricing
-- Dynamic cart integration
-- Detailed order specifications
+- Custom product variants for pricing ($1 hack)
+- **PostMessage cart integration** - items accumulate without replacing
+- Detailed order specifications stored in cart properties
 - Cross-origin iframe support
+- Permalink fallback for direct access
+
+### Cart System
+
+The calculator uses a unified cart utility that:
+- **When embedded in Shopify**: Uses postMessage to call `/cart/add.js` (items accumulate)
+- **When accessed directly**: Falls back to permalink redirect (cart replaced)
+
+See `SHOPIFY_EMBEDDING_GUIDE.md` for full integration details.

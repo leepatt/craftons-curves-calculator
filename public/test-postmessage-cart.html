@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>PostMessage Cart Test - Multiple Items Accumulation</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            padding: 20px; 
+            max-width: 1400px; 
+            margin: 0 auto;
+            background: #1a1a2e;
+            color: #eee;
+        }
+        h1 { color: #00d4ff; }
+        h2 { color: #00ff88; margin-top: 0; }
+        .test-section { 
+            margin: 20px 0; 
+            padding: 20px; 
+            border: 1px solid #333; 
+            border-radius: 8px; 
+            background: #16213e;
+        }
+        .success { border-color: #00ff88; background: #1a3d2e; }
+        .warning { border-color: #ffc107; background: #3d3a1a; }
+        .info { border-color: #00d4ff; background: #1a2d3d; }
+        .error { border-color: #ff6b6b; background: #3d1a1a; }
+        button { 
+            padding: 12px 24px; 
+            margin: 8px; 
+            cursor: pointer; 
+            font-size: 16px;
+            border-radius: 6px;
+            border: none;
+            background: #00d4ff;
+            color: #000;
+            font-weight: bold;
+        }
+        button:hover { background: #00a8cc; }
+        button.danger { background: #ff6b6b; }
+        button.danger:hover { background: #ff4757; }
+        pre { 
+            background: #0f0f23; 
+            padding: 15px; 
+            border-radius: 5px; 
+            overflow-x: auto;
+            font-size: 12px;
+            color: #00ff88;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .iframe-container {
+            display: flex;
+            gap: 20px;
+        }
+        .iframe-wrapper {
+            flex: 1;
+            min-width: 0;
+        }
+        .iframe-wrapper h3 {
+            color: #ffc107;
+            margin-bottom: 10px;
+        }
+        iframe {
+            width: 100%;
+            height: 600px;
+            border: 2px solid #00d4ff;
+            border-radius: 8px;
+            background: #fff;
+        }
+        .log-entry { 
+            padding: 5px 10px; 
+            margin: 2px 0; 
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 11px;
+        }
+        .log-received { background: #1a3d2e; color: #00ff88; }
+        .log-sent { background: #1a2d3d; color: #00d4ff; }
+        .log-error { background: #3d1a1a; color: #ff6b6b; }
+        .log-cart { background: #3d3a1a; color: #ffc107; }
+        
+        .cart-item {
+            background: #0f0f23;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+        }
+        .cart-item h4 {
+            color: #00d4ff;
+            margin: 0 0 10px 0;
+        }
+        .cart-item .price {
+            color: #00ff88;
+            font-size: 1.2em;
+            font-weight: bold;
+        }
+        .cart-item .type {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 0.8em;
+            margin-bottom: 10px;
+        }
+        .type-curves { background: #3d1a3d; color: #ff88ff; }
+        .type-radius { background: #1a3d3d; color: #88ffff; }
+        .type-ripping { background: #3d3a1a; color: #ffff88; }
+        
+        .cart-summary {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            background: #0f0f23;
+            border-radius: 8px;
+            margin-top: 15px;
+        }
+        .cart-summary .total {
+            font-size: 1.5em;
+            color: #00ff88;
+        }
+        .cart-summary .count {
+            color: #ffc107;
+        }
+        
+        #messageLog {
+            max-height: 150px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 PostMessage Cart Test - Multiple Apps</h1>
+    <p>Test adding items from <strong>Radius Pro</strong> and <strong>Ripping</strong> to verify cart accumulation (no replacement).</p>
+
+    <div class="test-section success">
+        <h2>🛒 Simulated Cart</h2>
+        <p>Items added via postMessage will appear here. They should <strong>accumulate</strong>, not replace each other!</p>
+        
+        <div id="cartItems">
+            <p style="color: #666; font-style: italic;">Cart is empty. Add items from the calculators below.</p>
+        </div>
+        
+        <div class="cart-summary">
+            <div>
+                <span class="count">Items: <strong id="itemCount">0</strong></span>
+            </div>
+            <div>
+                <span class="total">Total: $<span id="cartTotal">0.00</span></span>
+            </div>
+            <button class="danger" onclick="clearCart()">🗑️ Clear Cart</button>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>📝 Message Log</h3>
+        <div id="messageLog">
+            <div class="log-entry log-sent">Waiting for messages from iframes...</div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>🖥️ Calculator Iframes</h3>
+        <div class="iframe-container">
+            <div class="iframe-wrapper">
+                <h3>Radius Pro Calculator</h3>
+                <iframe 
+                    id="radiusProIframe"
+                    src="http://localhost:3000/apps/radius-pro"
+                    title="Radius Pro Calculator">
+                </iframe>
+            </div>
+            <div class="iframe-wrapper">
+                <h3>Ripping Calculator</h3>
+                <iframe 
+                    id="rippingIframe"
+                    src="http://localhost:3000/apps/ripping"
+                    title="Ripping Calculator">
+                </iframe>
+            </div>
+        </div>
+    </div>
+
+    <div class="test-section info">
+        <h3>📋 Test Instructions</h3>
+        <ol>
+            <li><strong>Add from Radius Pro:</strong> Configure a curved part in the left iframe and click "Add to Cart"</li>
+            <li><strong>Add from Ripping:</strong> Configure ripping dimensions in the right iframe and click "Add to Cart"</li>
+            <li><strong>Check Cart:</strong> Both items should appear in the simulated cart above</li>
+            <li><strong>Verify:</strong> If both items are there, the postMessage cart system works! 🎉</li>
+        </ol>
+        <p><strong>Expected Result:</strong> Both items accumulate in the cart. Old items are NOT replaced.</p>
+    </div>
+
+    <script>
+        const messageLog = document.getElementById('messageLog');
+        const cartItemsContainer = document.getElementById('cartItems');
+        const itemCountEl = document.getElementById('itemCount');
+        const cartTotalEl = document.getElementById('cartTotal');
+        
+        // Simulated cart storage
+        let cartItems = [];
+        
+        function addLogEntry(message, type = 'received') {
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            messageLog.appendChild(entry);
+            messageLog.scrollTop = messageLog.scrollHeight;
+        }
+        
+        function getOrderTypeLabel(orderType) {
+            if (orderType.includes('curves')) return { label: 'Curves', class: 'type-curves' };
+            if (orderType.includes('radius')) return { label: 'Radius Pro', class: 'type-radius' };
+            if (orderType.includes('ripping')) return { label: 'Ripping', class: 'type-ripping' };
+            return { label: orderType, class: '' };
+        }
+        
+        function updateCartDisplay() {
+            if (cartItems.length === 0) {
+                cartItemsContainer.innerHTML = '<p style="color: #666; font-style: italic;">Cart is empty. Add items from the calculators below.</p>';
+                itemCountEl.textContent = '0';
+                cartTotalEl.textContent = '0.00';
+                return;
+            }
+            
+            let html = '';
+            let total = 0;
+            
+            cartItems.forEach((item, index) => {
+                const orderType = item.properties._order_type || 'unknown';
+                const typeInfo = getOrderTypeLabel(orderType);
+                const price = parseFloat(item.properties._total_price || item.quantity);
+                total += price;
+                
+                html += `
+                    <div class="cart-item">
+                        <span class="type ${typeInfo.class}">${typeInfo.label}</span>
+                        <h4>Item ${index + 1}: ${orderType}</h4>
+                        <p><strong>Quantity:</strong> ${item.quantity} (encoded price)</p>
+                        <p class="price">$${price.toFixed(2)}</p>
+                        <details>
+                            <summary style="cursor: pointer; color: #888;">View Properties (${Object.keys(item.properties).length})</summary>
+                            <pre style="margin-top: 10px; max-height: 150px;">${JSON.stringify(item.properties, null, 2)}</pre>
+                        </details>
+                    </div>
+                `;
+            });
+            
+            cartItemsContainer.innerHTML = html;
+            itemCountEl.textContent = cartItems.length;
+            cartTotalEl.textContent = total.toFixed(2);
+        }
+        
+        function clearCart() {
+            cartItems = [];
+            updateCartDisplay();
+            addLogEntry('🗑️ Cart cleared', 'sent');
+        }
+        
+        // Listen for messages from the calculator iframes
+        window.addEventListener('message', async function(event) {
+            // Handle height change messages (just log them)
+            if (event.data && event.data.type === 'IFRAME_HEIGHT_CHANGE') {
+                // Don't log height changes to reduce noise
+                return;
+            }
+            
+            // Handle product context requests
+            if (event.data && event.data.type === 'PRODUCT_CONTEXT_REQUEST') {
+                addLogEntry('Product context requested', 'received');
+                event.source.postMessage({
+                    type: 'PRODUCT_CONTEXT_RESPONSE',
+                    source: 'shopify-parent',
+                    productContext: {
+                        productId: 12345,
+                        productTitle: 'Test Product',
+                        productHandle: 'test-product',
+                        material: 'form-17'
+                    }
+                }, event.origin);
+                return;
+            }
+            
+            // 🛒 Handle ADD TO CART requests - THIS IS THE KEY TEST!
+            if (event.data && 
+                event.data.type === 'ADD_TO_CART_REQUEST' && 
+                event.data.source === 'craftons-curves-calculator') {
+                
+                const cartData = event.data.cartData;
+                const orderType = cartData.properties._order_type || 'unknown';
+                
+                addLogEntry(`🛒 ADD_TO_CART_REQUEST: ${orderType}`, 'cart');
+                addLogEntry(`   Variant: ${cartData.variantId}, Qty: ${cartData.quantity}`, 'cart');
+                
+                // Add to our simulated cart (THIS IS THE KEY - we ADD, not replace!)
+                cartItems.push({
+                    id: cartData.variantId,
+                    quantity: cartData.quantity,
+                    properties: cartData.properties,
+                    addedAt: new Date().toISOString()
+                });
+                
+                // Update cart display
+                updateCartDisplay();
+                
+                addLogEntry(`✅ Added to cart! Total items: ${cartItems.length}`, 'sent');
+                
+                // Simulate API delay
+                await new Promise(resolve => setTimeout(resolve, 300));
+                
+                // Send success response back to iframe
+                const response = {
+                    type: 'ADD_TO_CART_RESPONSE',
+                    source: 'shopify-parent',
+                    success: true,
+                    item: {
+                        id: cartData.variantId,
+                        quantity: cartData.quantity,
+                        properties: cartData.properties,
+                        title: `Custom ${orderType} Configuration`,
+                        price: cartData.quantity * 100
+                    }
+                };
+                
+                event.source.postMessage(response, event.origin);
+                
+                // Show notification
+                const notification = document.createElement('div');
+                notification.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    background: #1a3d2e;
+                    border: 2px solid #00ff88;
+                    color: #00ff88;
+                    padding: 15px 25px;
+                    border-radius: 8px;
+                    font-weight: bold;
+                    z-index: 9999;
+                    animation: fadeIn 0.3s ease;
+                `;
+                notification.textContent = `✅ ${orderType} added to cart! (${cartItems.length} items total)`;
+                document.body.appendChild(notification);
+                setTimeout(() => notification.remove(), 3000);
+            }
+        });
+        
+        addLogEntry('Parent page ready, listening for postMessages...', 'sent');
+        updateCartDisplay();
+    </script>
+    
+    <style>
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</body>
+</html>

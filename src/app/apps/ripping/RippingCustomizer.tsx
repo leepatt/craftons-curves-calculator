@@ -10,6 +10,8 @@ import { Share2, Copy, ExternalLink, X as XIcon } from 'lucide-react';
 import { rippingConfig } from './config';
 import materials from './materials.json'; // We'll use the app-specific materials
 import { SharedConfiguration } from '@/lib/shareStorage';
+// Import the unified Shopify cart utility
+import { submitToShopifyCart, isEmbeddedInShopify } from '@/lib/shopify-cart';
 
 // Interface for ripping calculation results
 interface RippingCalculation {
@@ -295,18 +297,23 @@ export function RippingCustomizer({ defaultMaterial, initialData }: RippingCusto
     }
   }, [selectedMaterial, height, totalLength, lengthUnit, calculation]);
 
-  // Handler functions for Add to Cart - Using Shopify Cart Permalink Approach (like other apps)
+  // 🎯 UNIFIED ADD TO CART FUNCTION
+  // Uses postMessage when embedded in Shopify (adds to cart without replacing)
+  // Falls back to permalink when accessed directly (replaces cart - Shopify limitation)
   const handleAddToCart = useCallback(async () => {
     if (!calculation || calculation.sheetsNeeded === 0) {
       alert("Please enter valid rip height and total length to add to cart!");
       return;
     }
 
+    console.log('🎯 Ripping: Using unified cart utility');
+    const isEmbedded = isEmbeddedInShopify();
+    console.log('📍 Embedded in Shopify:', isEmbedded);
+
     setIsAddingToCart(true);
     
     try {
       // Calculate quantity for $1.00 variant (whole dollar pricing)
-      // Unlike other apps that use 1-cent variants, ripping uses $1.00 variants
       const quantity = Math.round(roundedTotalDollars);
       const materialData = materials.find(m => m.id === selectedMaterial);
 
@@ -315,46 +322,25 @@ export function RippingCustomizer({ defaultMaterial, initialData }: RippingCusto
         throw new Error('Missing rippingConfig.shopifyDollarVariantId');
       }
 
-      // Build comprehensive cart item data (matching curves/radius-pro approach)
-      const cartItemData = {
-        items: [{
-          id: rippingConfig.shopifyDollarVariantId,
-          quantity: quantity, // $1.00 variant: quantity = dollars
-          properties: {
-            '_order_type': 'custom_ripping',
-            '_total_price': roundedTotalDollars.toFixed(2),
-            '_display_price': `$${roundedTotalDollars.toFixed(2)}`,
-            '_material': materialData?.name || selectedMaterial,
-            '_rip_height': `${height}mm`,
-            '_total_length': `${totalLength}${lengthUnit}`,
-            '_sheets_needed': String(calculation.sheetsNeeded),
-            '_rips_per_sheet': String(calculation.ripsPerSheet),
-            '_turnaround': '1-2 days',
-            '_configuration_summary': `${materialData?.name || selectedMaterial}: ${height}mm high rips, ${totalLength}${lengthUnit} total length, ${calculation.sheetsNeeded} sheets needed`,
-            '_material_cost': calculation.materialCost.toFixed(2),
-            '_manufacture_cost': calculation.manufactureCost.toFixed(2),
-            '_kerf_width': `${calculation.kerfWidth}mm`,
-            '_cutter_size': `${calculation.cutterSize}mm`,
-            '_offcut_size': `${calculation.offcutSize}mm`,
-            '_timestamp': new Date().toISOString()
-          }
-        }]
-      };
-
-      console.log('🛒 Adding to cart with quantity:', quantity, 'for price:', roundedTotalDollars.toFixed(2), '($1.00 variant: quantity = dollars)');
-      console.log('📦 Cart data:', JSON.stringify(cartItemData, null, 2));
-
-      // --- SHOPIFY CART PERMALINK APPROACH (like curves and radius-pro apps) ---
-      // This approach builds a Shopify cart permalink that encodes all line-item 
-      // properties in Base64 and sends the customer straight to the cart page with 
-      // their item pre-loaded. This guarantees the cart shows the item even when 
-      // running on different origins.
-      // 
-      // NOTE: Ripping app uses $1.00 variants (quantity = dollars) unlike curves/radius-pro 
-      // which use 1-cent variants (quantity = price * 100)
-
-      // Build visible part summaries as separate properties (for cart display)
-      const visibleProps: Record<string, string> = {
+      // Build all properties
+      const properties: Record<string, string> = {
+        '_order_type': 'custom_ripping',
+        '_total_price': roundedTotalDollars.toFixed(2),
+        '_display_price': `$${roundedTotalDollars.toFixed(2)}`,
+        '_material': materialData?.name || selectedMaterial,
+        '_rip_height': `${height}mm`,
+        '_total_length': `${totalLength}${lengthUnit}`,
+        '_sheets_needed': String(calculation.sheetsNeeded),
+        '_rips_per_sheet': String(calculation.ripsPerSheet),
+        '_turnaround': '1-2 days',
+        '_configuration_summary': `${materialData?.name || selectedMaterial}: ${height}mm high rips, ${totalLength}${lengthUnit} total length, ${calculation.sheetsNeeded} sheets needed`,
+        '_material_cost': calculation.materialCost.toFixed(2),
+        '_manufacture_cost': calculation.manufactureCost.toFixed(2),
+        '_kerf_width': `${calculation.kerfWidth}mm`,
+        '_cutter_size': `${calculation.cutterSize}mm`,
+        '_offcut_size': `${calculation.offcutSize}mm`,
+        '_timestamp': new Date().toISOString(),
+        // Visible properties for cart display
         'Material': materialData?.name || selectedMaterial,
         'Rip Height': `${height}mm`,
         'Total Length': `${totalLength}${lengthUnit}`,
@@ -363,35 +349,27 @@ export function RippingCustomizer({ defaultMaterial, initialData }: RippingCusto
         'Total Price': `$${roundedTotalDollars.toFixed(2)}`
       };
 
-      // Merge visible props into the main properties object
-      cartItemData.items[0].properties = {
-        ...cartItemData.items[0].properties,
-        ...visibleProps,
-      };
+      console.log('🛒 Adding to cart with quantity:', quantity, 'for price:', roundedTotalDollars.toFixed(2));
+      console.log('📦 Properties:', properties);
 
-      const propsJson = JSON.stringify(cartItemData.items[0].properties);
-      // Base64-URL encode the JSON string (Shopify requires URL-safe Base64)
-      const base64Props = btoa(unescape(encodeURIComponent(propsJson)))
-        .replace(/\+/g, '-')
-        .replace(/\//g, '_')
-        .replace(/=+$/, '');
+      // Use the unified cart utility
+      const result = await submitToShopifyCart({
+        variantId: rippingConfig.shopifyDollarVariantId,
+        quantity: quantity,
+        properties: properties,
+        shopDomain: rippingConfig.shopDomain,
+        redirectToCart: true
+      });
 
-      const shopDomain = rippingConfig.shopDomain;
-      const variantId = rippingConfig.shopifyDollarVariantId;
-      const permalink = `https://${shopDomain}/cart/${variantId}:${quantity}?properties=${encodeURIComponent(base64Props)}&storefront=true`;
+      console.log('🛒 Cart submission result:', result);
 
-      console.log('🚀 Redirecting to cart permalink:', permalink);
-      console.log(`Added ripping configuration to cart. Redirecting…`);
-
-      // If embedded inside an iframe (Shopify app embed), redirect the parent;
-      // otherwise redirect the current window.
-      if (window.top) {
-        window.top.location.href = permalink;
-      } else {
-        window.location.href = permalink;
+      if (result.success && result.method === 'postMessage') {
+        console.log('✅ Added to cart via postMessage (items accumulated, not replaced)');
+      } else if (result.method === 'permalink') {
+        console.log('🔗 Redirected via permalink');
+      } else if (!result.success) {
+        throw new Error(result.error || 'Failed to add to cart');
       }
-
-      return; // Skip any other logic
 
     } catch (cartError) {
       console.error('💥 Error adding to cart:', cartError);
@@ -400,11 +378,10 @@ export function RippingCustomizer({ defaultMaterial, initialData }: RippingCusto
       if (cartError instanceof Error) {
         errorMessage += cartError.message;
         
-        // Enhanced error message based on common issues
         if (cartError.message.includes('422') || cartError.message.includes('variant')) {
-          errorMessage += '\n\n🔧 Note: The 1-cent product may need to be set up in your Shopify store.';
+          errorMessage += '\n\n🔧 Note: The $1 product may need to be set up in your Shopify store.';
         } else if (cartError.message.includes('405')) {
-          errorMessage += '\n\n🔧 Note: This app needs to be embedded in your Shopify store or accessed through a Shopify product page for cart functionality to work.';
+          errorMessage += '\n\n🔧 Note: This app needs to be embedded in your Shopify store for cart functionality to work.';
         }
       } else {
         errorMessage += 'An unknown error occurred.';
