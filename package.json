@@ -59,7 +59,17 @@
     "@types/uuid": "^10.0.0",
     "eslint": "^9",
     "eslint-config-next": "^16.0.8",
+    "lightningcss": "^1.28.3",
     "tailwindcss": "^4.1.11",
     "typescript": "^5"
+  },
+  "optionalDependencies": {
+    "lightningcss-darwin-arm64": "^1.28.3",
+    "lightningcss-darwin-x64": "^1.28.3",
+    "lightningcss-linux-arm64-gnu": "^1.28.3",
+    "lightningcss-linux-arm64-musl": "^1.28.3",
+    "lightningcss-linux-x64-gnu": "^1.28.3",
+    "lightningcss-linux-x64-musl": "^1.28.3",
+    "lightningcss-win32-x64-msvc": "^1.28.3"
   }
 }
